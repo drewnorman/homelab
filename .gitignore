@@ -1,4 +1,5 @@
 .env
+.secrets/
 terraform.tfvars
 .ansible/
 .uv-cache/

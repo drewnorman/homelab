@@ -3,7 +3,7 @@
 This directory provisions a small Proxmox homelab optimized for a single 16 GB laptop host:
 
 - `lab-adguard` as a lightweight LXC for AdGuard Home
-- `lab-edge` as a lightweight LXC for reverse proxy and local-only TLS termination
+- `lab-edge` as a lightweight LXC for reverse proxy and browser-trusted local HTTPS
 - `lab-docker` as a general-purpose VM for non-critical Docker Compose services
 - `lab-jellyfin` as a lean LXC with optional host bind-mounted media storage
 
@@ -55,36 +55,42 @@ An existing unmanaged container named `adguard` may coexist with these resources
 ## Service split
 
 - `lab-adguard`: AdGuard Home only
-- `lab-edge`: reverse proxy and local wildcard HTTPS
+- `lab-edge`: reverse proxy and browser-trusted wildcard HTTPS
 - `lab-docker`: non-critical self-hosted apps
 - `lab-jellyfin`: Jellyfin and a bind-mounted media path from the Proxmox host
 
 For local-only HTTPS:
 
 - AdGuard rewrites `*.lab.adre.me` to `lab-edge`
-- Caddy in `lab-edge` serves `*.lab.adre.me` with its internal local CA
+- Caddy in `lab-edge` serves `*.lab.adre.me` with a public Let's Encrypt wildcard certificate
 - only hosts explicitly listed in the Caddy config are proxied
 - nothing needs to be exposed on your router
 
-Because Caddy is using its internal CA for local HTTPS, you will need to trust Caddy's root certificate on any client device that should see a valid certificate for your homelab services.
+The wildcard certificate is issued with DNS-01 validation through Google Cloud DNS using `lego`. DNS-01 proves ownership by creating temporary `_acme-challenge.lab.adre.me` TXT records, so ports 80 and 443 do not need to be exposed publicly.
 
-### Browser HTTPS Warnings
+### Browser-Trusted HTTPS
 
-The `lab-edge` proxy serves a Caddy internal wildcard certificate for `*.lab.adre.me`. Browsers warn until the Caddy local root CA is installed in the client trust store.
+The domain `adre.me` uses Google Cloud DNS nameservers. To let `lab-edge` issue and renew the trusted certificate:
 
-The root CA is on `lab-edge` at:
+1. In Google Cloud, identify the project that hosts the public Cloud DNS zone for `adre.me`.
+2. Create a service account for ACME DNS automation.
+3. Grant it DNS permissions for the project or zone. The simple option is `roles/dns.admin`; a tighter custom role should allow reading the managed zone and creating/deleting DNS changes and record sets.
+4. Create a JSON key for that service account and place it at the path from `EDGE_ACME_GCLOUD_SERVICE_ACCOUNT_FILE`, for example `/home/drew/documents/personal/homelab/.secrets/adre-me-cloud-dns.json`.
+5. Set `EDGE_ACME_EMAIL` and `EDGE_ACME_GCLOUD_PROJECT` in `.env`, then source `.env` before running Ansible.
 
 ```sh
-/var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt
+export EDGE_ACME_EMAIL="you@example.com"
+export EDGE_ACME_GCLOUD_PROJECT="your-google-cloud-project-id"
+export EDGE_ACME_GCLOUD_SERVICE_ACCOUNT_FILE="/home/drew/documents/personal/homelab/.secrets/adre-me-cloud-dns.json"
 ```
 
-The current root fingerprint is:
+No permanent public `A`, `AAAA`, or `CNAME` record is required for `*.lab.adre.me` as long as access stays LAN-only. AdGuard keeps resolving `*.lab.adre.me` to `lab-edge` internally. `lego` will create and remove temporary TXT records under:
 
 ```text
-SHA256: 3B:81:8C:A9:E2:B0:70:14:0D:86:79:BE:78:A0:3E:30:03:B8:D7:AE:A9:03:9F:3E:F1:2D:4A:98:A7:C4:91:EE
+_acme-challenge.lab.adre.me
 ```
 
-Install that root certificate as a trusted certificate authority on each browser or operating system that should trust `https://*.lab.adre.me`. Firefox may use its own certificate store unless configured to trust the operating system store.
+The certificate state is stored on `lab-edge` under `/var/lib/lego/`. The active certificate and key are copied to `/etc/caddy/certs/` with permissions Caddy can read. A systemd timer named `lego-edge-cert-renew.timer` renews the certificate daily when it is close to expiry and reloads Caddy after renewal.
 
 Additional app hostnames should be added to `edge_extra_services` in [ansible/inventory/group_vars/all.yml](/home/drew/documents/personal/homelab/ansible/inventory/group_vars/all.yml:1). The wildcard DNS rewrite means any `*.lab.adre.me` hostname will already resolve to `lab-edge`; you only need to tell Caddy which upstream each hostname should proxy to.
 
@@ -107,6 +113,9 @@ Export any runtime secrets before running the playbook:
 ```sh
 ansible-galaxy collection install -r ansible/requirements.yml
 export ADGUARD_ADMIN_PASSWORD_BCRYPT='replace-with-bcrypt-hash'
+export EDGE_ACME_EMAIL="you@example.com"
+export EDGE_ACME_GCLOUD_PROJECT="your-google-cloud-project-id"
+export EDGE_ACME_GCLOUD_SERVICE_ACCOUNT_FILE="/home/drew/documents/personal/homelab/.secrets/adre-me-cloud-dns.json"
 ```
 
 Ansible is configured to use `/home/drew/.ssh/root@172.16.0.200`, the same key injected into the guests by Terraform. If you change `TF_VAR_ssh_public_key`, update `private_key_file` in [ansible/ansible.cfg](/home/drew/documents/personal/homelab/ansible/ansible.cfg:1) to the matching private key.

@@ -36,8 +36,162 @@
   ansible.builtin.apt:
     name:
       - caddy
+      - lego
     state: present
     update_cache: true
+
+- name: Validate public DNS certificate settings
+  ansible.builtin.assert:
+    that:
+      - edge_acme_email | length > 0
+      - edge_acme_gcloud_project | length > 0
+      - edge_acme_gcloud_service_account_json | length > 0
+    fail_msg: "edge_tls_mode=public_dns requires EDGE_ACME_EMAIL, EDGE_ACME_GCLOUD_PROJECT, and EDGE_ACME_GCLOUD_SERVICE_ACCOUNT_FILE."
+  when: edge_tls_mode == "public_dns"
+  no_log: true
+
+- name: Ensure lego directories exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - path: /etc/lego
+      owner: root
+      group: root
+      mode: "0700"
+    - path: /var/lib/lego
+      owner: root
+      group: root
+      mode: "0750"
+    - path: /etc/caddy/certs
+      owner: root
+      group: caddy
+      mode: "0750"
+  when: edge_tls_mode == "public_dns"
+
+- name: Install Google Cloud DNS service account key for lego
+  ansible.builtin.copy:
+    content: "{{ edge_acme_gcloud_service_account_json }}"
+    dest: /etc/lego/gcloud-service-account.json
+    owner: root
+    group: root
+    mode: "0600"
+  when: edge_tls_mode == "public_dns"
+  no_log: true
+
+- name: Render lego environment file
+  ansible.builtin.copy:
+    dest: /etc/lego/edge.env
+    owner: root
+    group: root
+    mode: "0600"
+    content: |
+      EDGE_ACME_EMAIL={{ edge_acme_email | quote }}
+      EDGE_ACME_DOMAIN={{ edge_base_domain | quote }}
+      EDGE_ACME_LEGO_CERT_PATH={{ edge_acme_lego_cert_path | quote }}
+      EDGE_ACME_LEGO_KEY_PATH={{ edge_acme_lego_key_path | quote }}
+      EDGE_TLS_CERT_PATH={{ edge_tls_cert_path | quote }}
+      EDGE_TLS_KEY_PATH={{ edge_tls_key_path | quote }}
+      GCE_PROJECT={{ edge_acme_gcloud_project | quote }}
+      GCE_SERVICE_ACCOUNT_FILE=/etc/lego/gcloud-service-account.json
+      GCE_PROPAGATION_TIMEOUT={{ edge_acme_dns_propagation_timeout | quote }}
+      GCE_POLLING_INTERVAL={{ edge_acme_dns_polling_interval | quote }}
+      GCE_TTL={{ edge_acme_dns_ttl | quote }}
+  when: edge_tls_mode == "public_dns"
+  no_log: true
+
+- name: Install lego certificate renewal script
+  ansible.builtin.copy:
+    dest: /usr/local/sbin/lego-edge-cert-renew
+    owner: root
+    group: root
+    mode: "0750"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      set -a
+      # shellcheck disable=SC1091
+      . /etc/lego/edge.env
+      set +a
+
+      lego_args=(
+        --accept-tos
+        --path /var/lib/lego
+        --email "${EDGE_ACME_EMAIL}"
+        --dns gcloud
+        --domains "${EDGE_ACME_DOMAIN}"
+        --domains "*.${EDGE_ACME_DOMAIN}"
+      )
+
+      sync_caddy_certs() {
+        install -d -o root -g caddy -m 0750 /etc/caddy/certs
+        install -o root -g caddy -m 0640 "${EDGE_ACME_LEGO_CERT_PATH}" "${EDGE_TLS_CERT_PATH}"
+        install -o root -g caddy -m 0640 "${EDGE_ACME_LEGO_KEY_PATH}" "${EDGE_TLS_KEY_PATH}"
+      }
+
+      if [[ -f "${EDGE_ACME_LEGO_CERT_PATH}" && -f "${EDGE_ACME_LEGO_KEY_PATH}" ]]; then
+        lego "${lego_args[@]}" renew --renew-hook "systemctl reload caddy"
+        sync_caddy_certs
+      else
+        lego "${lego_args[@]}" run
+        sync_caddy_certs
+        systemctl reload caddy || true
+      fi
+  when: edge_tls_mode == "public_dns"
+
+- name: Install lego renewal service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/lego-edge-cert-renew.service
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Renew lab edge wildcard certificate with lego
+      Wants=network-online.target
+      After=network-online.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/sbin/lego-edge-cert-renew
+  when: edge_tls_mode == "public_dns"
+
+- name: Install lego renewal timer
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/lego-edge-cert-renew.timer
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Renew lab edge wildcard certificate daily
+
+      [Timer]
+      OnCalendar=*-*-* 03:35:00
+      Persistent=true
+      RandomizedDelaySec=1h
+
+      [Install]
+      WantedBy=timers.target
+  when: edge_tls_mode == "public_dns"
+
+- name: Ensure initial public wildcard certificate exists
+  ansible.builtin.command:
+    cmd: /usr/local/sbin/lego-edge-cert-renew
+    creates: "{{ edge_tls_cert_path }}"
+  when: edge_tls_mode == "public_dns"
+
+- name: Enable lego renewal timer
+  ansible.builtin.systemd:
+    name: lego-edge-cert-renew.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: edge_tls_mode == "public_dns"
 
 - name: Render Caddyfile
   ansible.builtin.template:
@@ -65,11 +219,13 @@
     path: /usr/local/share/ca-certificates/caddy
     state: directory
     mode: "0755"
+  when: edge_tls_mode != "public_dns"
 
 - name: Wait for Caddy local root certificate to exist
   ansible.builtin.wait_for:
     path: /var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt
     timeout: 30
+  when: edge_tls_mode != "public_dns"
 
 - name: Copy Caddy local root certificate to a standard trust location
   ansible.builtin.copy:
@@ -78,7 +234,10 @@
     remote_src: true
     mode: "0644"
   register: caddy_root_cert
+  when: edge_tls_mode != "public_dns"
 
 - name: Update CA trust store with Caddy local root
   ansible.builtin.command: update-ca-certificates
-  when: caddy_root_cert.changed
+  when:
+    - edge_tls_mode != "public_dns"
+    - caddy_root_cert.changed

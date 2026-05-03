@@ -1,5 +1,9 @@
 *.{{ edge_base_domain }} {
+{% if edge_tls_mode == "public_dns" %}
+	tls {{ edge_tls_cert_path }} {{ edge_tls_key_path }}
+{% else %}
 	tls internal
+{% endif %}
 
 	@adguard host adguard.{{ edge_base_domain }}
 	handle @adguard {
