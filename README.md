@@ -77,7 +77,7 @@ The domain `adre.me` currently resolves from Google Cloud DNS. After the domain 
 3. Set `EDGE_ACME_EMAIL`, `PORKBUN_API_KEY`, `PORKBUN_SECRET_API_KEY`, and the matching `TF_VAR_...` exports in `.env`, then source `.env` before running OpenTofu or Ansible.
 
 ```sh
-export EDGE_ACME_EMAIL="you@example.com"
+export EDGE_ACME_EMAIL="drewnorman739@gmail.com"
 export PORKBUN_API_KEY="pk1_replace_me"
 export PORKBUN_SECRET_API_KEY="sk1_replace_me"
 export TF_VAR_porkbun_api_key="${PORKBUN_API_KEY}"
@@ -115,7 +115,7 @@ Export any runtime secrets before running the playbook:
 ```sh
 ansible-galaxy collection install -r ansible/requirements.yml
 export ADGUARD_ADMIN_PASSWORD_BCRYPT='replace-with-bcrypt-hash'
-export EDGE_ACME_EMAIL="you@example.com"
+export EDGE_ACME_EMAIL="drewnorman739@gmail.com"
 export PORKBUN_API_KEY="pk1_replace_me"
 export PORKBUN_SECRET_API_KEY="sk1_replace_me"
 export TF_VAR_porkbun_api_key="${PORKBUN_API_KEY}"
