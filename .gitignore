@@ -1,0 +1,16 @@
+.env
+terraform.tfvars
+.ansible/
+.uv-cache/
+.venv/
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+ansible/inventory/hosts.ini
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
