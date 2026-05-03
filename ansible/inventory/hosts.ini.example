@@ -1,0 +1,11 @@
+[adguard]
+lab-adguard ansible_host=172.16.0.210 ansible_user=root
+
+[edge]
+lab-edge ansible_host=172.16.0.211 ansible_user=root
+
+# [docker]
+# lab-docker ansible_host=172.16.0.220 ansible_user=drew
+
+[media]
+lab-jellyfin ansible_host=172.16.0.230 ansible_user=root

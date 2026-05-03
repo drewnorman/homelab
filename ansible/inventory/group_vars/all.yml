@@ -1,0 +1,27 @@
+---
+homelab_domain: "lab.adre.me"
+timezone: "America/Denver"
+
+docker_admin_user: "drew"
+docker_compose_root: "/opt/compose"
+
+edge_base_domain: "lab.adre.me"
+edge_extra_services: []
+
+adguard_bind_port: 3000
+adguard_admin_user: "admin"
+adguard_admin_password_bcrypt: "{{ lookup('env', 'ADGUARD_ADMIN_PASSWORD_BCRYPT') | default('', true) }}"
+
+adguard_upstream_dns:
+  - "1.1.1.1"
+  - "1.0.0.1"
+
+adguard_dns_rewrites:
+  - domain: "*.{{ homelab_domain }}"
+    answer: "{{ hostvars[groups['edge'][0]].ansible_host }}"
+  - domain: "adguard.{{ homelab_domain }}"
+    answer: "{{ hostvars[groups['edge'][0]].ansible_host }}"
+  - domain: "jellyfin.{{ homelab_domain }}"
+    answer: "{{ hostvars[groups['edge'][0]].ansible_host }}"
+
+jellyfin_extra_packages: []

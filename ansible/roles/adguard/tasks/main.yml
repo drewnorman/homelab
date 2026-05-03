@@ -1,0 +1,74 @@
+---
+- name: Ensure AdGuard Home archive directory exists
+  ansible.builtin.file:
+    path: /opt/adguard
+    state: directory
+    mode: "0755"
+
+- name: Download AdGuard Home release archive
+  ansible.builtin.get_url:
+    url: "https://static.adguard.com/adguardhome/release/AdGuardHome_linux_amd64.tar.gz"
+    dest: /opt/adguard/AdGuardHome_linux_amd64.tar.gz
+    mode: "0644"
+
+- name: Extract AdGuard Home
+  ansible.builtin.unarchive:
+    src: /opt/adguard/AdGuardHome_linux_amd64.tar.gz
+    dest: /opt/adguard
+    remote_src: true
+    creates: /opt/adguard/AdGuardHome/AdGuardHome
+
+- name: Ensure AdGuard Home configuration directory exists
+  ansible.builtin.file:
+    path: /opt/adguard/conf
+    state: directory
+    mode: "0755"
+
+- name: Ensure AdGuard Home work directory exists
+  ansible.builtin.file:
+    path: /opt/adguard/work
+    state: directory
+    mode: "0700"
+
+- name: Render AdGuard Home configuration
+  ansible.builtin.template:
+    src: AdGuardHome.yaml.j2
+    dest: /opt/adguard/conf/AdGuardHome.yaml
+    mode: "0600"
+  notify: Restart AdGuard Home
+  no_log: true
+
+- name: Install AdGuard Home service
+  ansible.builtin.command:
+    cmd: /opt/adguard/AdGuardHome/AdGuardHome -s install
+    creates: /etc/systemd/system/AdGuardHome.service
+
+- name: Render AdGuard Home systemd unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/AdGuardHome.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=AdGuard Home: Network-level blocker
+      ConditionFileIsExecutable=/opt/adguard/AdGuardHome/AdGuardHome
+      After=syslog.target network-online.target
+
+      [Service]
+      StartLimitInterval=5
+      StartLimitBurst=10
+      ExecStart=/opt/adguard/AdGuardHome/AdGuardHome -c /opt/adguard/conf/AdGuardHome.yaml -w /opt/adguard/work
+      WorkingDirectory=/opt/adguard/work
+      StandardOutput=journal
+      StandardError=journal
+      Restart=always
+      RestartSec=10
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: Restart AdGuard Home
+
+- name: Ensure AdGuard Home service is enabled
+  ansible.builtin.service:
+    name: AdGuardHome
+    enabled: true
+    state: started

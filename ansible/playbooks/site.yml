@@ -1,0 +1,30 @@
+---
+- name: Bootstrap all guests
+  hosts: all
+  become: true
+  roles:
+    - common
+
+- name: Configure AdGuard Home
+  hosts: adguard
+  become: true
+  roles:
+    - adguard
+
+- name: Configure edge proxy and DDNS
+  hosts: edge
+  become: true
+  roles:
+    - edge
+
+- name: Configure Docker host
+  hosts: docker
+  become: true
+  roles:
+    - docker_host
+
+- name: Configure Jellyfin host
+  hosts: media
+  become: true
+  roles:
+    - jellyfin

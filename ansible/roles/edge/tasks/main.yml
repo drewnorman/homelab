@@ -1,0 +1,84 @@
+---
+- name: Ensure edge packages are installed
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - debian-archive-keyring
+      - debian-keyring
+      - gnupg
+    state: present
+    update_cache: true
+
+- name: Ensure Cloudsmith keyring directory exists
+  ansible.builtin.file:
+    path: /usr/share/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Install Caddy apt signing key
+  ansible.builtin.get_url:
+    url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+    dest: /tmp/caddy-stable.gpg.key
+    mode: "0644"
+
+- name: Convert Caddy signing key to gpg keyring
+  ansible.builtin.command:
+    cmd: gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg /tmp/caddy-stable.gpg.key
+    creates: /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+
+- name: Add Caddy apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/caddy-stable-archive-keyring.gpg] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main"
+    filename: caddy-stable
+    state: present
+
+- name: Ensure edge packages are up to date after repo setup
+  ansible.builtin.apt:
+    name:
+      - caddy
+    state: present
+    update_cache: true
+
+- name: Render Caddyfile
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: /etc/caddy/Caddyfile
+    mode: "0644"
+  notify: Restart Caddy
+
+- name: Ensure Caddy service is enabled
+  ansible.builtin.service:
+    name: caddy
+    enabled: true
+    state: started
+
+- name: Apply Caddy configuration before collecting local CA
+  ansible.builtin.meta: flush_handlers
+
+- name: Ensure active Caddy process has loaded the rendered config
+  ansible.builtin.command:
+    cmd: caddy reload --config /etc/caddy/Caddyfile
+  changed_when: false
+
+- name: Ensure Caddy local CA directory exists
+  ansible.builtin.file:
+    path: /usr/local/share/ca-certificates/caddy
+    state: directory
+    mode: "0755"
+
+- name: Wait for Caddy local root certificate to exist
+  ansible.builtin.wait_for:
+    path: /var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt
+    timeout: 30
+
+- name: Copy Caddy local root certificate to a standard trust location
+  ansible.builtin.copy:
+    src: /var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt
+    dest: /usr/local/share/ca-certificates/caddy/root.crt
+    remote_src: true
+    mode: "0644"
+  register: caddy_root_cert
+
+- name: Update CA trust store with Caddy local root
+  ansible.builtin.command: update-ca-certificates
+  when: caddy_root_cert.changed

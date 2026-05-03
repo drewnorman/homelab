@@ -1,0 +1,42 @@
+---
+- name: Ensure Jellyfin apt keyring directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Install Jellyfin signing key
+  ansible.builtin.get_url:
+    url: https://repo.jellyfin.org/jellyfin_team.gpg.key
+    dest: /etc/apt/keyrings/jellyfin.asc
+    mode: "0644"
+
+- name: Add Jellyfin apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/jellyfin.asc arch=amd64] https://repo.jellyfin.org/{{ ansible_facts.distribution | lower }} {{ ansible_facts.distribution_release }} main"
+    filename: jellyfin
+    state: present
+
+- name: Install Jellyfin packages
+  ansible.builtin.apt:
+    name: "{{ ['jellyfin'] + jellyfin_extra_packages }}"
+    state: present
+    update_cache: true
+
+- name: Ensure Jellyfin service is enabled
+  ansible.builtin.service:
+    name: jellyfin
+    enabled: true
+    state: started
+
+- name: Ensure media directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: jellyfin
+    group: jellyfin
+    mode: "0755"
+  loop:
+    - /srv/media
+    - /srv/media/movies
+    - /srv/media/tv

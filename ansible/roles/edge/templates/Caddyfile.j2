@@ -1,0 +1,24 @@
+*.{{ edge_base_domain }} {
+	tls internal
+
+	@adguard host adguard.{{ edge_base_domain }}
+	handle @adguard {
+		reverse_proxy {{ hostvars[groups['adguard'][0]].ansible_host }}:{{ adguard_bind_port }}
+	}
+
+	@jellyfin host jellyfin.{{ edge_base_domain }}
+	handle @jellyfin {
+		reverse_proxy {{ hostvars[groups['media'][0]].ansible_host }}:8096
+	}
+
+{% for service in edge_extra_services %}
+	@service_{{ loop.index }} host {{ service.host }}
+	handle @service_{{ loop.index }} {
+		reverse_proxy {{ service.upstream }}
+	}
+
+{% endfor %}
+	handle {
+		respond "Unknown homelab service" 404
+	}
+}

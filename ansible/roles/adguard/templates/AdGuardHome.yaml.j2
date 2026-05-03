@@ -1,0 +1,57 @@
+schema_version: 34
+auth_attempts: 5
+block_auth_min: 15
+http:
+  pprof:
+    port: 6060
+    enabled: false
+  address: 0.0.0.0:{{ adguard_bind_port }}
+  session_ttl: 720h
+users:
+{% if adguard_admin_password_bcrypt %}
+  - name: {{ adguard_admin_user }}
+    password: "{{ adguard_admin_password_bcrypt }}"
+{% else %}
+  []
+{% endif %}
+dns:
+  bind_hosts:
+    - 0.0.0.0
+  port: 53
+  upstream_dns:
+{% for server in adguard_upstream_dns %}
+    - "{{ server }}"
+{% endfor %}
+  upstream_mode: load_balance
+  bootstrap_dns:
+    - "9.9.9.9"
+    - "149.112.112.112"
+filtering:
+  protection_enabled: true
+  rewrites:
+{% for rewrite in adguard_dns_rewrites %}
+    - domain: "{{ rewrite.domain }}"
+      answer: "{{ rewrite.answer }}"
+      enabled: true
+{% endfor %}
+  safe_fs_patterns:
+    - /opt/adguard/work/data/userfilters/*
+querylog:
+  enabled: true
+  file_enabled: true
+  interval: 2160h
+  size_memory: 1000
+statistics:
+  enabled: true
+  interval: 24h
+filters:
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+    name: AdGuard DNS filter
+    id: 1
+whitelist_filters: []
+user_rules: []
+dhcp:
+  enabled: false
+tls:
+  enabled: false
