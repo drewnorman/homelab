@@ -6,6 +6,7 @@ This directory provisions a small Proxmox homelab optimized for a single 16 GB l
 - `lab-edge` as a lightweight LXC for reverse proxy and browser-trusted local HTTPS
 - `lab-docker` as a general-purpose VM for non-critical Docker Compose services
 - `lab-jellyfin` as a lean LXC with optional host bind-mounted media storage
+- `lab-nix` as an optional VM for developing a NixOS workstation replacement
 
 The checked-in defaults target the existing Proxmox node `norman` at `172.16.0.200` on `172.16.0.0/24`. The Proxmox host IP is managed outside this project and is not changed by Terraform.
 
@@ -14,7 +15,7 @@ The checked-in defaults target the existing Proxmox node `norman` at `172.16.0.2
 - OpenTofu installed locally
 - A Proxmox API token with permissions to create LXCs and, if enabled, VMs
 - An LXC template already available in Proxmox storage
-- A cloud-init capable VM template only if `enable_docker_host = true`
+- A bootstrappable VM template only if `enable_docker_host = true` or `enable_nix_host = true`
 - A `.env` file exporting secret `TF_VAR_*` values plus `TF_VAR_ssh_public_key`
 
 ## Secrets
@@ -48,6 +49,7 @@ For the current `norman` host, the default managed guest addresses are:
 - `lab-adguard`: `172.16.0.210`
 - `lab-edge`: `172.16.0.211`
 - `lab-jellyfin`: `172.16.0.230`
+- `lab-nix`: disabled until `enable_nix_host = true` and `vm_template_id` is set
 - `lab-docker`: disabled until `enable_docker_host = true` and `vm_template_id` is set
 
 An existing unmanaged container named `adguard` may coexist with these resources. Terraform only manages guests present in its state.
@@ -58,6 +60,7 @@ An existing unmanaged container named `adguard` may coexist with these resources
 - `lab-edge`: reverse proxy and browser-trusted wildcard HTTPS
 - `lab-docker`: non-critical self-hosted apps
 - `lab-jellyfin`: Jellyfin and a bind-mounted media path from the Proxmox host
+- `lab-nix`: NixOS workstation/lab VM for testing `drewnorman/nix-config`
 
 For local-only HTTPS:
 
@@ -95,6 +98,24 @@ The certificate state is stored on `lab-edge` under `/var/lib/lego/`. The active
 OpenTofu can manage public Porkbun DNS records after the cutover. The checked-in example enables a CAA record allowing Let's Encrypt to issue for `adre.me`; keep `enable_porkbun_dns = false` until `adre.me` is actually hosted on Porkbun DNS and API access is enabled.
 
 Additional app hostnames should be added to `edge_extra_services` in [ansible/inventory/group_vars/all.yml](/home/drew/documents/personal/homelab/ansible/inventory/group_vars/all.yml:1). The wildcard DNS rewrite means any `*.lab.adre.me` hostname will already resolve to `lab-edge`; you only need to tell Caddy which upstream each hostname should proxy to.
+
+### Nix Host
+
+The optional Nix host reserves `lab-nix` at `172.16.0.240` and `nix.lab.adre.me`. When `enable_nix_host = true`, OpenTofu creates a VM from `vm_template_id` and includes a `[nix]` Ansible inventory group.
+
+This host is intended for LAN SSH access, not HTTP proxying. AdGuard resolves `nix.lab.adre.me` directly to `172.16.0.240`, so you can connect with:
+
+```sh
+ssh drew@nix.lab.adre.me
+```
+
+The intended flake target is:
+
+```text
+https://github.com/drewnorman/nix-config#nix
+```
+
+That flake target does not exist yet. The current repository defines `nixosConfigurations.xps15-9550` only, and that configuration imports laptop-specific hardware, ZFS, impermanence, and password-file paths. Before using it for `lab-nix`, add a `nixosConfigurations.nix` output with VM-appropriate hardware/storage, hostname `lab-nix`, and SSH access for the injected key.
 
 ## Ansible
 

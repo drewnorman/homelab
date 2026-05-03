@@ -175,6 +175,73 @@ resource "proxmox_virtual_environment_vm" "docker_host" {
   serial_device {}
 }
 
+resource "proxmox_virtual_environment_vm" "nix_host" {
+  count = var.enable_nix_host ? 1 : 0
+
+  name            = "${var.homelab_name}-nix"
+  description     = "NixOS workstation/lab VM managed by OpenTofu; intended for ${var.nix_config_repo_url}#${var.nix_config_flake_host}"
+  node_name       = var.proxmox_node_name
+  tags            = ["homelab", "nix", "nixos"]
+  stop_on_destroy = true
+
+  agent {
+    enabled = true
+  }
+
+  clone {
+    vm_id = var.vm_template_id
+    full  = true
+  }
+
+  cpu {
+    cores   = var.nix_host_vm_resources.cores
+    sockets = 1
+    type    = "host"
+  }
+
+  memory {
+    dedicated = var.nix_host_vm_resources.memory_mb
+    floating  = var.nix_host_vm_resources.memory_mb
+  }
+
+  disk {
+    datastore_id = var.vm_storage
+    interface    = "scsi0"
+    size         = var.nix_host_vm_resources.disk_size_gb
+  }
+
+  initialization {
+    datastore_id = var.vm_storage
+
+    dns {
+      domain  = var.search_domain
+      servers = var.dns_servers
+    }
+
+    ip_config {
+      ipv4 {
+        address = "${local.guests.nix.ip}/${var.network_cidr}"
+        gateway = var.network_gateway
+      }
+    }
+
+    user_account {
+      keys     = [trimspace(var.ssh_public_key)]
+      username = var.vm_ci_user
+    }
+  }
+
+  network_device {
+    bridge = var.network_bridge
+  }
+
+  operating_system {
+    type = "l26"
+  }
+
+  serial_device {}
+}
+
 resource "proxmox_virtual_environment_container" "jellyfin" {
   node_name     = var.proxmox_node_name
   description   = "Lean Jellyfin container managed by OpenTofu"

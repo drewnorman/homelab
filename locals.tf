@@ -16,11 +16,21 @@ locals {
       role = "jellyfin"
       ip   = var.service_ips.jellyfin_lxc
     }
+    nix = {
+      role = "nix"
+      ip   = var.service_ips.nix_host_vm
+    }
   }
 
   docker_inventory = var.enable_docker_host ? trimspace(<<-EOT
     [docker]
     ${proxmox_virtual_environment_vm.docker_host[0].name} ansible_host=${local.guests.docker.ip} ansible_user=${var.vm_ci_user}
+  EOT
+  ) : ""
+
+  nix_inventory = var.enable_nix_host ? trimspace(<<-EOT
+    [nix]
+    ${proxmox_virtual_environment_vm.nix_host[0].name} ansible_host=${local.guests.nix.ip} ansible_user=${var.vm_ci_user}
   EOT
   ) : ""
 
@@ -36,6 +46,7 @@ locals {
     EOT
     ,
     local.docker_inventory,
+    local.nix_inventory,
     <<-EOT
     [media]
     ${var.homelab_name}-jellyfin ansible_host=${local.guests.jellyfin.ip} ansible_user=root

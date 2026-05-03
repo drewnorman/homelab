@@ -7,5 +7,8 @@ lab-edge ansible_host=172.16.0.211 ansible_user=root
 # [docker]
 # lab-docker ansible_host=172.16.0.220 ansible_user=drew
 
+# [nix]
+# lab-nix ansible_host=172.16.0.240 ansible_user=drew
+
 [media]
 lab-jellyfin ansible_host=172.16.0.230 ansible_user=root

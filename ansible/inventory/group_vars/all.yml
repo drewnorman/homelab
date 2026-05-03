@@ -54,6 +54,8 @@ adguard_dns_rewrites:
     answer: "{{ hostvars[groups['edge'][0]].ansible_host }}"
   - domain: "jellyfin.{{ homelab_domain }}"
     answer: "{{ hostvars[groups['edge'][0]].ansible_host }}"
+  - domain: "nix.{{ homelab_domain }}"
+    answer: "{{ hostvars[groups['nix'][0]].ansible_host if groups.get('nix', []) | length > 0 else '172.16.0.240' }}"
 
 adguard_filters:
   - enabled: true

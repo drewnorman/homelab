@@ -100,6 +100,12 @@ variable "enable_docker_host" {
   default     = false
 }
 
+variable "enable_nix_host" {
+  description = "Create the NixOS workstation/lab VM. Requires vm_template_id to point at a bootstrappable VM template."
+  type        = bool
+  default     = false
+}
+
 variable "vm_ci_user" {
   description = "Cloud-init user created on service VMs."
   type        = string
@@ -124,13 +130,41 @@ variable "service_ips" {
     edge_lxc       = string
     docker_host_vm = string
     jellyfin_lxc   = string
+    nix_host_vm    = string
   })
   default = {
     adguard_lxc    = "172.16.0.210"
     edge_lxc       = "172.16.0.211"
     docker_host_vm = "172.16.0.220"
     jellyfin_lxc   = "172.16.0.230"
+    nix_host_vm    = "172.16.0.240"
   }
+}
+
+variable "nix_host_vm_resources" {
+  description = "Resource sizing for the NixOS workstation/lab VM."
+  type = object({
+    cores        = number
+    memory_mb    = number
+    disk_size_gb = number
+  })
+  default = {
+    cores        = 4
+    memory_mb    = 8192
+    disk_size_gb = 96
+  }
+}
+
+variable "nix_config_repo_url" {
+  description = "Git repository containing the NixOS flake intended for the lab Nix host."
+  type        = string
+  default     = "https://github.com/drewnorman/nix-config"
+}
+
+variable "nix_config_flake_host" {
+  description = "Expected nixosConfigurations attribute for the lab Nix host."
+  type        = string
+  default     = "nix"
 }
 
 variable "enable_porkbun_dns" {
@@ -185,6 +219,13 @@ check "docker_host_template" {
   assert {
     condition     = !var.enable_docker_host || var.vm_template_id != null
     error_message = "enable_docker_host requires vm_template_id to be set to an existing cloud-init-capable VM template ID."
+  }
+}
+
+check "nix_host_template" {
+  assert {
+    condition     = !var.enable_nix_host || var.vm_template_id != null
+    error_message = "enable_nix_host requires vm_template_id to be set to an existing bootstrappable VM template ID."
   }
 }
 
