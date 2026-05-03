@@ -115,7 +115,7 @@ The intended flake target is:
 https://github.com/drewnorman/nix-config#nix
 ```
 
-That flake target does not exist yet. The current repository defines `nixosConfigurations.xps15-9550` only, and that configuration imports laptop-specific hardware, ZFS, impermanence, and password-file paths. Before using it for `lab-nix`, add a `nixosConfigurations.nix` output with VM-appropriate hardware/storage, hostname `lab-nix`, and SSH access for the injected key.
+The local `../nixos-configs` repository now defines `nixosConfigurations.nix` for this VM. Push that repository to the configured remote before installing from GitHub, or clone/copy the local checkout into the NixOS installer environment and install with `nixos-install --flake .#nix`.
 
 ## Ansible
 
