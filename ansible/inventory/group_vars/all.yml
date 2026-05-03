@@ -8,17 +8,16 @@ docker_compose_root: "/opt/compose"
 edge_base_domain: "lab.adre.me"
 edge_tls_mode: "public_dns"
 edge_acme_email: "{{ lookup('env', 'EDGE_ACME_EMAIL') | default('', true) }}"
-edge_acme_gcloud_project: "{{ lookup('env', 'EDGE_ACME_GCLOUD_PROJECT') | default('', true) }}"
-edge_acme_gcloud_service_account_file: "{{ lookup('env', 'EDGE_ACME_GCLOUD_SERVICE_ACCOUNT_FILE') | default('', true) }}"
-edge_acme_gcloud_service_account_json: "{{ lookup('ansible.builtin.file', edge_acme_gcloud_service_account_file, errors='ignore') if edge_acme_gcloud_service_account_file | length > 0 else '' }}"
+edge_acme_porkbun_api_key: "{{ lookup('env', 'PORKBUN_API_KEY') | default('', true) }}"
+edge_acme_porkbun_secret_api_key: "{{ lookup('env', 'PORKBUN_SECRET_API_KEY') | default('', true) }}"
 edge_acme_cert_name: "_.{{ edge_base_domain }}"
 edge_acme_lego_cert_path: "/var/lib/lego/certificates/{{ edge_acme_cert_name }}.crt"
 edge_acme_lego_key_path: "/var/lib/lego/certificates/{{ edge_acme_cert_name }}.key"
 edge_tls_cert_path: "/etc/caddy/certs/{{ edge_acme_cert_name }}.crt"
 edge_tls_key_path: "/etc/caddy/certs/{{ edge_acme_cert_name }}.key"
-edge_acme_dns_propagation_timeout: 180
-edge_acme_dns_polling_interval: 5
-edge_acme_dns_ttl: 120
+edge_acme_dns_propagation_timeout: 600
+edge_acme_dns_polling_interval: 10
+edge_acme_dns_ttl: 300
 edge_extra_services: []
 
 adguard_bind_port: 80

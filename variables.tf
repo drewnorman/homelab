@@ -133,9 +133,64 @@ variable "service_ips" {
   }
 }
 
+variable "enable_porkbun_dns" {
+  description = "Manage public DNS records for porkbun_domain through the Porkbun provider."
+  type        = bool
+  default     = false
+}
+
+variable "porkbun_domain" {
+  description = "Porkbun-managed apex domain for public DNS records."
+  type        = string
+  default     = "adre.me"
+}
+
+variable "porkbun_api_key" {
+  description = "Porkbun API key used by the OpenTofu Porkbun provider when enable_porkbun_dns is true."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "porkbun_secret_api_key" {
+  description = "Porkbun secret API key used by the OpenTofu Porkbun provider when enable_porkbun_dns is true."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "porkbun_dns_records" {
+  description = "Public DNS records to manage in Porkbun once adre.me is moved there."
+  type = list(object({
+    key     = string
+    name    = string
+    type    = string
+    content = string
+    ttl     = optional(number, 600)
+    notes   = optional(string, "Managed by OpenTofu")
+  }))
+  default = [
+    {
+      key     = "caa-letsencrypt"
+      name    = ""
+      type    = "CAA"
+      content = "0 issue \"letsencrypt.org\""
+      ttl     = 600
+      notes   = "Allow Let's Encrypt certificates for adre.me"
+    }
+  ]
+}
+
 check "docker_host_template" {
   assert {
     condition     = !var.enable_docker_host || var.vm_template_id != null
     error_message = "enable_docker_host requires vm_template_id to be set to an existing cloud-init-capable VM template ID."
+  }
+}
+
+check "porkbun_dns_credentials" {
+  assert {
+    condition     = !var.enable_porkbun_dns || (var.porkbun_api_key != "" && var.porkbun_secret_api_key != "")
+    error_message = "enable_porkbun_dns requires porkbun_api_key and porkbun_secret_api_key, preferably through TF_VAR_porkbun_api_key and TF_VAR_porkbun_secret_api_key."
   }
 }

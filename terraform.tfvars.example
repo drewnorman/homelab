@@ -25,3 +25,19 @@ service_ips = {
 
 # Example: mount a host path backed by an external SSD into Jellyfin at /srv/media.
 # jellyfin_media_bind_mount_host_path = "/mnt/media"
+
+# Enable after adre.me is using Porkbun DNS and API access is enabled for the domain.
+enable_porkbun_dns = false
+porkbun_domain     = "adre.me"
+# Set credentials through TF_VAR_porkbun_api_key and TF_VAR_porkbun_secret_api_key.
+
+porkbun_dns_records = [
+  {
+    key     = "caa-letsencrypt"
+    name    = ""
+    type    = "CAA"
+    content = "0 issue \"letsencrypt.org\""
+    ttl     = 600
+    notes   = "Allow Let's Encrypt certificates for adre.me"
+  }
+]

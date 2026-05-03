@@ -5,7 +5,6 @@ terraform.tfvars
 .uv-cache/
 .venv/
 .terraform/
-.terraform.lock.hcl
 *.tfstate
 *.tfstate.*
 ansible/inventory/hosts.ini

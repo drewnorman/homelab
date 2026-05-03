@@ -66,22 +66,22 @@ For local-only HTTPS:
 - only hosts explicitly listed in the Caddy config are proxied
 - nothing needs to be exposed on your router
 
-The wildcard certificate is issued with DNS-01 validation through Google Cloud DNS using `lego`. DNS-01 proves ownership by creating temporary `_acme-challenge.lab.adre.me` TXT records, so ports 80 and 443 do not need to be exposed publicly.
+The wildcard certificate is issued with DNS-01 validation through Porkbun using `lego`. DNS-01 proves ownership by creating temporary `_acme-challenge.lab.adre.me` TXT records, so ports 80 and 443 do not need to be exposed publicly.
 
 ### Browser-Trusted HTTPS
 
-The domain `adre.me` uses Google Cloud DNS nameservers. To let `lab-edge` issue and renew the trusted certificate:
+The domain `adre.me` currently resolves from Google Cloud DNS. After the domain is moved to Porkbun DNS, let `lab-edge` issue and renew the trusted certificate with Porkbun's API:
 
-1. In Google Cloud, identify the project that hosts the public Cloud DNS zone for `adre.me`.
-2. Create a service account for ACME DNS automation.
-3. Grant it DNS permissions for the project or zone. The simple option is `roles/dns.admin`; a tighter custom role should allow reading the managed zone and creating/deleting DNS changes and record sets.
-4. Create a JSON key for that service account and place it at the path from `EDGE_ACME_GCLOUD_SERVICE_ACCOUNT_FILE`, for example `/home/drew/documents/personal/homelab/.secrets/adre-me-cloud-dns.json`.
-5. Set `EDGE_ACME_EMAIL` and `EDGE_ACME_GCLOUD_PROJECT` in `.env`, then source `.env` before running Ansible.
+1. In Porkbun, enable API access on the `adre.me` domain.
+2. Create a Porkbun API key and secret key.
+3. Set `EDGE_ACME_EMAIL`, `PORKBUN_API_KEY`, `PORKBUN_SECRET_API_KEY`, and the matching `TF_VAR_...` exports in `.env`, then source `.env` before running OpenTofu or Ansible.
 
 ```sh
 export EDGE_ACME_EMAIL="you@example.com"
-export EDGE_ACME_GCLOUD_PROJECT="your-google-cloud-project-id"
-export EDGE_ACME_GCLOUD_SERVICE_ACCOUNT_FILE="/home/drew/documents/personal/homelab/.secrets/adre-me-cloud-dns.json"
+export PORKBUN_API_KEY="pk1_replace_me"
+export PORKBUN_SECRET_API_KEY="sk1_replace_me"
+export TF_VAR_porkbun_api_key="${PORKBUN_API_KEY}"
+export TF_VAR_porkbun_secret_api_key="${PORKBUN_SECRET_API_KEY}"
 ```
 
 No permanent public `A`, `AAAA`, or `CNAME` record is required for `*.lab.adre.me` as long as access stays LAN-only. AdGuard keeps resolving `*.lab.adre.me` to `lab-edge` internally. `lego` will create and remove temporary TXT records under:
@@ -91,6 +91,8 @@ _acme-challenge.lab.adre.me
 ```
 
 The certificate state is stored on `lab-edge` under `/var/lib/lego/`. The active certificate and key are copied to `/etc/caddy/certs/` with permissions Caddy can read. A systemd timer named `lego-edge-cert-renew.timer` renews the certificate daily when it is close to expiry and reloads Caddy after renewal.
+
+OpenTofu can manage public Porkbun DNS records after the cutover. The checked-in example enables a CAA record allowing Let's Encrypt to issue for `adre.me`; keep `enable_porkbun_dns = false` until `adre.me` is actually hosted on Porkbun DNS and API access is enabled.
 
 Additional app hostnames should be added to `edge_extra_services` in [ansible/inventory/group_vars/all.yml](/home/drew/documents/personal/homelab/ansible/inventory/group_vars/all.yml:1). The wildcard DNS rewrite means any `*.lab.adre.me` hostname will already resolve to `lab-edge`; you only need to tell Caddy which upstream each hostname should proxy to.
 
@@ -114,8 +116,10 @@ Export any runtime secrets before running the playbook:
 ansible-galaxy collection install -r ansible/requirements.yml
 export ADGUARD_ADMIN_PASSWORD_BCRYPT='replace-with-bcrypt-hash'
 export EDGE_ACME_EMAIL="you@example.com"
-export EDGE_ACME_GCLOUD_PROJECT="your-google-cloud-project-id"
-export EDGE_ACME_GCLOUD_SERVICE_ACCOUNT_FILE="/home/drew/documents/personal/homelab/.secrets/adre-me-cloud-dns.json"
+export PORKBUN_API_KEY="pk1_replace_me"
+export PORKBUN_SECRET_API_KEY="sk1_replace_me"
+export TF_VAR_porkbun_api_key="${PORKBUN_API_KEY}"
+export TF_VAR_porkbun_secret_api_key="${PORKBUN_SECRET_API_KEY}"
 ```
 
 Ansible is configured to use `/home/drew/.ssh/root@172.16.0.200`, the same key injected into the guests by Terraform. If you change `TF_VAR_ssh_public_key`, update `private_key_file` in [ansible/ansible.cfg](/home/drew/documents/personal/homelab/ansible/ansible.cfg:1) to the matching private key.

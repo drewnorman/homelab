@@ -8,3 +8,8 @@ provider "proxmox" {
     agent    = true
   }
 }
+
+provider "porkbun" {
+  api_key        = var.enable_porkbun_dns ? var.porkbun_api_key : "disabled"
+  secret_api_key = var.enable_porkbun_dns ? var.porkbun_secret_api_key : "disabled"
+}

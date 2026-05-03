@@ -44,9 +44,9 @@
   ansible.builtin.assert:
     that:
       - edge_acme_email | length > 0
-      - edge_acme_gcloud_project | length > 0
-      - edge_acme_gcloud_service_account_json | length > 0
-    fail_msg: "edge_tls_mode=public_dns requires EDGE_ACME_EMAIL, EDGE_ACME_GCLOUD_PROJECT, and EDGE_ACME_GCLOUD_SERVICE_ACCOUNT_FILE."
+      - edge_acme_porkbun_api_key | length > 0
+      - edge_acme_porkbun_secret_api_key | length > 0
+    fail_msg: "edge_tls_mode=public_dns requires EDGE_ACME_EMAIL, PORKBUN_API_KEY, and PORKBUN_SECRET_API_KEY."
   when: edge_tls_mode == "public_dns"
   no_log: true
 
@@ -72,16 +72,6 @@
       mode: "0750"
   when: edge_tls_mode == "public_dns"
 
-- name: Install Google Cloud DNS service account key for lego
-  ansible.builtin.copy:
-    content: "{{ edge_acme_gcloud_service_account_json }}"
-    dest: /etc/lego/gcloud-service-account.json
-    owner: root
-    group: root
-    mode: "0600"
-  when: edge_tls_mode == "public_dns"
-  no_log: true
-
 - name: Render lego environment file
   ansible.builtin.copy:
     dest: /etc/lego/edge.env
@@ -95,11 +85,11 @@
       EDGE_ACME_LEGO_KEY_PATH={{ edge_acme_lego_key_path | quote }}
       EDGE_TLS_CERT_PATH={{ edge_tls_cert_path | quote }}
       EDGE_TLS_KEY_PATH={{ edge_tls_key_path | quote }}
-      GCE_PROJECT={{ edge_acme_gcloud_project | quote }}
-      GCE_SERVICE_ACCOUNT_FILE=/etc/lego/gcloud-service-account.json
-      GCE_PROPAGATION_TIMEOUT={{ edge_acme_dns_propagation_timeout | quote }}
-      GCE_POLLING_INTERVAL={{ edge_acme_dns_polling_interval | quote }}
-      GCE_TTL={{ edge_acme_dns_ttl | quote }}
+      PORKBUN_API_KEY={{ edge_acme_porkbun_api_key | quote }}
+      PORKBUN_SECRET_API_KEY={{ edge_acme_porkbun_secret_api_key | quote }}
+      PORKBUN_PROPAGATION_TIMEOUT={{ edge_acme_dns_propagation_timeout | quote }}
+      PORKBUN_POLLING_INTERVAL={{ edge_acme_dns_polling_interval | quote }}
+      PORKBUN_TTL={{ edge_acme_dns_ttl | quote }}
   when: edge_tls_mode == "public_dns"
   no_log: true
 
@@ -122,7 +112,7 @@
         --accept-tos
         --path /var/lib/lego
         --email "${EDGE_ACME_EMAIL}"
-        --dns gcloud
+        --dns porkbun
         --domains "${EDGE_ACME_DOMAIN}"
         --domains "*.${EDGE_ACME_DOMAIN}"
       )
