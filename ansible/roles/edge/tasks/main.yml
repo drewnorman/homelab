@@ -36,9 +36,33 @@
   ansible.builtin.apt:
     name:
       - caddy
-      - lego
     state: present
     update_cache: true
+
+- name: Download upstream lego archive
+  ansible.builtin.get_url:
+    url: "{{ edge_lego_archive_url }}"
+    dest: "/tmp/lego_v{{ edge_lego_version }}_linux_amd64.tar.gz"
+    mode: "0644"
+  when: edge_tls_mode == "public_dns"
+
+- name: Install upstream lego binary
+  ansible.builtin.unarchive:
+    src: "/tmp/lego_v{{ edge_lego_version }}_linux_amd64.tar.gz"
+    dest: /usr/local/bin
+    remote_src: true
+    include:
+      - lego
+    owner: root
+    group: root
+    mode: "0755"
+  when: edge_tls_mode == "public_dns"
+
+- name: Verify lego supports Porkbun DNS provider
+  ansible.builtin.command:
+    cmd: /usr/local/bin/lego dnshelp porkbun
+  changed_when: false
+  when: edge_tls_mode == "public_dns"
 
 - name: Validate public DNS certificate settings
   ansible.builtin.assert:
@@ -124,10 +148,10 @@
       }
 
       if [[ -f "${EDGE_ACME_LEGO_CERT_PATH}" && -f "${EDGE_ACME_LEGO_KEY_PATH}" ]]; then
-        lego "${lego_args[@]}" renew --renew-hook "systemctl reload caddy"
+        /usr/local/bin/lego "${lego_args[@]}" renew --renew-hook "systemctl reload caddy"
         sync_caddy_certs
       else
-        lego "${lego_args[@]}" run
+        /usr/local/bin/lego "${lego_args[@]}" run
         sync_caddy_certs
         systemctl reload caddy || true
       fi
