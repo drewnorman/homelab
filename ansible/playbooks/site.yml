@@ -1,6 +1,6 @@
 ---
 - name: Bootstrap all guests
-  hosts: all
+  hosts: all:!nix
   become: true
   roles:
     - common
