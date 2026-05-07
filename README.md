@@ -6,16 +6,16 @@ This directory provisions a small Proxmox homelab optimized for a single 16 GB l
 - `lab-edge` as a lightweight LXC for reverse proxy and browser-trusted local HTTPS
 - `lab-docker` as a general-purpose VM for non-critical Docker Compose services
 - `lab-jellyfin` as a lean LXC with optional host bind-mounted media storage
-- `lab-nix` as an optional VM for developing a NixOS workstation replacement
+- `lab-nix` as an always-running NixOS LXC for SSH-accessible lab work
 
-The checked-in defaults target the existing Proxmox node `norman` at `172.16.0.200` on `172.16.0.0/24`. The Proxmox host IP is managed outside this project and is not changed by Terraform.
+The checked-in defaults target the existing Proxmox node `norman` at `192.168.1.200` on `192.168.1.0/24`. The Proxmox host IP is managed outside this project and is not changed by Terraform.
 
 ## Prerequisites
 
 - OpenTofu installed locally
 - A Proxmox API token with permissions to create LXCs and, if enabled, VMs
-- An LXC template already available in Proxmox storage
-- A bootstrappable VM template only if `enable_docker_host = true` or `enable_nix_host = true`
+- Debian and NixOS LXC templates already available in Proxmox storage
+- A bootstrappable VM template only if `enable_docker_host = true`
 - A `.env` file exporting secret `TF_VAR_*` values plus `TF_VAR_ssh_public_key`
 
 ## Secrets
@@ -30,7 +30,7 @@ source .env
 set +a
 ```
 
-Provisioned guests are expected to be managed over SSH keys only. The same `TF_VAR_ssh_public_key` is injected into both service LXCs and VMs during provisioning.
+Provisioned guests are expected to be managed over SSH keys only. `TF_VAR_ssh_public_key` is injected during provisioning as the launch/bootstrap key. After a guest exists, use a per-host SSH key named `~/.ssh/<user>@<fqdn>` for normal connections and Ansible runs.
 
 ## Usage
 
@@ -46,10 +46,10 @@ tofu apply
 
 For the current `norman` host, the default managed guest addresses are:
 
-- `lab-adguard`: `172.16.0.210`
-- `lab-edge`: `172.16.0.211`
-- `lab-jellyfin`: `172.16.0.230`
-- `lab-nix`: disabled until `enable_nix_host = true` and `vm_template_id` is set
+- `lab-adguard`: `192.168.1.210`
+- `lab-edge`: `192.168.1.211`
+- `lab-jellyfin`: `192.168.1.230`
+- `lab-nix`: `192.168.1.240`
 - `lab-docker`: disabled until `enable_docker_host = true` and `vm_template_id` is set
 
 An existing unmanaged container named `adguard` may coexist with these resources. Terraform only manages guests present in its state.
@@ -60,7 +60,7 @@ An existing unmanaged container named `adguard` may coexist with these resources
 - `lab-edge`: reverse proxy and browser-trusted wildcard HTTPS
 - `lab-docker`: non-critical self-hosted apps
 - `lab-jellyfin`: Jellyfin and a bind-mounted media path from the Proxmox host
-- `lab-nix`: NixOS workstation/lab VM for testing `drewnorman/nix-config`
+- `lab-nix`: NixOS LXC for SSH-accessible lab work
 
 For local-only HTTPS:
 
@@ -101,12 +101,12 @@ Additional app hostnames should be added to `edge_extra_services` in [ansible/in
 
 ### Nix Host
 
-The optional Nix host reserves `lab-nix` at `172.16.0.240` and `nix.lab.adre.me`. When `enable_nix_host = true`, OpenTofu creates a VM from `vm_template_id` and includes a `[nix]` Ansible inventory group.
+The Nix host reserves `lab-nix` at `192.168.1.240` and `nix.lab.adre.me`. When `enable_nix_host = true`, OpenTofu creates an always-running NixOS LXC from `nix_lxc_template_file_id` and includes a `[nix]` Ansible inventory group.
 
-This host is intended for LAN SSH access, not HTTP proxying. AdGuard resolves `nix.lab.adre.me` directly to `172.16.0.240`, so you can connect with:
+This host is intended for LAN SSH access, not HTTP proxying. AdGuard resolves `nix.lab.adre.me` directly to `192.168.1.240`, so you can connect with:
 
 ```sh
-ssh drew@nix.lab.adre.me
+ssh -i ~/.ssh/drew@nix.lab.adre.me -o IdentitiesOnly=yes drew@nix.lab.adre.me
 ```
 
 The intended flake target is:
@@ -115,7 +115,15 @@ The intended flake target is:
 https://github.com/drewnorman/nix-config#nix
 ```
 
-The local `../nixos-configs` repository now defines `nixosConfigurations.nix` for this VM. Push that repository to the configured remote before installing from GitHub, or clone/copy the local checkout into the NixOS installer environment and install with `nixos-install --flake .#nix`.
+OpenTofu downloads the NixOS Proxmox LXC template from Hydra into Proxmox storage when `manage_nix_lxc_template = true`. The configured template file ID is `local:vztmpl/nixos-lxc-lab-nix.tar.xz`.
+
+The local `../nixos-configs` repository also defines the NixOS container configuration and exposes a `lab-nix-lxc-template` package if you need a custom template later:
+
+```sh
+cd ../nixos-configs
+nix build .#lab-nix-lxc-template
+scp -F /dev/null -i ~/.ssh/root@192.168.1.200 -o IdentitiesOnly=yes result/tarball/nixos-system-x86_64-linux.tar.xz root@192.168.1.200:/var/lib/vz/template/cache/nixos-lxc-lab-nix.tar.xz
+```
 
 ## Ansible
 
@@ -127,6 +135,14 @@ After `tofu apply`, render inventory from state:
 
 ```sh
 ./scripts/render-ansible-inventory.sh
+```
+
+For the upstream NixOS LXC template, bootstrap the `drew` SSH user with raw
+Ansible before using the per-host key:
+
+```sh
+cd ansible
+ANSIBLE_HOME=../.ansible ANSIBLE_LOCAL_TEMP=../.ansible/tmp ../.venv/bin/ansible-playbook playbooks/nix_ssh.yml
 ```
 
 If you need a static example instead of rendering from OpenTofu, copy `ansible/inventory/hosts.ini.example` to `ansible/inventory/hosts.ini` and edit it manually.
@@ -143,7 +159,25 @@ export TF_VAR_porkbun_api_key="${PORKBUN_API_KEY}"
 export TF_VAR_porkbun_secret_api_key="${PORKBUN_SECRET_API_KEY}"
 ```
 
-Ansible is configured to use `/home/drew/.ssh/root@172.16.0.200`, the same key injected into the guests by Terraform. If you change `TF_VAR_ssh_public_key`, update `private_key_file` in [ansible/ansible.cfg](/home/drew/documents/personal/homelab/ansible/ansible.cfg:1) to the matching private key.
+Ansible derives per-host private keys from `inventory_hostname`, `ansible_user`, `homelab_name`, and `homelab_domain`, producing names like `~/.ssh/root@edge.lab.adre.me` or `~/.ssh/drew@nix.lab.adre.me`. Terraform still injects `TF_VAR_ssh_public_key` during provisioning; the per-host keys are for post-launch access.
+
+Create local per-host keys whenever you add a host or regenerate inventory:
+
+```sh
+ANSIBLE_HOME=../.ansible ANSIBLE_LOCAL_TEMP=../.ansible/tmp ../.venv/bin/ansible-playbook playbooks/ssh_keys.yml
+```
+
+To also install those keys on already-launched hosts, run the same playbook with `install_per_host_ssh_keys=true`. If the new per-host key is not installed yet, pass the existing bootstrap key:
+
+```sh
+ANSIBLE_HOME=../.ansible ANSIBLE_LOCAL_TEMP=../.ansible/tmp ../.venv/bin/ansible-playbook playbooks/ssh_keys.yml -e install_per_host_ssh_keys=true -e bootstrap_private_key_file=~/.ssh/root@192.168.1.200
+```
+
+Then connect with that host's matching key:
+
+```sh
+ssh -i ~/.ssh/root@edge.lab.adre.me -o IdentitiesOnly=yes root@edge.lab.adre.me
+```
 
 To generate the AdGuard password hash on a machine with `htpasswd` available:
 
@@ -175,9 +209,11 @@ The `ANSIBLE_HOME` and `ANSIBLE_LOCAL_TEMP` values keep generated Ansible files 
 
 Jellyfin now runs as an unprivileged LXC sized for mostly direct-play streaming rather than a larger VM.
 
-- Root filesystem stays small on `lxc_storage`
+- Root filesystem is sized by `jellyfin_lxc_disk_size_gb` on `lxc_storage`; the example value is 80 GiB
 - Media stays on the Proxmox host, optionally on an external SSD
 - Set `jellyfin_media_bind_mount_host_path` to bind-mount that host path into the container at `/srv/media`
+
+When no bind mount is configured, Jellyfin stores media under `/srv/media` on the container root filesystem. Increase `jellyfin_lxc_disk_size_gb` to grow that filesystem in place; do not decrease it unless you have migrated the data elsewhere.
 
 Suggested pattern for an external SSD:
 
