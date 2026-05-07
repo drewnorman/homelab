@@ -1,38 +1,47 @@
 proxmox_node_name = "norman"
 
 network_bridge  = "vmbr0"
-network_gateway = "172.16.0.1"
+network_gateway = "192.168.1.1"
 network_cidr    = 24
 
 search_domain = "lab.adre.me"
-dns_servers   = ["172.16.0.1", "1.1.1.1"]
+dns_servers   = ["192.168.1.1", "1.1.1.1"]
 
 lxc_storage          = "local-lvm"
 vm_storage           = "local-lvm"
 lxc_template_file_id = "local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst"
 
-# The Proxmox host does not currently have a VM template, so Docker VM
-# provisioning is disabled until vm_template_id points at one.
+# Docker VM provisioning is disabled until vm_template_id points at a
+# cloud-init-capable VM template.
 enable_docker_host = false
-enable_nix_host    = false
+enable_nix_host    = true
 # vm_template_id   = 9000
 
 service_ips = {
-  adguard_lxc    = "172.16.0.210"
-  edge_lxc       = "172.16.0.211"
-  docker_host_vm = "172.16.0.220"
-  jellyfin_lxc   = "172.16.0.230"
-  nix_host_vm    = "172.16.0.240"
+  adguard_lxc    = "192.168.1.210"
+  edge_lxc       = "192.168.1.211"
+  docker_host_vm = "192.168.1.220"
+  jellyfin_lxc   = "192.168.1.230"
+  nix_host_lxc   = "192.168.1.240"
 }
 
 nix_config_repo_url   = "https://github.com/drewnorman/nix-config"
 nix_config_flake_host = "nix"
 
-nix_host_vm_resources = {
+manage_nix_lxc_template     = true
+nix_lxc_template_datastore_id = "local"
+nix_lxc_template_file_name  = "nixos-lxc-lab-nix.tar.xz"
+nix_lxc_template_url        = "https://hydra.nixos.org/job/nixos/release-25.11/nixos.proxmoxLXC.x86_64-linux/latest/download-by-type/file/system-tarball"
+nix_lxc_template_file_id = "local:vztmpl/nixos-lxc-lab-nix.tar.xz"
+
+nix_host_lxc_resources = {
   cores        = 4
-  memory_mb    = 8192
-  disk_size_gb = 96
+  memory_mb    = 4096
+  swap_mb      = 1024
+  disk_size_gb = 32
 }
+
+jellyfin_lxc_disk_size_gb = 80
 
 # Example: mount a host path backed by an external SSD into Jellyfin at /srv/media.
 # jellyfin_media_bind_mount_host_path = "/mnt/media"
