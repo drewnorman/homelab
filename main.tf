@@ -175,44 +175,36 @@ resource "proxmox_virtual_environment_vm" "docker_host" {
   serial_device {}
 }
 
-resource "proxmox_virtual_environment_vm" "nix_host" {
+resource "proxmox_virtual_environment_container" "nix_host" {
   count = var.enable_nix_host ? 1 : 0
 
-  name            = "${var.homelab_name}-nix"
-  description     = "NixOS workstation/lab VM managed by OpenTofu; intended for ${var.nix_config_repo_url}#${var.nix_config_flake_host}"
-  node_name       = var.proxmox_node_name
-  tags            = ["homelab", "nix", "nixos"]
-  stop_on_destroy = true
-
-  agent {
-    enabled = true
-  }
-
-  clone {
-    vm_id = var.vm_template_id
-    full  = true
-  }
+  node_name     = var.proxmox_node_name
+  description   = "NixOS lab container managed by OpenTofu; built from ${var.nix_config_repo_url}#${var.nix_config_flake_host}"
+  start_on_boot = true
+  started       = true
+  tags          = ["homelab", "nix", "nixos"]
+  unprivileged  = true
 
   cpu {
-    cores   = var.nix_host_vm_resources.cores
-    sockets = 1
-    type    = "host"
+    cores = var.nix_host_lxc_resources.cores
   }
 
   memory {
-    dedicated = var.nix_host_vm_resources.memory_mb
-    floating  = var.nix_host_vm_resources.memory_mb
+    dedicated = var.nix_host_lxc_resources.memory_mb
+    swap      = var.nix_host_lxc_resources.swap_mb
   }
 
   disk {
-    datastore_id = var.vm_storage
-    interface    = "scsi0"
-    size         = var.nix_host_vm_resources.disk_size_gb
+    datastore_id = var.lxc_storage
+    size         = var.nix_host_lxc_resources.disk_size_gb
+  }
+
+  features {
+    nesting = true
   }
 
   initialization {
-    datastore_id = var.vm_storage
-
+    hostname = "${var.homelab_name}-nix"
     dns {
       domain  = var.search_domain
       servers = var.dns_servers
@@ -226,20 +218,23 @@ resource "proxmox_virtual_environment_vm" "nix_host" {
     }
 
     user_account {
-      keys     = [trimspace(var.ssh_public_key)]
-      username = var.vm_ci_user
+      keys = [trimspace(var.ssh_public_key)]
     }
   }
 
-  network_device {
+  network_interface {
+    name   = "veth0"
     bridge = var.network_bridge
   }
 
   operating_system {
-    type = "l26"
+    template_file_id = var.nix_lxc_template_file_id
+    type             = var.nix_lxc_os_type
   }
 
-  serial_device {}
+  depends_on = [
+    proxmox_download_file.nixos_lxc_template,
+  ]
 }
 
 resource "proxmox_virtual_environment_container" "jellyfin" {
@@ -261,7 +256,7 @@ resource "proxmox_virtual_environment_container" "jellyfin" {
 
   disk {
     datastore_id = var.lxc_storage
-    size         = 16
+    size         = var.jellyfin_lxc_disk_size_gb
   }
 
   initialization {

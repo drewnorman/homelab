@@ -18,7 +18,7 @@ locals {
     }
     nix = {
       role = "nix"
-      ip   = var.service_ips.nix_host_vm
+      ip   = var.service_ips.nix_host_lxc
     }
   }
 
@@ -30,7 +30,7 @@ locals {
 
   nix_inventory = var.enable_nix_host ? trimspace(<<-EOT
     [nix]
-    ${proxmox_virtual_environment_vm.nix_host[0].name} ansible_host=${local.guests.nix.ip} ansible_user=${var.vm_ci_user}
+    ${var.homelab_name}-nix ansible_host=nix.${var.search_domain} ansible_user=${var.vm_ci_user}
   EOT
   ) : ""
 

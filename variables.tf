@@ -1,7 +1,7 @@
 variable "proxmox_api_url" {
   description = "Proxmox API endpoint, for example https://pve.lab.adre.me:8006/."
   type        = string
-  default     = "https://172.16.0.200:8006/"
+  default     = "https://192.168.1.200:8006/"
 }
 
 variable "proxmox_api_token_id" {
@@ -43,7 +43,7 @@ variable "network_bridge" {
 variable "network_gateway" {
   description = "Default gateway for statically assigned guests."
   type        = string
-  default     = "172.16.0.1"
+  default     = "192.168.1.1"
 }
 
 variable "network_cidr" {
@@ -55,7 +55,7 @@ variable "network_cidr" {
 variable "dns_servers" {
   description = "DNS servers used by guests."
   type        = list(string)
-  default     = ["172.16.0.1", "1.1.1.1"]
+  default     = ["192.168.1.1", "1.1.1.1"]
 }
 
 variable "search_domain" {
@@ -101,9 +101,51 @@ variable "enable_docker_host" {
 }
 
 variable "enable_nix_host" {
-  description = "Create the NixOS workstation/lab VM. Requires vm_template_id to point at a bootstrappable VM template."
+  description = "Create the NixOS lab LXC. Requires nix_lxc_template_file_id to point at a NixOS LXC template."
   type        = bool
   default     = false
+}
+
+variable "nix_lxc_template_file_id" {
+  description = "NixOS LXC template file ID, for example local:vztmpl/nixos-lxc-lab-nix.tar.xz."
+  type        = string
+  default     = "local:vztmpl/nixos-lxc-lab-nix.tar.xz"
+}
+
+variable "manage_nix_lxc_template" {
+  description = "Download the NixOS LXC template into Proxmox storage with OpenTofu."
+  type        = bool
+  default     = true
+}
+
+variable "nix_lxc_template_datastore_id" {
+  description = "Proxmox datastore where the NixOS LXC template should be downloaded."
+  type        = string
+  default     = "local"
+}
+
+variable "nix_lxc_template_file_name" {
+  description = "File name to use for the downloaded NixOS LXC template."
+  type        = string
+  default     = "nixos-lxc-lab-nix.tar.xz"
+}
+
+variable "nix_lxc_template_url" {
+  description = "Hydra URL for the NixOS Proxmox LXC template."
+  type        = string
+  default     = "https://hydra.nixos.org/job/nixos/release-25.11/nixos.proxmoxLXC.x86_64-linux/latest/download-by-type/file/system-tarball"
+}
+
+variable "nix_lxc_template_download_timeout_seconds" {
+  description = "Timeout for downloading the NixOS LXC template through the Proxmox API."
+  type        = number
+  default     = 1800
+}
+
+variable "nix_lxc_os_type" {
+  description = "NixOS container operating system type."
+  type        = string
+  default     = "nixos"
 }
 
 variable "vm_ci_user" {
@@ -118,6 +160,12 @@ variable "jellyfin_media_bind_mount_host_path" {
   default     = null
 }
 
+variable "jellyfin_lxc_disk_size_gb" {
+  description = "Jellyfin LXC root disk size in GiB. Increase this value to grow /srv/media in place."
+  type        = number
+  default     = 48
+}
+
 variable "ssh_public_key" {
   description = "SSH public key injected into service guests."
   type        = string
@@ -130,28 +178,30 @@ variable "service_ips" {
     edge_lxc       = string
     docker_host_vm = string
     jellyfin_lxc   = string
-    nix_host_vm    = string
+    nix_host_lxc   = string
   })
   default = {
-    adguard_lxc    = "172.16.0.210"
-    edge_lxc       = "172.16.0.211"
-    docker_host_vm = "172.16.0.220"
-    jellyfin_lxc   = "172.16.0.230"
-    nix_host_vm    = "172.16.0.240"
+    adguard_lxc    = "192.168.1.210"
+    edge_lxc       = "192.168.1.211"
+    docker_host_vm = "192.168.1.220"
+    jellyfin_lxc   = "192.168.1.230"
+    nix_host_lxc   = "192.168.1.240"
   }
 }
 
-variable "nix_host_vm_resources" {
-  description = "Resource sizing for the NixOS workstation/lab VM."
+variable "nix_host_lxc_resources" {
+  description = "Resource sizing for the NixOS lab LXC."
   type = object({
     cores        = number
     memory_mb    = number
+    swap_mb      = number
     disk_size_gb = number
   })
   default = {
     cores        = 4
-    memory_mb    = 8192
-    disk_size_gb = 96
+    memory_mb    = 4096
+    swap_mb      = 1024
+    disk_size_gb = 32
   }
 }
 
@@ -224,8 +274,8 @@ check "docker_host_template" {
 
 check "nix_host_template" {
   assert {
-    condition     = !var.enable_nix_host || var.vm_template_id != null
-    error_message = "enable_nix_host requires vm_template_id to be set to an existing bootstrappable VM template ID."
+    condition     = !var.enable_nix_host || var.nix_lxc_template_file_id != ""
+    error_message = "enable_nix_host requires nix_lxc_template_file_id to point at an existing NixOS LXC template file ID."
   }
 }
 
