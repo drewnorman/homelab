@@ -1,0 +1,53 @@
+---
+- name: Ensure per-host SSH keypairs exist locally
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    ansible_remote_tmp: "{{ playbook_dir }}/../../.ansible/tmp"
+    ansible_user: "{{ lookup('env', 'USER') }}"
+    per_host_ssh_key_type: ed25519
+  tasks:
+    - name: Require inventory key paths
+      ansible.builtin.assert:
+        that:
+          - hostvars[item].per_host_ssh_private_key_file is defined
+          - hostvars[item].per_host_ssh_private_key_file | length > 0
+        fail_msg: "Set per_host_ssh_private_key_file for {{ item }} before generating per-host keys."
+      loop: "{{ groups['all'] | default([]) }}"
+
+    - name: Ensure local SSH directory exists
+      ansible.builtin.file:
+        path: "{{ hostvars[item].per_host_ssh_private_key_file | expanduser | dirname }}"
+        state: directory
+        mode: "0700"
+      loop: "{{ groups['all'] | default([]) }}"
+
+    - name: Generate local per-host SSH keypair
+      ansible.builtin.command:
+        argv:
+          - ssh-keygen
+          - -t
+          - "{{ per_host_ssh_key_type }}"
+          - -f
+          - "{{ hostvars[item].per_host_ssh_private_key_file | expanduser }}"
+          - -C
+          - "{{ hostvars[item].per_host_ssh_private_key_file | expanduser | basename }}"
+          - -N
+          - ""
+        creates: "{{ hostvars[item].per_host_ssh_private_key_file | expanduser }}"
+      loop: "{{ groups['all'] | default([]) }}"
+
+- name: Install per-host SSH public keys
+  hosts: all
+  gather_facts: false
+  become: true
+  vars:
+    ansible_ssh_private_key_file: "{{ bootstrap_private_key_file | default(per_host_ssh_private_key_file) }}"
+  tasks:
+    - name: Install per-host public key for the connection user
+      ansible.posix.authorized_key:
+        user: "{{ ansible_user }}"
+        key: "{{ lookup('ansible.builtin.file', (per_host_ssh_private_key_file | expanduser) + '.pub') }}"
+        state: present
+      when: install_per_host_ssh_keys | default(false) | bool

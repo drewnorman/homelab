@@ -1,0 +1,34 @@
+---
+- name: Bootstrap SSH access for NixOS LXC
+  hosts: nix
+  gather_facts: false
+  vars:
+    ansible_user: root
+    ansible_ssh_private_key_file: "{{ bootstrap_private_key_file | default('~/.ssh/root@192.168.1.200') }}"
+    nix_ssh_user: drew
+    nix_ssh_group: users
+    nix_ssh_shell: /run/current-system/sw/bin/bash
+    nix_ssh_authorized_keys:
+      - "{{ lookup('ansible.builtin.file', '~/.ssh/root@192.168.1.200.pub') }}"
+      - "{{ lookup('ansible.builtin.file', '~/.ssh/drew@nix.lab.adre.me.pub') }}"
+  tasks:
+    - name: Ensure drew can connect over SSH
+      ansible.builtin.raw: |
+        set -eu
+        PATH=/run/current-system/sw/bin:/run/wrappers/bin:/usr/bin:/bin
+
+        if ! id {{ nix_ssh_user }} >/dev/null 2>&1; then
+          useradd -m -G wheel -s {{ nix_ssh_shell }} {{ nix_ssh_user }}
+        fi
+
+        mkdir -p /home/{{ nix_ssh_user }}/.ssh
+        chmod 700 /home/{{ nix_ssh_user }}/.ssh
+        cat > /home/{{ nix_ssh_user }}/.ssh/authorized_keys <<'EOF'
+        {% for key in nix_ssh_authorized_keys %}
+        {{ key }}
+        {% endfor %}
+        EOF
+        chmod 600 /home/{{ nix_ssh_user }}/.ssh/authorized_keys
+        chown -R {{ nix_ssh_user }}:{{ nix_ssh_group }} /home/{{ nix_ssh_user }}/.ssh
+
+        systemctl start sshd.socket

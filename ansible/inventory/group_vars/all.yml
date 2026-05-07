@@ -1,6 +1,11 @@
 ---
 homelab_domain: "lab.adre.me"
+homelab_name: "lab"
 timezone: "America/Denver"
+
+per_host_ssh_key_fqdn: "{{ inventory_hostname | regex_replace('^' ~ homelab_name ~ '-', '') }}.{{ homelab_domain }}"
+per_host_ssh_private_key_file: "~/.ssh/{{ ansible_user }}@{{ per_host_ssh_key_fqdn }}"
+ansible_ssh_private_key_file: "{{ per_host_ssh_private_key_file }}"
 
 docker_admin_user: "drew"
 docker_compose_root: "/opt/compose"
@@ -18,6 +23,8 @@ edge_tls_key_path: "/etc/caddy/certs/{{ edge_acme_cert_name }}.key"
 edge_acme_dns_propagation_timeout: 600
 edge_acme_dns_polling_interval: 10
 edge_acme_dns_ttl: 300
+edge_lego_version: "4.34.0"
+edge_lego_archive_url: "https://github.com/go-acme/lego/releases/download/v{{ edge_lego_version }}/lego_v{{ edge_lego_version }}_linux_amd64.tar.gz"
 edge_extra_services: []
 
 adguard_bind_port: 80
@@ -46,6 +53,8 @@ adguard_trusted_proxies:
   - "::1/128"
 
 adguard_dns_rewrites:
+  - domain: "nix.{{ homelab_domain }}"
+    answer: "192.168.1.240"
   - domain: "*.{{ homelab_domain }}"
     answer: "{{ hostvars[groups['edge'][0]].ansible_host }}"
   - domain: "{{ homelab_domain }}"
@@ -54,8 +63,6 @@ adguard_dns_rewrites:
     answer: "{{ hostvars[groups['edge'][0]].ansible_host }}"
   - domain: "jellyfin.{{ homelab_domain }}"
     answer: "{{ hostvars[groups['edge'][0]].ansible_host }}"
-  - domain: "nix.{{ homelab_domain }}"
-    answer: "{{ hostvars[groups['nix'][0]].ansible_host if groups.get('nix', []) | length > 0 else '172.16.0.240' }}"
 
 adguard_filters:
   - enabled: true
