@@ -1,7 +1,7 @@
 ---
-ansible_python_interpreter: /run/current-system/sw/bin/python3
+ansible_timeout: 1800
 
 nix_config_repo_url: "https://github.com/drewnorman/nix-config"
 nix_config_repo_branch: main
-nix_config_flake_host: "nix"
+nix_config_flake_host: "lab-nix"
 nix_config_clone_path: "/root/nix-config"
