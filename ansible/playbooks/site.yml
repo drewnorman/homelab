@@ -1,6 +1,12 @@
 ---
+- name: Configure Proxmox host
+  hosts: proxmox
+  become: true
+  roles:
+    - proxmox
+
 - name: Bootstrap all guests
-  hosts: all:!nix
+  hosts: all:!nix:!proxmox
   become: true
   roles:
     - common
@@ -26,12 +32,20 @@
 - name: Configure media automation host
   hosts: arr
   become: true
+  pre_tasks:
+    - name: Wait for connection
+      ansible.builtin.wait_for_connection:
+        timeout: 60
   roles:
     - arr
 
 - name: Configure Jellyfin host
   hosts: media
   become: true
+  pre_tasks:
+    - name: Wait for connection
+      ansible.builtin.wait_for_connection:
+        timeout: 60
   roles:
     - jellyfin
 
