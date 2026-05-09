@@ -97,8 +97,10 @@ qbittorrent_user: qbittorrent
 qbittorrent_port: 8080
 
 # Check GitHub releases for current versions before deploying.
-arr_media_path: /srv/media
-arr_downloads_path: /srv/downloads
+arr_media_path: /mnt/media/media
+arr_downloads_path: /mnt/media/downloads
+
+jellyfin_media_path: /mnt/media/media
 arr_apps:
   - name: prowlarr
     user: prowlarr

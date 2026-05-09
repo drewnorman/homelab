@@ -1,0 +1,82 @@
+---
+- name: Partition media SSD
+  community.general.parted:
+    device: "{{ proxmox_media_ssd_device }}"
+    number: 1
+    label: gpt
+    state: present
+    part_end: "100%"
+
+- name: Format media SSD partition as ext4
+  community.general.filesystem:
+    fstype: ext4
+    dev: "{{ proxmox_media_ssd_device }}1"
+    state: present
+
+- name: Create /mnt/media mount point
+  ansible.builtin.file:
+    path: /mnt/media
+    state: directory
+    mode: "0755"
+
+- name: Get media SSD partition UUID
+  ansible.builtin.command: blkid -s UUID -o value {{ proxmox_media_ssd_device }}1
+  register: proxmox_media_ssd_uuid
+  changed_when: false
+
+- name: Mount media SSD via fstab
+  ansible.posix.mount:
+    path: /mnt/media
+    src: "UUID={{ proxmox_media_ssd_uuid.stdout }}"
+    fstype: ext4
+    opts: defaults
+    state: mounted
+
+- name: Create media directory structure on SSD
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0775"
+  loop:
+    - /mnt/media/media
+    - /mnt/media/media/movies
+    - /mnt/media/media/tv
+    - /mnt/media/downloads
+    - /mnt/media/downloads/complete
+    - /mnt/media/downloads/complete/movies
+    - /mnt/media/downloads/complete/tv
+    - /mnt/media/downloads/incomplete
+
+- name: Configure arr LXC bind mount
+  ansible.builtin.lineinfile:
+    path: "/etc/pve/lxc/{{ proxmox_arr_lxc_vmid }}.conf"
+    regexp: "^mp0:"
+    line: "mp0: /mnt/media,mp=/mnt/media"
+  register: arr_lxc_mp
+
+- name: Configure Jellyfin LXC bind mount
+  ansible.builtin.lineinfile:
+    path: "/etc/pve/lxc/{{ proxmox_jellyfin_lxc_vmid }}.conf"
+    regexp: "^mp0:"
+    line: "mp0: /mnt/media,mp=/mnt/media"
+  register: jellyfin_lxc_mp
+
+- name: Stop arr LXC to apply bind mount
+  ansible.builtin.command: pct stop {{ proxmox_arr_lxc_vmid }}
+  when: arr_lxc_mp.changed
+  changed_when: true
+
+- name: Start arr LXC
+  ansible.builtin.command: pct start {{ proxmox_arr_lxc_vmid }}
+  when: arr_lxc_mp.changed
+  changed_when: true
+
+- name: Stop Jellyfin LXC to apply bind mount
+  ansible.builtin.command: pct stop {{ proxmox_jellyfin_lxc_vmid }}
+  when: jellyfin_lxc_mp.changed
+  changed_when: true
+
+- name: Start Jellyfin LXC
+  ansible.builtin.command: pct start {{ proxmox_jellyfin_lxc_vmid }}
+  when: jellyfin_lxc_mp.changed
+  changed_when: true
