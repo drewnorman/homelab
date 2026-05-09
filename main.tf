@@ -237,6 +237,77 @@ resource "proxmox_virtual_environment_container" "nix_host" {
   ]
 }
 
+resource "proxmox_virtual_environment_container" "arr" {
+  count = var.enable_arr_stack ? 1 : 0
+
+  node_name     = var.proxmox_node_name
+  description   = "Media automation container (qBittorrent, Radarr, Sonarr, Prowlarr) managed by OpenTofu"
+  start_on_boot = true
+  started       = true
+  tags          = ["arr", "homelab", "media"]
+  unprivileged  = true
+
+  cpu {
+    cores = 2
+  }
+
+  memory {
+    dedicated = 2048
+    swap      = 512
+  }
+
+  disk {
+    datastore_id = var.lxc_storage
+    size         = 8
+  }
+
+  dynamic "mount_point" {
+    for_each = var.arr_downloads_bind_mount_host_path == null ? [] : [var.arr_downloads_bind_mount_host_path]
+    content {
+      path   = "/srv/downloads"
+      volume = mount_point.value
+    }
+  }
+
+  dynamic "mount_point" {
+    for_each = var.arr_media_bind_mount_host_path == null ? [] : [var.arr_media_bind_mount_host_path]
+    content {
+      path   = "/srv/media"
+      volume = mount_point.value
+    }
+  }
+
+  initialization {
+    hostname = "${var.homelab_name}-arr"
+
+    dns {
+      domain  = var.search_domain
+      servers = var.dns_servers
+    }
+
+    ip_config {
+      ipv4 {
+        address = "${local.guests.arr.ip}/${var.network_cidr}"
+        gateway = var.network_gateway
+      }
+    }
+
+    user_account {
+      keys = [trimspace(var.ssh_public_key)]
+    }
+  }
+
+  network_interface {
+    name   = "veth0"
+    bridge = var.network_bridge
+  }
+
+  operating_system {
+    template_file_id = var.lxc_template_file_id
+    type             = var.lxc_os_type
+  }
+}
+
 resource "proxmox_virtual_environment_container" "jellyfin" {
   node_name     = var.proxmox_node_name
   description   = "Lean Jellyfin container managed by OpenTofu"

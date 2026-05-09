@@ -1,0 +1,16 @@
+[Unit]
+Description={{ item.name | capitalize }}
+After=network.target
+
+[Service]
+Type=simple
+User={{ item.user }}
+Group={{ item.user }}
+ExecStart={{ item.install_dir }}/{{ item.binary }} -nobrowser -data={{ item.data_dir }}
+TimeoutStopSec=20
+KillMode=process
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

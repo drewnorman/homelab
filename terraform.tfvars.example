@@ -22,6 +22,7 @@ service_ips = {
   edge_lxc       = "192.168.1.211"
   docker_host_vm = "192.168.1.220"
   jellyfin_lxc   = "192.168.1.230"
+  arr_lxc        = "192.168.1.232"
   nix_host_lxc   = "192.168.1.240"
 }
 
