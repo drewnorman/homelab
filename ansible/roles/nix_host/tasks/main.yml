@@ -1,0 +1,21 @@
+---
+- name: Ensure git is available
+  ansible.builtin.raw: |
+    command -v git >/dev/null 2>&1 || nix-env -iA nixpkgs.git
+  changed_when: false
+
+- name: Clone NixOS configuration repository
+  ansible.builtin.raw: |
+    if [ -d "{{ nix_config_clone_path }}/.git" ]; then
+      git -C "{{ nix_config_clone_path }}" pull --ff-only
+    else
+      git clone "{{ nix_config_repo_url }}" "{{ nix_config_clone_path }}"
+    fi
+  changed_when: true
+
+- name: Apply NixOS flake configuration
+  ansible.builtin.shell:
+    cmd: nixos-rebuild switch --flake {{ nix_config_clone_path }}#{{ nix_config_flake_host }}
+  async: 1800
+  poll: 30
+  changed_when: true
