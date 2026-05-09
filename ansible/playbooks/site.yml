@@ -23,6 +23,12 @@
   roles:
     - docker_host
 
+- name: Configure media automation host
+  hosts: arr
+  become: true
+  roles:
+    - arr
+
 - name: Configure Jellyfin host
   hosts: media
   become: true

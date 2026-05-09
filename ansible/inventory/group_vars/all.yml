@@ -94,3 +94,32 @@ adguard_user_rules:
   - "||matarketogen.qpon^"
 
 jellyfin_extra_packages: []
+
+qbittorrent_user: qbittorrent
+qbittorrent_port: 8080
+
+# Check GitHub releases for current versions before deploying.
+arr_media_path: /srv/media
+arr_downloads_path: /srv/downloads
+arr_apps:
+  - name: prowlarr
+    user: prowlarr
+    port: 9696
+    install_dir: /opt/prowlarr
+    data_dir: /var/lib/prowlarr
+    binary: Prowlarr
+    archive_url: "https://github.com/Prowlarr/Prowlarr/releases/download/v2.3.5.5327/Prowlarr.master.2.3.5.5327.linux-core-x64.tar.gz"
+  - name: radarr
+    user: radarr
+    port: 7878
+    install_dir: /opt/radarr
+    data_dir: /var/lib/radarr
+    binary: Radarr
+    archive_url: "https://github.com/Radarr/Radarr/releases/download/v5.14.0.9383/Radarr.master.5.14.0.9383.linux-core-x64.tar.gz"
+  - name: sonarr
+    user: sonarr
+    port: 8989
+    install_dir: /opt/sonarr
+    data_dir: /var/lib/sonarr
+    binary: Sonarr
+    archive_url: "https://github.com/Sonarr/Sonarr/releases/download/v4.0.9.2244/Sonarr.main.4.0.9.2244.linux-x64.tar.gz"

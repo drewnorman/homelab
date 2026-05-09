@@ -15,6 +15,29 @@
 		reverse_proxy {{ hostvars[groups['media'][0]].ansible_host }}:8096
 	}
 
+{% if groups['arr'] | default([]) | length > 0 %}
+{% set arr_host = hostvars[groups['arr'][0]].ansible_host %}
+	@radarr host radarr.{{ edge_base_domain }}
+	handle @radarr {
+		reverse_proxy {{ arr_host }}:7878
+	}
+
+	@sonarr host sonarr.{{ edge_base_domain }}
+	handle @sonarr {
+		reverse_proxy {{ arr_host }}:8989
+	}
+
+	@prowlarr host prowlarr.{{ edge_base_domain }}
+	handle @prowlarr {
+		reverse_proxy {{ arr_host }}:9696
+	}
+
+	@qbittorrent host qbittorrent.{{ edge_base_domain }}
+	handle @qbittorrent {
+		reverse_proxy {{ arr_host }}:8080
+	}
+
+{% endif %}
 {% for service in edge_extra_services %}
 	@service_{{ loop.index }} host {{ service.host }}
 	handle @service_{{ loop.index }} {

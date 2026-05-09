@@ -166,6 +166,24 @@ variable "jellyfin_lxc_disk_size_gb" {
   default     = 48
 }
 
+variable "enable_arr_stack" {
+  description = "Create the media automation LXC running qBittorrent, Radarr, Sonarr, and Prowlarr."
+  type        = bool
+  default     = false
+}
+
+variable "arr_downloads_bind_mount_host_path" {
+  description = "Optional Proxmox host path bind-mounted into the arr container at /srv/downloads."
+  type        = string
+  default     = null
+}
+
+variable "arr_media_bind_mount_host_path" {
+  description = "Optional Proxmox host path bind-mounted into the arr container at /srv/media. Should match jellyfin_media_bind_mount_host_path so that hardlinks work between the two containers."
+  type        = string
+  default     = null
+}
+
 variable "ssh_public_key" {
   description = "SSH public key injected into service guests."
   type        = string
@@ -178,6 +196,7 @@ variable "service_ips" {
     edge_lxc       = string
     docker_host_vm = string
     jellyfin_lxc   = string
+    arr_lxc        = string
     nix_host_lxc   = string
   })
   default = {
@@ -185,6 +204,7 @@ variable "service_ips" {
     edge_lxc       = "192.168.1.211"
     docker_host_vm = "192.168.1.220"
     jellyfin_lxc   = "192.168.1.230"
+    arr_lxc        = "192.168.1.232"
     nix_host_lxc   = "192.168.1.240"
   }
 }
