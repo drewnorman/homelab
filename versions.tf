@@ -6,9 +6,9 @@ terraform {
       source  = "bpg/proxmox"
       version = "~> 0.100"
     }
-    porkbun = {
-      source  = "kyswtn/porkbun"
-      version = "~> 0.1.3"
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 5.0"
     }
   }
 }
