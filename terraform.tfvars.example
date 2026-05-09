@@ -47,18 +47,56 @@ jellyfin_lxc_disk_size_gb = 80
 # Example: mount a host path backed by an external SSD into Jellyfin at /srv/media.
 # jellyfin_media_bind_mount_host_path = "/mnt/media"
 
-# Enable after adre.me is using Porkbun DNS and API access is enabled for the domain.
-enable_porkbun_dns = false
-porkbun_domain     = "adre.me"
-# Set credentials through TF_VAR_porkbun_api_key and TF_VAR_porkbun_secret_api_key.
+# For hardlinks to work, downloads and media must be on the same host filesystem.
+# Use subdirectories of a single mount point, e.g. /mnt/media/downloads and /mnt/media/library.
+enable_arr_stack = false
+# arr_downloads_bind_mount_host_path = "/mnt/media/downloads"
+# arr_media_bind_mount_host_path     = "/mnt/media/library"
 
-porkbun_dns_records = [
+# Enable after adre.me is using Cloudflare DNS and an API token is available.
+enable_cloudflare_dns = false
+cloudflare_zone_name  = "adre.me"
+cloudflare_zone_id    = ""
+# Set credentials through CLOUDFLARE_API_TOKEN or TF_VAR_cloudflare_api_token.
+
+cloudflare_dns_records = [
   {
-    key     = "caa-letsencrypt"
-    name    = ""
-    type    = "CAA"
-    content = "0 issue \"letsencrypt.org\""
-    ttl     = 600
-    notes   = "Allow Let's Encrypt certificates for adre.me"
+    key  = "caa-letsencrypt"
+    name = ""
+    type = "CAA"
+    data = {
+      flags = 0
+      tag   = "issue"
+      value = "letsencrypt.org"
+    }
+    ttl     = 3600
+    comment = "Allow Let's Encrypt certificates for adre.me"
+    proxied = false
+  },
+  {
+    key  = "caa-lab-letsencrypt"
+    name = "lab"
+    type = "CAA"
+    data = {
+      flags = 0
+      tag   = "issue"
+      value = "letsencrypt.org"
+    }
+    ttl     = 3600
+    comment = "Allow Let's Encrypt certificates for lab.adre.me"
+    proxied = false
+  },
+  {
+    key  = "caa-lab-letsencrypt-wildcard"
+    name = "lab"
+    type = "CAA"
+    data = {
+      flags = 0
+      tag   = "issuewild"
+      value = "letsencrypt.org"
+    }
+    ttl     = 3600
+    comment = "Allow Let's Encrypt wildcard certificates for lab.adre.me"
+    proxied = false
   }
 ]

@@ -237,50 +237,86 @@ variable "nix_config_flake_host" {
   default     = "nix"
 }
 
-variable "enable_porkbun_dns" {
-  description = "Manage public DNS records for porkbun_domain through the Porkbun provider."
+variable "enable_cloudflare_dns" {
+  description = "Manage public DNS records for cloudflare_zone_name through the Cloudflare provider."
   type        = bool
   default     = false
 }
 
-variable "porkbun_domain" {
-  description = "Porkbun-managed apex domain for public DNS records."
+variable "cloudflare_zone_name" {
+  description = "Cloudflare-managed apex domain for public DNS records."
   type        = string
   default     = "adre.me"
 }
 
-variable "porkbun_api_key" {
-  description = "Porkbun API key used by the OpenTofu Porkbun provider when enable_porkbun_dns is true."
+variable "cloudflare_zone_id" {
+  description = "Optional Cloudflare zone ID for cloudflare_zone_name. Leave empty to look up the zone by name."
+  type        = string
+  default     = ""
+}
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token. Can also be provided with CLOUDFLARE_API_TOKEN."
   type        = string
   default     = ""
   sensitive   = true
 }
 
-variable "porkbun_secret_api_key" {
-  description = "Porkbun secret API key used by the OpenTofu Porkbun provider when enable_porkbun_dns is true."
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "porkbun_dns_records" {
-  description = "Public DNS records to manage in Porkbun once adre.me is moved there."
+variable "cloudflare_dns_records" {
+  description = "Public DNS records to manage in Cloudflare."
   type = list(object({
     key     = string
     name    = string
     type    = string
-    content = string
-    ttl     = optional(number, 600)
-    notes   = optional(string, "Managed by OpenTofu")
+    content = optional(string)
+    data = optional(object({
+      flags = optional(number)
+      tag   = optional(string)
+      value = optional(string)
+    }))
+    ttl     = optional(number, 3600)
+    comment = optional(string, "Managed by OpenTofu")
+    proxied = optional(bool, false)
   }))
   default = [
     {
-      key     = "caa-letsencrypt"
-      name    = ""
-      type    = "CAA"
-      content = "0 issue \"letsencrypt.org\""
-      ttl     = 600
-      notes   = "Allow Let's Encrypt certificates for adre.me"
+      key  = "caa-letsencrypt"
+      name = ""
+      type = "CAA"
+      data = {
+        flags = 0
+        tag   = "issue"
+        value = "letsencrypt.org"
+      }
+      ttl     = 3600
+      comment = "Allow Let's Encrypt certificates for adre.me"
+      proxied = false
+    },
+    {
+      key  = "caa-lab-letsencrypt"
+      name = "lab"
+      type = "CAA"
+      data = {
+        flags = 0
+        tag   = "issue"
+        value = "letsencrypt.org"
+      }
+      ttl     = 3600
+      comment = "Allow Let's Encrypt certificates for lab.adre.me"
+      proxied = false
+    },
+    {
+      key  = "caa-lab-letsencrypt-wildcard"
+      name = "lab"
+      type = "CAA"
+      data = {
+        flags = 0
+        tag   = "issuewild"
+        value = "letsencrypt.org"
+      }
+      ttl     = 3600
+      comment = "Allow Let's Encrypt wildcard certificates for lab.adre.me"
+      proxied = false
     }
   ]
 }
@@ -299,9 +335,9 @@ check "nix_host_template" {
   }
 }
 
-check "porkbun_dns_credentials" {
+check "cloudflare_dns_credentials" {
   assert {
-    condition     = !var.enable_porkbun_dns || (var.porkbun_api_key != "" && var.porkbun_secret_api_key != "")
-    error_message = "enable_porkbun_dns requires porkbun_api_key and porkbun_secret_api_key, preferably through TF_VAR_porkbun_api_key and TF_VAR_porkbun_secret_api_key."
+    condition     = !var.enable_cloudflare_dns || var.cloudflare_zone_name != ""
+    error_message = "enable_cloudflare_dns requires cloudflare_zone_name and Cloudflare API credentials through cloudflare_api_token or CLOUDFLARE_API_TOKEN."
   }
 }

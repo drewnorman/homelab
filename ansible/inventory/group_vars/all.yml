@@ -13,16 +13,14 @@ docker_compose_root: "/opt/compose"
 edge_base_domain: "lab.adre.me"
 edge_tls_mode: "public_dns"
 edge_acme_email: "{{ lookup('env', 'EDGE_ACME_EMAIL') | default('', true) }}"
-edge_acme_porkbun_api_key: "{{ lookup('env', 'PORKBUN_API_KEY') | default('', true) }}"
-edge_acme_porkbun_secret_api_key: "{{ lookup('env', 'PORKBUN_SECRET_API_KEY') | default('', true) }}"
-edge_acme_cert_name: "_.{{ edge_base_domain }}"
+edge_acme_cloudflare_dns_api_token: "{{ lookup('env', 'CLOUDFLARE_DNS_API_TOKEN') | default(lookup('env', 'CLOUDFLARE_API_TOKEN'), true) }}"
+edge_acme_cert_name: "{{ edge_base_domain }}"
 edge_acme_lego_cert_path: "/var/lib/lego/certificates/{{ edge_acme_cert_name }}.crt"
 edge_acme_lego_key_path: "/var/lib/lego/certificates/{{ edge_acme_cert_name }}.key"
 edge_tls_cert_path: "/etc/caddy/certs/{{ edge_acme_cert_name }}.crt"
 edge_tls_key_path: "/etc/caddy/certs/{{ edge_acme_cert_name }}.key"
 edge_acme_dns_propagation_timeout: 600
 edge_acme_dns_polling_interval: 10
-edge_acme_dns_ttl: 300
 edge_lego_version: "4.34.0"
 edge_lego_archive_url: "https://github.com/go-acme/lego/releases/download/v{{ edge_lego_version }}/lego_v{{ edge_lego_version }}_linux_amd64.tar.gz"
 edge_extra_services: []

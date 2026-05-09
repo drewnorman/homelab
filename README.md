@@ -30,6 +30,11 @@ source .env
 set +a
 ```
 
+Keep bcrypt hashes in single quotes in `.env`, for example
+`ADGUARD_ADMIN_PASSWORD_BCRYPT='$2b$10$...'`. Unquoted bcrypt hashes are
+changed by the shell when `.env` is sourced because `$2b`, `$10`, and similar
+segments are treated as parameter expansions.
+
 Provisioned guests are expected to be managed over SSH keys only. `TF_VAR_ssh_public_key` is injected during provisioning as the launch/bootstrap key. After a guest exists, use a per-host SSH key named `~/.ssh/<user>@<fqdn>` for normal connections and Ansible runs.
 
 ## Usage
@@ -69,22 +74,20 @@ For local-only HTTPS:
 - only hosts explicitly listed in the Caddy config are proxied
 - nothing needs to be exposed on your router
 
-The wildcard certificate is issued with DNS-01 validation through Porkbun using `lego`. DNS-01 proves ownership by creating temporary `_acme-challenge.lab.adre.me` TXT records, so ports 80 and 443 do not need to be exposed publicly.
+The wildcard certificate is issued with DNS-01 validation through Cloudflare using `lego`. DNS-01 proves ownership by creating temporary `_acme-challenge.lab.adre.me` TXT records, so ports 80 and 443 do not need to be exposed publicly.
 
 ### Browser-Trusted HTTPS
 
-The domain `adre.me` currently resolves from Google Cloud DNS. After the domain is moved to Porkbun DNS, let `lab-edge` issue and renew the trusted certificate with Porkbun's API:
+The domain `adre.me` is hosted on Cloudflare DNS. Let `lab-edge` issue and renew the trusted certificate with Cloudflare's API:
 
-1. In Porkbun, enable API access on the `adre.me` domain.
-2. Create a Porkbun API key and secret key.
-3. Set `EDGE_ACME_EMAIL`, `PORKBUN_API_KEY`, `PORKBUN_SECRET_API_KEY`, and the matching `TF_VAR_...` exports in `.env`, then source `.env` before running OpenTofu or Ansible.
+1. In Cloudflare, create an API token with Zone:Read and DNS:Edit for `adre.me`.
+2. Set `EDGE_ACME_EMAIL`, `CLOUDFLARE_DNS_API_TOKEN`, `CLOUDFLARE_API_TOKEN`, and the matching `TF_VAR_...` export in `.env`, then source `.env` before running OpenTofu or Ansible.
 
 ```sh
 export EDGE_ACME_EMAIL="drewnorman739@gmail.com"
-export PORKBUN_API_KEY="pk1_replace_me"
-export PORKBUN_SECRET_API_KEY="sk1_replace_me"
-export TF_VAR_porkbun_api_key="${PORKBUN_API_KEY}"
-export TF_VAR_porkbun_secret_api_key="${PORKBUN_SECRET_API_KEY}"
+export CLOUDFLARE_DNS_API_TOKEN="replace-me"
+export CLOUDFLARE_API_TOKEN="${CLOUDFLARE_DNS_API_TOKEN}"
+export TF_VAR_cloudflare_api_token="${CLOUDFLARE_DNS_API_TOKEN}"
 ```
 
 No permanent public `A`, `AAAA`, or `CNAME` record is required for `*.lab.adre.me` as long as access stays LAN-only. AdGuard keeps resolving `*.lab.adre.me` to `lab-edge` internally. `lego` will create and remove temporary TXT records under:
@@ -95,7 +98,9 @@ _acme-challenge.lab.adre.me
 
 The certificate state is stored on `lab-edge` under `/var/lib/lego/`. The active certificate and key are copied to `/etc/caddy/certs/` with permissions Caddy can read. A systemd timer named `lego-edge-cert-renew.timer` renews the certificate daily when it is close to expiry and reloads Caddy after renewal.
 
-OpenTofu can manage public Porkbun DNS records after the cutover. The checked-in example enables a CAA record allowing Let's Encrypt to issue for `adre.me`; keep `enable_porkbun_dns = false` until `adre.me` is actually hosted on Porkbun DNS and API access is enabled.
+OpenTofu can manage public Cloudflare DNS records. The checked-in example includes CAA records allowing Let's Encrypt to issue for `adre.me`, `lab.adre.me`, and `*.lab.adre.me`; keep `enable_cloudflare_dns = false` until Cloudflare API credentials are configured. If `cloudflare_zone_id` is left empty, OpenTofu looks up the `adre.me` zone by name.
+
+The Ansible edge role requests a certificate for both `lab.adre.me` and `*.lab.adre.me`, copies it to `/etc/caddy/certs/`, and fails the run if the active certificate does not include both names.
 
 Additional app hostnames should be added to `edge_extra_services` in [ansible/inventory/group_vars/all.yml](/home/drew/documents/personal/homelab/ansible/inventory/group_vars/all.yml:1). The wildcard DNS rewrite means any `*.lab.adre.me` hostname will already resolve to `lab-edge`; you only need to tell Caddy which upstream each hostname should proxy to.
 
@@ -151,12 +156,11 @@ Export any runtime secrets before running the playbook:
 
 ```sh
 ansible-galaxy collection install -r ansible/requirements.yml
-export ADGUARD_ADMIN_PASSWORD_BCRYPT='replace-with-bcrypt-hash'
+export ADGUARD_ADMIN_PASSWORD_BCRYPT='$2b$10$replace-with-bcrypt-hash'
 export EDGE_ACME_EMAIL="drewnorman739@gmail.com"
-export PORKBUN_API_KEY="pk1_replace_me"
-export PORKBUN_SECRET_API_KEY="sk1_replace_me"
-export TF_VAR_porkbun_api_key="${PORKBUN_API_KEY}"
-export TF_VAR_porkbun_secret_api_key="${PORKBUN_SECRET_API_KEY}"
+export CLOUDFLARE_DNS_API_TOKEN="replace-me"
+export CLOUDFLARE_API_TOKEN="${CLOUDFLARE_DNS_API_TOKEN}"
+export TF_VAR_cloudflare_api_token="${CLOUDFLARE_DNS_API_TOKEN}"
 ```
 
 Ansible derives per-host private keys from `inventory_hostname`, `ansible_user`, `homelab_name`, and `homelab_domain`, producing names like `~/.ssh/root@edge.lab.adre.me` or `~/.ssh/drew@nix.lab.adre.me`. Terraform still injects `TF_VAR_ssh_public_key` during provisioning; the per-host keys are for post-launch access.
