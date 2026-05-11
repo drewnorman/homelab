@@ -5,9 +5,11 @@ terraform.tfvars
 .uv-cache/
 .venv/
 .terraform/
+tfplan*
 *.tfstate
 *.tfstate.*
 ansible/inventory/hosts.ini
+.claude/
 crash.log
 crash.*.log
 override.tf
