@@ -95,6 +95,15 @@ jellyfin_extra_packages: []
 
 qbittorrent_user: qbittorrent
 qbittorrent_port: 8080
+byparr_enabled: true
+byparr_user: byparr
+byparr_repo_url: "https://github.com/ThePhaseless/Byparr.git"
+byparr_version: "v2.1.0"
+byparr_install_dir: /opt/byparr
+byparr_port: 8191
+byparr_proxy_tag: byparr
+prowlarr_cloudflare_indexers:
+  - "1337x"
 
 # Check GitHub releases for current versions before deploying.
 arr_media_path: /mnt/media/media
@@ -116,6 +125,8 @@ arr_apps:
     data_dir: /var/lib/radarr
     binary: Radarr
     archive_url: "https://github.com/Radarr/Radarr/releases/download/v5.14.0.9383/Radarr.master.5.14.0.9383.linux-core-x64.tar.gz"
+    media_subdir: movies
+    qbt_category_field: movieCategory
   - name: sonarr
     user: sonarr
     port: 8989
@@ -123,3 +134,5 @@ arr_apps:
     data_dir: /var/lib/sonarr
     binary: Sonarr
     archive_url: "https://github.com/Sonarr/Sonarr/releases/download/v4.0.9.2244/Sonarr.main.4.0.9.2244.linux-x64.tar.gz"
+    media_subdir: tv
+    qbt_category_field: tvCategory
