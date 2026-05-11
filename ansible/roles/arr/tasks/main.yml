@@ -6,8 +6,111 @@
       - libssl3
       - sqlite3
       - qbittorrent-nox
+      - ca-certificates
+      - curl
+      - git
     state: present
     update_cache: true
+
+- name: Create Byparr user
+  ansible.builtin.user:
+    name: "{{ byparr_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ byparr_install_dir }}"
+    create_home: false
+    state: present
+  when: byparr_enabled
+
+- name: Install uv
+  ansible.builtin.shell: "curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh"
+  args:
+    creates: /usr/local/bin/uv
+  when: byparr_enabled
+
+- name: Clone Byparr
+  ansible.builtin.git:
+    repo: "{{ byparr_repo_url }}"
+    dest: "{{ byparr_install_dir }}"
+    version: "{{ byparr_version }}"
+  register: _byparr_checkout
+  when: byparr_enabled
+
+- name: Install Byparr browser system dependencies
+  ansible.builtin.command: /usr/local/bin/uv run playwright install-deps firefox
+  args:
+    chdir: "{{ byparr_install_dir }}"
+  environment:
+    HOME: "{{ byparr_install_dir }}"
+    XDG_CACHE_HOME: "{{ byparr_install_dir }}/.cache"
+    UV_CACHE_DIR: "{{ byparr_install_dir }}/.cache/uv"
+    UV_PYTHON_INSTALL_DIR: "{{ byparr_install_dir }}/.uv/python"
+  when: byparr_enabled
+  changed_when: false
+
+- name: Install Byparr Python dependencies
+  ansible.builtin.command: /usr/local/bin/uv sync
+  args:
+    chdir: "{{ byparr_install_dir }}"
+  environment:
+    HOME: "{{ byparr_install_dir }}"
+    XDG_CACHE_HOME: "{{ byparr_install_dir }}/.cache"
+    UV_CACHE_DIR: "{{ byparr_install_dir }}/.cache/uv"
+    UV_PYTHON_INSTALL_DIR: "{{ byparr_install_dir }}/.uv/python"
+  when: byparr_enabled
+  changed_when: _byparr_checkout.changed
+
+- name: Fetch Byparr browser
+  ansible.builtin.command: /usr/local/bin/uv run camoufox fetch
+  args:
+    chdir: "{{ byparr_install_dir }}"
+  environment:
+    HOME: "{{ byparr_install_dir }}"
+    XDG_CACHE_HOME: "{{ byparr_install_dir }}/.cache"
+    UV_CACHE_DIR: "{{ byparr_install_dir }}/.cache/uv"
+    UV_PYTHON_INSTALL_DIR: "{{ byparr_install_dir }}/.uv/python"
+  when: byparr_enabled
+  changed_when: _byparr_checkout.changed
+
+- name: Set Byparr file ownership
+  ansible.builtin.file:
+    path: "{{ byparr_install_dir }}"
+    state: directory
+    owner: "{{ byparr_user }}"
+    group: "{{ byparr_user }}"
+    recurse: true
+  when: byparr_enabled
+
+- name: Install Byparr systemd service
+  ansible.builtin.template:
+    src: byparr.service.j2
+    dest: /etc/systemd/system/byparr.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: _byparr_service
+  when: byparr_enabled
+
+- name: Reload systemd after Byparr service changes
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: byparr_enabled and _byparr_service.changed
+
+- name: Enable Byparr service
+  ansible.builtin.service:
+    name: byparr
+    enabled: true
+    state: started
+  when: byparr_enabled
+
+- name: Wait for Byparr API
+  ansible.builtin.uri:
+    url: "http://localhost:{{ byparr_port }}/health"
+  register: _byparr_health
+  until: _byparr_health.status == 200
+  retries: 30
+  delay: 2
+  when: byparr_enabled
 
 - name: Create media group
   ansible.builtin.group:
@@ -127,3 +230,246 @@
     enabled: true
     state: started
   loop: "{{ arr_apps }}"
+
+- name: Check qBittorrent config settings
+  ansible.builtin.shell: |
+    grep -qF 'WebUI\LocalHostAuth=false' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
+    grep -qF 'Bittorrent\MaxRatioEnabled=true' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
+    grep -qF 'Downloads\SavePath={{ arr_downloads_path }}/complete' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
+    grep -qF 'Downloads\TempPath={{ arr_downloads_path }}/incomplete' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
+    grep -qF 'Downloads\TempPathEnabled=true' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf
+  register: _qbt_config_check
+  changed_when: false
+  failed_when: false
+
+- name: Stop qBittorrent to safely apply config
+  ansible.builtin.service:
+    name: "qbittorrent-nox@{{ qbittorrent_user }}"
+    state: stopped
+  when: _qbt_config_check.rc != 0
+
+- name: Configure qBittorrent settings
+  community.general.ini_file:
+    path: /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf
+    section: Preferences
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    owner: "{{ qbittorrent_user }}"
+    group: "{{ qbittorrent_user }}"
+    mode: "0600"
+    create: true
+    no_extra_spaces: true
+  loop:
+    - { option: "WebUI\\LocalHostAuth", value: "false" }
+    - { option: "Bittorrent\\MaxRatioEnabled", value: "true" }
+    - { option: "Bittorrent\\MaxRatio", value: "0" }
+    - { option: "Bittorrent\\MaxRatioAction", value: "0" }
+    - { option: "Downloads\\SavePath", value: "{{ arr_downloads_path }}/complete" }
+    - { option: "Downloads\\TempPath", value: "{{ arr_downloads_path }}/incomplete" }
+    - { option: "Downloads\\TempPathEnabled", value: "true" }
+  when: _qbt_config_check.rc != 0
+
+- name: Start qBittorrent
+  ansible.builtin.service:
+    name: "qbittorrent-nox@{{ qbittorrent_user }}"
+    state: started
+  when: _qbt_config_check.rc != 0
+
+- name: Get qBittorrent live preferences
+  ansible.builtin.uri:
+    url: "http://localhost:{{ qbittorrent_port }}/api/v2/app/preferences"
+    return_content: true
+  register: _qbt_live_preferences
+
+- name: Configure qBittorrent live download paths
+  ansible.builtin.uri:
+    url: "http://localhost:{{ qbittorrent_port }}/api/v2/app/setPreferences"
+    method: POST
+    body_format: form-urlencoded
+    body:
+      json: "{{ {'save_path': arr_downloads_path + '/complete', 'temp_path': arr_downloads_path + '/incomplete', 'temp_path_enabled': true} | to_json }}"
+  when: >
+    _qbt_live_preferences.json.save_path != arr_downloads_path + '/complete' or
+    _qbt_live_preferences.json.temp_path != arr_downloads_path + '/incomplete' or
+    not _qbt_live_preferences.json.temp_path_enabled
+
+- name: Configure arr app API settings
+  ansible.builtin.include_tasks: configure.yml
+  loop: "{{ arr_apps | selectattr('media_subdir', 'defined') | list }}"
+  loop_control:
+    loop_var: arr_app
+
+- name: Wait for Prowlarr config file
+  ansible.builtin.wait_for:
+    path: /var/lib/prowlarr/config.xml
+    timeout: 60
+
+- name: Read Prowlarr config
+  ansible.builtin.slurp:
+    src: /var/lib/prowlarr/config.xml
+  register: _prowlarr_config
+  no_log: true
+
+- name: Extract Prowlarr API key
+  ansible.builtin.set_fact:
+    _prowlarr_api_key: "{{ _prowlarr_config.content | b64decode | regex_search('<ApiKey>(.*?)</ApiKey>', '\\1') | first }}"
+  no_log: true
+
+- name: Wait for Prowlarr API
+  ansible.builtin.uri:
+    url: http://localhost:9696/api/v1/system/status
+    headers:
+      X-Api-Key: "{{ _prowlarr_api_key }}"
+  register: _prowlarr_api_status
+  until: _prowlarr_api_status.status == 200
+  retries: 30
+  delay: 2
+
+- name: Get Prowlarr applications
+  ansible.builtin.uri:
+    url: http://localhost:9696/api/v1/applications
+    headers:
+      X-Api-Key: "{{ _prowlarr_api_key }}"
+  register: _prowlarr_applications
+
+- name: Get Prowlarr application schemas
+  ansible.builtin.uri:
+    url: http://localhost:9696/api/v1/applications/schema
+    headers:
+      X-Api-Key: "{{ _prowlarr_api_key }}"
+  register: _prowlarr_application_schemas
+
+- name: Get Prowlarr tags
+  ansible.builtin.uri:
+    url: http://localhost:9696/api/v1/tag
+    headers:
+      X-Api-Key: "{{ _prowlarr_api_key }}"
+  register: _prowlarr_tags
+  when: byparr_enabled
+
+- name: Create Prowlarr Byparr tag
+  ansible.builtin.uri:
+    url: http://localhost:9696/api/v1/tag
+    method: POST
+    headers:
+      X-Api-Key: "{{ _prowlarr_api_key }}"
+    body_format: json
+    body:
+      label: "{{ byparr_proxy_tag }}"
+    status_code: [200, 201]
+  register: _prowlarr_byparr_tag_create
+  when: >
+    byparr_enabled and
+    (_prowlarr_tags.json | selectattr('label', 'equalto', byparr_proxy_tag) | list | length == 0)
+
+- name: Set existing Prowlarr Byparr tag id
+  ansible.builtin.set_fact:
+    _prowlarr_byparr_tag_id: >-
+      {{
+        _prowlarr_tags.json
+        | selectattr('label', 'equalto', byparr_proxy_tag)
+        | map(attribute='id')
+        | list
+        | first
+      }}
+  when: >
+    byparr_enabled and
+    (_prowlarr_tags.json | selectattr('label', 'equalto', byparr_proxy_tag) | list | length > 0)
+
+- name: Set created Prowlarr Byparr tag id
+  ansible.builtin.set_fact:
+    _prowlarr_byparr_tag_id: "{{ _prowlarr_byparr_tag_create.json.id }}"
+  when: >
+    byparr_enabled and
+    (_prowlarr_tags.json | selectattr('label', 'equalto', byparr_proxy_tag) | list | length == 0)
+
+- name: Get Prowlarr indexer proxies
+  ansible.builtin.uri:
+    url: http://localhost:9696/api/v1/indexerproxy
+    headers:
+      X-Api-Key: "{{ _prowlarr_api_key }}"
+  register: _prowlarr_indexer_proxies
+  when: byparr_enabled
+
+- name: Get Prowlarr indexer proxy schemas
+  ansible.builtin.uri:
+    url: http://localhost:9696/api/v1/indexerproxy/schema
+    headers:
+      X-Api-Key: "{{ _prowlarr_api_key }}"
+  register: _prowlarr_indexer_proxy_schemas
+  when: >
+    byparr_enabled and
+    (_prowlarr_indexer_proxies.json | selectattr('name', 'equalto', 'Byparr') | list | length == 0)
+
+- name: Extract Prowlarr FlareSolverr proxy schema
+  ansible.builtin.set_fact:
+    _prowlarr_byparr_proxy_schema: "{{ _prowlarr_indexer_proxy_schemas.json | selectattr('implementation', 'equalto', 'FlareSolverr') | first }}"
+  when: >
+    byparr_enabled and
+    (_prowlarr_indexer_proxies.json | selectattr('name', 'equalto', 'Byparr') | list | length == 0)
+
+- name: Set Prowlarr Byparr proxy field overrides
+  ansible.builtin.set_fact:
+    _prowlarr_byparr_proxy_overrides:
+      host: "http://localhost:{{ byparr_port }}/"
+      requestTimeout: 60
+  when: >
+    byparr_enabled and
+    (_prowlarr_indexer_proxies.json | selectattr('name', 'equalto', 'Byparr') | list | length == 0)
+
+- name: Reset Prowlarr Byparr proxy fields list
+  ansible.builtin.set_fact:
+    _prowlarr_byparr_proxy_fields: []
+  when: >
+    byparr_enabled and
+    (_prowlarr_indexer_proxies.json | selectattr('name', 'equalto', 'Byparr') | list | length == 0)
+
+- name: Build Prowlarr Byparr proxy fields
+  ansible.builtin.set_fact:
+    _prowlarr_byparr_proxy_fields: "{{ _prowlarr_byparr_proxy_fields + [item | combine({'value': _prowlarr_byparr_proxy_overrides[item.name]} if item.name in _prowlarr_byparr_proxy_overrides else {})] }}"
+  loop: "{{ _prowlarr_byparr_proxy_schema.fields if byparr_enabled and (_prowlarr_indexer_proxies.json | selectattr('name', 'equalto', 'Byparr') | list | length == 0) else [] }}"
+  when: >
+    byparr_enabled and
+    (_prowlarr_indexer_proxies.json | selectattr('name', 'equalto', 'Byparr') | list | length == 0)
+
+- name: Create Prowlarr Byparr proxy
+  ansible.builtin.uri:
+    url: http://localhost:9696/api/v1/indexerproxy
+    method: POST
+    headers:
+      X-Api-Key: "{{ _prowlarr_api_key }}"
+    body_format: json
+    body: "{{ _prowlarr_byparr_proxy_schema | combine({'name': 'Byparr', 'tags': [_prowlarr_byparr_tag_id], 'fields': _prowlarr_byparr_proxy_fields}) }}"
+    status_code: [200, 201]
+  when: >
+    byparr_enabled and
+    (_prowlarr_indexer_proxies.json | selectattr('name', 'equalto', 'Byparr') | list | length == 0)
+
+- name: Get Prowlarr indexers
+  ansible.builtin.uri:
+    url: http://localhost:9696/api/v1/indexer
+    headers:
+      X-Api-Key: "{{ _prowlarr_api_key }}"
+  register: _prowlarr_indexers
+  when: byparr_enabled
+
+- name: Tag Prowlarr Cloudflare indexers for Byparr
+  ansible.builtin.uri:
+    url: "http://localhost:9696/api/v1/indexer/{{ item.id }}"
+    method: PUT
+    headers:
+      X-Api-Key: "{{ _prowlarr_api_key }}"
+    body_format: json
+    body: "{{ item | combine({'tags': ((item.tags | default([])) + [_prowlarr_byparr_tag_id]) | unique | list}) }}"
+    status_code: [200, 202]
+  loop: "{{ _prowlarr_indexers.json if byparr_enabled else [] }}"
+  when: >
+    byparr_enabled and
+    item.definitionName in prowlarr_cloudflare_indexers and
+    _prowlarr_byparr_tag_id not in item.tags
+
+- name: Configure Prowlarr application sync targets
+  ansible.builtin.include_tasks: configure-prowlarr-application.yml
+  loop: "{{ arr_apps | selectattr('media_subdir', 'defined') | list }}"
+  loop_control:
+    loop_var: arr_app

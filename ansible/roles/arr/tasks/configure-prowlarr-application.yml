@@ -1,0 +1,73 @@
+---
+- name: Set {{ arr_app.name }} Prowlarr implementation name
+  ansible.builtin.set_fact:
+    _prowlarr_application_implementation: "{{ arr_app.binary }}"
+
+- name: Wait for {{ arr_app.name }} config file
+  ansible.builtin.wait_for:
+    path: "{{ arr_app.data_dir }}/config.xml"
+    timeout: 60
+
+- name: Read {{ arr_app.name }} config for Prowlarr application sync
+  ansible.builtin.slurp:
+    src: "{{ arr_app.data_dir }}/config.xml"
+  register: _prowlarr_target_config
+  no_log: true
+
+- name: Extract {{ arr_app.name }} API key for Prowlarr application sync
+  ansible.builtin.set_fact:
+    _prowlarr_target_api_key: "{{ _prowlarr_target_config.content | b64decode | regex_search('<ApiKey>(.*?)</ApiKey>', '\\1') | first }}"
+  no_log: true
+
+- name: Set {{ arr_app.name }} Prowlarr application existence
+  ansible.builtin.set_fact:
+    _prowlarr_application_exists: >-
+      {{
+        _prowlarr_applications.json
+        | selectattr('implementation', 'equalto', _prowlarr_application_implementation)
+        | list
+        | length > 0
+      }}
+
+- name: Extract {{ arr_app.name }} Prowlarr application schema
+  ansible.builtin.set_fact:
+    _prowlarr_application_schema: >-
+      {{
+        _prowlarr_application_schemas.json
+        | selectattr('implementation', 'equalto', _prowlarr_application_implementation)
+        | first
+      }}
+  when: not _prowlarr_application_exists
+
+- name: Set {{ arr_app.name }} Prowlarr application field overrides
+  ansible.builtin.set_fact:
+    _prowlarr_application_field_overrides:
+      prowlarrUrl: "http://localhost:9696"
+      baseUrl: "http://localhost:{{ arr_app.port }}"
+      apiKey: "{{ _prowlarr_target_api_key }}"
+  no_log: true
+  when: not _prowlarr_application_exists
+
+- name: Reset {{ arr_app.name }} Prowlarr application fields list
+  ansible.builtin.set_fact:
+    _prowlarr_application_fields: []
+  when: not _prowlarr_application_exists
+
+- name: Build {{ arr_app.name }} Prowlarr application fields
+  ansible.builtin.set_fact:
+    _prowlarr_application_fields: "{{ _prowlarr_application_fields + [item | combine({'value': _prowlarr_application_field_overrides[item.name]} if item.name in _prowlarr_application_field_overrides else {})] }}"
+  loop: "{{ _prowlarr_application_schema.fields if not _prowlarr_application_exists else [] }}"
+  no_log: true
+  when: not _prowlarr_application_exists
+
+- name: Create {{ arr_app.name }} Prowlarr application sync target
+  ansible.builtin.uri:
+    url: "http://localhost:9696/api/v1/applications"
+    method: POST
+    headers:
+      X-Api-Key: "{{ _prowlarr_api_key }}"
+    body_format: json
+    body: "{{ _prowlarr_application_schema | combine({'enable': true, 'name': _prowlarr_application_implementation, 'fields': _prowlarr_application_fields}) }}"
+    status_code: [200, 201]
+  no_log: true
+  when: not _prowlarr_application_exists
