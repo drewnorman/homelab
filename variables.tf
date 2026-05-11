@@ -155,15 +155,15 @@ variable "vm_ci_user" {
 }
 
 variable "jellyfin_media_bind_mount_host_path" {
-  description = "Optional Proxmox host path bind-mounted into the Jellyfin container at /srv/media."
+  description = "Optional Proxmox host path bind-mounted into the Jellyfin container at /mnt/media."
   type        = string
   default     = null
 }
 
 variable "jellyfin_lxc_disk_size_gb" {
-  description = "Jellyfin LXC root disk size in GiB. Increase this value to grow /srv/media in place."
+  description = "Jellyfin LXC root disk size in GiB."
   type        = number
-  default     = 48
+  default     = 16
 }
 
 variable "enable_arr_stack" {
@@ -179,7 +179,7 @@ variable "arr_downloads_bind_mount_host_path" {
 }
 
 variable "arr_media_bind_mount_host_path" {
-  description = "Optional Proxmox host path bind-mounted into the arr container at /srv/media. Should match jellyfin_media_bind_mount_host_path so that hardlinks work between the two containers."
+  description = "Optional Proxmox host path bind-mounted into the arr container at /mnt/media. Should match jellyfin_media_bind_mount_host_path so that hardlinks work between the two containers."
   type        = string
   default     = null
 }

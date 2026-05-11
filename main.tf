@@ -272,7 +272,7 @@ resource "proxmox_virtual_environment_container" "arr" {
   dynamic "mount_point" {
     for_each = var.arr_media_bind_mount_host_path == null ? [] : [var.arr_media_bind_mount_host_path]
     content {
-      path   = "/srv/media"
+      path   = "/mnt/media"
       volume = mount_point.value
     }
   }
@@ -354,7 +354,7 @@ resource "proxmox_virtual_environment_container" "jellyfin" {
     for_each = var.jellyfin_media_bind_mount_host_path == null ? [] : [var.jellyfin_media_bind_mount_host_path]
 
     content {
-      path   = "/srv/media"
+      path   = "/mnt/media"
       volume = mount_point.value
     }
   }
@@ -367,5 +367,12 @@ resource "proxmox_virtual_environment_container" "jellyfin" {
   operating_system {
     template_file_id = var.lxc_template_file_id
     type             = var.lxc_os_type
+  }
+
+  lifecycle {
+    ignore_changes = [
+      initialization[0].user_account,
+      operating_system[0].template_file_id,
+    ]
   }
 }
