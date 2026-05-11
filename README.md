@@ -213,11 +213,11 @@ The `ANSIBLE_HOME` and `ANSIBLE_LOCAL_TEMP` values keep generated Ansible files 
 
 Jellyfin now runs as an unprivileged LXC sized for mostly direct-play streaming rather than a larger VM.
 
-- Root filesystem is sized by `jellyfin_lxc_disk_size_gb` on `lxc_storage`; the example value is 80 GiB
+- Root filesystem is sized by `jellyfin_lxc_disk_size_gb` on `lxc_storage`; the example value is 16 GiB
 - Media stays on the Proxmox host, optionally on an external SSD
-- Set `jellyfin_media_bind_mount_host_path` to bind-mount that host path into the container at `/srv/media`
+- Set `jellyfin_media_bind_mount_host_path` to bind-mount that host path into the container at `/mnt/media`
 
-When no bind mount is configured, Jellyfin stores media under `/srv/media` on the container root filesystem. Increase `jellyfin_lxc_disk_size_gb` to grow that filesystem in place; do not decrease it unless you have migrated the data elsewhere.
+When no bind mount is configured, Jellyfin stores media on the container root filesystem. Increase `jellyfin_lxc_disk_size_gb` to grow that filesystem in place; do not decrease it unless you have migrated the data elsewhere.
 
 Suggested pattern for an external SSD:
 

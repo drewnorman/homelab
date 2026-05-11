@@ -1,4 +1,11 @@
 ---
+- name: Install SSD management packages
+  ansible.builtin.apt:
+    name:
+      - parted
+      - e2fsprogs
+    state: present
+
 - name: Partition media SSD
   community.general.parted:
     device: "{{ proxmox_media_ssd_device }}"
@@ -36,6 +43,8 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
+    owner: "100000"
+    group: "100000"
     mode: "0775"
   loop:
     - /mnt/media/media

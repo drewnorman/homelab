@@ -42,16 +42,14 @@ nix_host_lxc_resources = {
   disk_size_gb = 32
 }
 
-jellyfin_lxc_disk_size_gb = 80
+jellyfin_lxc_disk_size_gb = 16
 
-# Example: mount a host path backed by an external SSD into Jellyfin at /srv/media.
-# jellyfin_media_bind_mount_host_path = "/mnt/media"
+# Example: mount a host path backed by an external SSD into Jellyfin at /mnt/media.
+jellyfin_media_bind_mount_host_path = "/mnt/media"
 
 # For hardlinks to work, downloads and media must be on the same host filesystem.
-# Use subdirectories of a single mount point, e.g. /mnt/media/downloads and /mnt/media/library.
 enable_arr_stack = false
-# arr_downloads_bind_mount_host_path = "/mnt/media/downloads"
-# arr_media_bind_mount_host_path     = "/mnt/media/library"
+# arr_media_bind_mount_host_path = "/mnt/media"
 
 # Enable after adre.me is using Cloudflare DNS and an API token is available.
 enable_cloudflare_dns = false
