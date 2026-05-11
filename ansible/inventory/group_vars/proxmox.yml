@@ -7,3 +7,7 @@ proxmox_arr_lxc_vmid: 104
 
 # VMID of the Jellyfin LXC (lab-jellyfin).
 proxmox_jellyfin_lxc_vmid: 101
+
+# LXCs that need /dev/net/tun for Tailscale subnet routing.
+proxmox_tailscale_lxc_names:
+  - "{{ homelab_name }}-edge"

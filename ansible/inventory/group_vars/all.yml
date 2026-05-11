@@ -25,6 +25,15 @@ edge_lego_version: "4.34.0"
 edge_lego_archive_url: "https://github.com/go-acme/lego/releases/download/v{{ edge_lego_version }}/lego_v{{ edge_lego_version }}_linux_amd64.tar.gz"
 edge_extra_services: []
 
+tailscale_enabled: true
+tailscale_track: stable
+tailscale_hostname: "{{ inventory_hostname }}"
+tailscale_accept_dns: false
+tailscale_auth_key: "{{ lookup('env', 'TAILSCALE_AUTH_KEY') | default('', true) }}"
+tailscale_advertised_routes:
+  - "{{ hostvars[groups['adguard'][0]].ansible_host }}/32"
+  - "{{ hostvars[groups['edge'][0]].ansible_host }}/32"
+
 adguard_bind_port: 80
 adguard_admin_user: "admin"
 adguard_admin_password_bcrypt: "{{ lookup('env', 'ADGUARD_ADMIN_PASSWORD_BCRYPT') | default('', true) }}"
