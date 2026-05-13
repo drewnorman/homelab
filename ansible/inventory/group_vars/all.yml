@@ -108,6 +108,7 @@ prowlarr_cloudflare_indexers:
 # Check GitHub releases for current versions before deploying.
 arr_media_path: /mnt/media/media
 arr_downloads_path: /mnt/media/downloads
+arr_indexer_maximum_size_mb: 1536
 
 jellyfin_media_path: /mnt/media/media
 arr_apps:

@@ -44,6 +44,25 @@
     status_code: [200, 201]
   when: _arr_root_folders.json | selectattr('path', 'equalto', arr_media_path + '/' + arr_app.media_subdir) | list | length == 0
 
+# Indexer settings
+
+- name: Get {{ arr_app.name }} indexer config
+  ansible.builtin.uri:
+    url: "http://localhost:{{ arr_app.port }}/api/v3/config/indexer"
+    headers:
+      X-Api-Key: "{{ _arr_app_api_key }}"
+  register: _arr_indexer_config
+
+- name: Configure {{ arr_app.name }} maximum indexer size
+  ansible.builtin.uri:
+    url: "http://localhost:{{ arr_app.port }}/api/v3/config/indexer/{{ _arr_indexer_config.json.id }}"
+    method: PUT
+    headers:
+      X-Api-Key: "{{ _arr_app_api_key }}"
+    body_format: json
+    body: "{{ _arr_indexer_config.json | combine({'maximumSize': arr_indexer_maximum_size_mb | int}) }}"
+  when: (_arr_indexer_config.json.maximumSize | int) != (arr_indexer_maximum_size_mb | int)
+
 # Download client
 
 - name: Get {{ arr_app.name }} download clients
