@@ -178,6 +178,49 @@ variable "enable_qbittorrent_vpn" {
   default     = false
 }
 
+variable "enable_tailscale_management" {
+  description = "Manage tailnet DNS settings and auth key generation with the Tailscale provider."
+  type        = bool
+  default     = false
+}
+
+variable "enable_tailscale_edge_device_management" {
+  description = "Manage lab-edge device routes and key expiry after it has joined Tailscale."
+  type        = bool
+  default     = false
+}
+
+variable "tailscale_api_key" {
+  description = "Tailscale API access token. Prefer setting TF_VAR_tailscale_api_key or TAILSCALE_API_KEY outside source control."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "tailscale_tailnet" {
+  description = "Tailscale tailnet ID/name. Use '-' to let Tailscale infer the default tailnet from the credential."
+  type        = string
+  default     = "-"
+}
+
+variable "tailscale_auth_key_expiry_seconds" {
+  description = "Expiry for generated Tailscale auth keys, in seconds."
+  type        = number
+  default     = 7776000
+}
+
+variable "tailscale_auth_key_reusable" {
+  description = "Whether the generated Tailscale auth key can be reused."
+  type        = bool
+  default     = true
+}
+
+variable "tailscale_auth_key_preauthorized" {
+  description = "Whether devices using the generated Tailscale auth key are preauthorized."
+  type        = bool
+  default     = true
+}
+
 variable "arr_downloads_bind_mount_host_path" {
   description = "Optional Proxmox host path bind-mounted into the arr container at /srv/downloads."
   type        = string

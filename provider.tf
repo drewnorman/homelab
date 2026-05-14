@@ -12,3 +12,8 @@ provider "proxmox" {
 provider "cloudflare" {
   api_token = var.cloudflare_api_token != "" ? var.cloudflare_api_token : null
 }
+
+provider "tailscale" {
+  api_key = var.tailscale_api_key != "" ? var.tailscale_api_key : null
+  tailnet = var.tailscale_tailnet
+}
