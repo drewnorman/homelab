@@ -125,7 +125,26 @@ This lab uses Tailscale on `lab-edge` for private remote access without router p
 - `192.168.1.210/32` for AdGuard split DNS
 - `192.168.1.211/32` for the Caddy edge proxy
 
-Generate a Tailscale auth key in the Tailscale admin console, then export it before running Ansible:
+OpenTofu can manage the Tailscale admin-console pieces through the official Tailscale provider. Set a Tailscale API token outside source control:
+
+```sh
+export TF_VAR_tailscale_api_key="tskey-api-..."
+export TF_VAR_tailscale_tailnet="-"
+```
+
+Then enable the tailnet-wide settings:
+
+```hcl
+enable_tailscale_management = true
+```
+
+The first OpenTofu apply will generate an auth key, enable MagicDNS, and configure split DNS for `lab.adre.me` to use AdGuard at `192.168.1.210`. Export the generated key before running Ansible:
+
+```sh
+export TAILSCALE_AUTH_KEY="$(tofu output -raw tailscale_edge_auth_key)"
+```
+
+If you prefer not to let OpenTofu generate the auth key, create one in the Tailscale admin console and export it manually:
 
 ```sh
 export TAILSCALE_AUTH_KEY="tskey-auth-..."
@@ -133,11 +152,13 @@ export TAILSCALE_AUTH_KEY="tskey-auth-..."
 
 The Proxmox role grants `/dev/net/tun` to the `lab-edge` LXC and reboots that container only when the TUN config changes. The Tailscale role installs the Tailscale Debian package, enables IP forwarding, starts `tailscaled`, and runs `tailscale up` with the advertised routes.
 
-After the first run:
+After the first Ansible run, `lab-edge` should be joined to the tailnet. Enable device management and apply OpenTofu again:
 
-1. Approve the advertised subnet routes for `lab-edge` in the Tailscale admin console.
-2. Configure split DNS in Tailscale so `lab.adre.me` uses AdGuard at `192.168.1.210`.
-3. Disable key expiry for the `lab-edge` machine in Tailscale.
+```hcl
+enable_tailscale_edge_device_management = true
+```
+
+That second apply approves the advertised `/32` subnet routes for AdGuard and Caddy, and disables key expiry for `lab-edge`.
 
 Once approved, remote clients connected to your tailnet should resolve `jellyfin.lab.adre.me`, `movies.lab.adre.me`, `downloads.lab.adre.me`, and other configured lab hosts through AdGuard, then reach Caddy on `lab-edge` over the Tailscale route.
 

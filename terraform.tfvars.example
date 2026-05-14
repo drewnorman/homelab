@@ -53,6 +53,12 @@ enable_arr_stack = false
 enable_qbittorrent_vpn = false
 # arr_media_bind_mount_host_path = "/mnt/media"
 
+# Optional Tailscale API automation. Enable edge device management only after
+# lab-edge has joined the tailnet once.
+enable_tailscale_management = false
+enable_tailscale_edge_device_management = false
+tailscale_tailnet = "-"
+
 # Enable after adre.me is using Cloudflare DNS and an API token is available.
 enable_cloudflare_dns = false
 cloudflare_zone_name  = "adre.me"

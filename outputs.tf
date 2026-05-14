@@ -46,3 +46,9 @@ output "ansible_inventory" {
   description = "Inventory snippet for post-provisioning with Ansible."
   value       = trimspace(local.ansible_inventory)
 }
+
+output "tailscale_edge_auth_key" {
+  description = "Generated Tailscale auth key for lab-edge. Export as TAILSCALE_AUTH_KEY before running Ansible."
+  value       = var.enable_tailscale_management ? tailscale_tailnet_key.edge[0].key : null
+  sensitive   = true
+}
