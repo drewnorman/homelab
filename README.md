@@ -78,6 +78,16 @@ For local-only HTTPS:
 - only hosts explicitly listed in the Caddy config are proxied
 - nothing needs to be exposed on your router
 
+Friendly service names are preferred for day-to-day use:
+
+- `watch.lab.adre.me` for Jellyfin
+- `movies.lab.adre.me` for Radarr
+- `tv.lab.adre.me` for Sonarr
+- `search.lab.adre.me` or `indexers.lab.adre.me` for Prowlarr
+- `downloads.lab.adre.me` or `torrents.lab.adre.me` for qBittorrent
+
+The app-native names such as `jellyfin.lab.adre.me`, `radarr.lab.adre.me`, `sonarr.lab.adre.me`, `prowlarr.lab.adre.me`, and `qbittorrent.lab.adre.me` remain valid aliases.
+
 The wildcard certificate is issued with DNS-01 validation through Cloudflare using `lego`. DNS-01 proves ownership by creating temporary `_acme-challenge.lab.adre.me` TXT records, so ports 80 and 443 do not need to be exposed publicly.
 
 ### Browser-Trusted HTTPS
@@ -129,7 +139,7 @@ After the first run:
 2. Configure split DNS in Tailscale so `lab.adre.me` uses AdGuard at `192.168.1.210`.
 3. Disable key expiry for the `lab-edge` machine in Tailscale.
 
-Once approved, remote clients connected to your tailnet should resolve `jellyfin.lab.adre.me`, `adguard.lab.adre.me`, and other configured lab hosts through AdGuard, then reach Caddy on `lab-edge` over the Tailscale route.
+Once approved, remote clients connected to your tailnet should resolve `jellyfin.lab.adre.me`, `movies.lab.adre.me`, `downloads.lab.adre.me`, and other configured lab hosts through AdGuard, then reach Caddy on `lab-edge` over the Tailscale route.
 
 ### qBittorrent over Proton VPN
 
@@ -151,7 +161,7 @@ Remote access still flows through Tailscale on `lab-edge`:
 remote client -> Tailscale -> lab-edge Caddy -> lab-qbittorrent-vpn:8080
 ```
 
-Do not install Tailscale on `lab-qbittorrent-vpn` unless you want direct tailnet access to that host. The default design keeps one Tailscale ingress point and uses Caddy for `qbittorrent.lab.adre.me`.
+Do not install Tailscale on `lab-qbittorrent-vpn` unless you want direct tailnet access to that host. The default design keeps one Tailscale ingress point and uses Caddy for `downloads.lab.adre.me`.
 
 ### Nix Host
 
