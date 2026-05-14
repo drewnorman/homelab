@@ -76,6 +76,10 @@
   ansible.builtin.set_fact:
     _arr_needs_qbt: "{{ _arr_download_clients.json | selectattr('implementation', 'equalto', 'QBittorrent') | list | length == 0 }}"
 
+- name: Set {{ arr_app.name }} existing qBittorrent download client
+  ansible.builtin.set_fact:
+    _arr_qbt_download_client: "{{ _arr_download_clients.json | selectattr('implementation', 'equalto', 'QBittorrent') | first | default({}) }}"
+
 - name: Get {{ arr_app.name }} download client schemas
   ansible.builtin.uri:
     url: "http://localhost:{{ arr_app.port }}/api/v3/downloadclient/schema"
@@ -112,6 +116,19 @@
     headers:
       X-Api-Key: "{{ _arr_app_api_key }}"
     body_format: json
-    body: "{{ _arr_qbt_schema | combine({'enable': true, 'name': 'qBittorrent', 'fields': _arr_qbt_fields}) }}"
+    body: "{{ _arr_qbt_schema | combine({'enable': true, 'name': 'qBittorrent', 'removeCompletedDownloads': false, 'fields': _arr_qbt_fields}) }}"
     status_code: [200, 201]
   when: _arr_needs_qbt
+
+- name: Disable {{ arr_app.name }} qBittorrent completed download removal
+  ansible.builtin.uri:
+    url: "http://localhost:{{ arr_app.port }}/api/v3/downloadclient/{{ _arr_qbt_download_client.id }}"
+    method: PUT
+    headers:
+      X-Api-Key: "{{ _arr_app_api_key }}"
+    body_format: json
+    body: "{{ _arr_qbt_download_client | combine({'removeCompletedDownloads': false}) }}"
+    status_code: [200, 202]
+  when:
+    - not _arr_needs_qbt
+    - _arr_qbt_download_client.removeCompletedDownloads | default(true) | bool
