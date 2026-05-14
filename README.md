@@ -54,6 +54,8 @@ For the current `norman` host, the default managed guest addresses are:
 - `lab-adguard`: `192.168.1.210`
 - `lab-edge`: `192.168.1.211`
 - `lab-jellyfin`: `192.168.1.230`
+- `lab-arr`: disabled until `enable_arr_stack = true`
+- `lab-qbittorrent-vpn`: disabled until `enable_qbittorrent_vpn = true`
 - `lab-nix`: `192.168.1.240`
 - `lab-docker`: disabled until `enable_docker_host = true` and `vm_template_id` is set
 
@@ -65,6 +67,8 @@ An existing unmanaged container named `adguard` may coexist with these resources
 - `lab-edge`: reverse proxy and browser-trusted wildcard HTTPS
 - `lab-docker`: non-critical self-hosted apps
 - `lab-jellyfin`: Jellyfin and a bind-mounted media path from the Proxmox host
+- `lab-arr`: Radarr, Sonarr, Prowlarr, and Byparr
+- `lab-qbittorrent-vpn`: qBittorrent with BitTorrent traffic bound to Proton VPN
 - `lab-nix`: NixOS LXC for SSH-accessible lab work
 
 For local-only HTTPS:
@@ -126,6 +130,28 @@ After the first run:
 3. Disable key expiry for the `lab-edge` machine in Tailscale.
 
 Once approved, remote clients connected to your tailnet should resolve `jellyfin.lab.adre.me`, `adguard.lab.adre.me`, and other configured lab hosts through AdGuard, then reach Caddy on `lab-edge` over the Tailscale route.
+
+### qBittorrent over Proton VPN
+
+Set `enable_qbittorrent_vpn = true` to create `lab-qbittorrent-vpn`. When the Arr stack is enabled, Radarr and Sonarr use that LXC as their qBittorrent download client instead of running qBittorrent locally.
+
+Export a Proton VPN Plus WireGuard config before running Ansible. The config should be a P2P-capable Proton server config encoded as base64:
+
+```sh
+export PROTONVPN_WIREGUARD_CONFIG_B64="$(base64 -w0 ~/Downloads/protonvpn-wireguard.conf)"
+```
+
+The qBittorrent role installs WireGuard, nftables, and qBittorrent; writes the Proton config to `/etc/wireguard/wg0.conf`; starts `wg-quick@wg0`; and installs an nftables kill switch. LAN traffic to `192.168.1.0/24` remains allowed so `lab-edge`, Radarr, and Sonarr can reach the qBittorrent WebUI/API, while internet-bound traffic is only allowed through `wg0`. qBittorrent binds to `wg0` and listens on `qbittorrent_listen_port`, defaulting to `6881`.
+
+If you enable Proton port forwarding, set `qbittorrent_listen_port` to the currently forwarded port before running the qBittorrent role. Proton can rotate forwarded ports between VPN sessions, so fully automatic port refresh should be added separately if you rely on inbound peer connectivity.
+
+Remote access still flows through Tailscale on `lab-edge`:
+
+```text
+remote client -> Tailscale -> lab-edge Caddy -> lab-qbittorrent-vpn:8080
+```
+
+Do not install Tailscale on `lab-qbittorrent-vpn` unless you want direct tailnet access to that host. The default design keeps one Tailscale ingress point and uses Caddy for `qbittorrent.lab.adre.me`.
 
 ### Nix Host
 

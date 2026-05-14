@@ -13,5 +13,8 @@ lab-nix ansible_host=nix.lab.adre.me ansible_user=drew
 # [arr]
 # lab-arr ansible_host=192.168.1.232 ansible_user=root
 
+# [qbittorrent_vpn]
+# lab-qbittorrent-vpn ansible_host=192.168.1.233 ansible_user=root
+
 [media]
 lab-jellyfin ansible_host=192.168.1.230 ansible_user=root

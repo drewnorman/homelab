@@ -1,21 +1,23 @@
 output "service_ips" {
   description = "Static service IP addresses."
   value = {
-    adguard  = local.guests.adguard.ip
-    edge     = local.guests.edge.ip
-    docker   = var.enable_docker_host ? local.guests.docker.ip : null
-    jellyfin = local.guests.jellyfin.ip
-    nix      = var.enable_nix_host ? local.guests.nix.ip : null
+    adguard         = local.guests.adguard.ip
+    edge            = local.guests.edge.ip
+    docker          = var.enable_docker_host ? local.guests.docker.ip : null
+    jellyfin        = local.guests.jellyfin.ip
+    qbittorrent_vpn = var.enable_qbittorrent_vpn ? local.guests.qbittorrent_vpn.ip : null
+    nix             = var.enable_nix_host ? local.guests.nix.ip : null
   }
 }
 
 output "service_hosts" {
   description = "Suggested DNS hostnames for public or internal reverse proxy use."
   value = {
-    adguard    = "adguard.${var.search_domain}"
-    entrypoint = var.search_domain
-    jellyfin   = "jellyfin.${var.search_domain}"
-    nix        = "nix.${var.search_domain}"
+    adguard     = "adguard.${var.search_domain}"
+    entrypoint  = var.search_domain
+    jellyfin    = "jellyfin.${var.search_domain}"
+    qbittorrent = "qbittorrent.${var.search_domain}"
+    nix         = "nix.${var.search_domain}"
   }
 }
 

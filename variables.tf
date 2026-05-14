@@ -167,7 +167,13 @@ variable "jellyfin_lxc_disk_size_gb" {
 }
 
 variable "enable_arr_stack" {
-  description = "Create the media automation LXC running qBittorrent, Radarr, Sonarr, and Prowlarr."
+  description = "Create the media automation LXC running Radarr, Sonarr, and Prowlarr."
+  type        = bool
+  default     = false
+}
+
+variable "enable_qbittorrent_vpn" {
+  description = "Create the qBittorrent LXC with Proton VPN routing."
   type        = bool
   default     = false
 }
@@ -192,20 +198,22 @@ variable "ssh_public_key" {
 variable "service_ips" {
   description = "Static IP addresses for the provisioned guests."
   type = object({
-    adguard_lxc    = string
-    edge_lxc       = string
-    docker_host_vm = string
-    jellyfin_lxc   = string
-    arr_lxc        = string
-    nix_host_lxc   = string
+    adguard_lxc         = string
+    edge_lxc            = string
+    docker_host_vm      = string
+    jellyfin_lxc        = string
+    arr_lxc             = string
+    qbittorrent_vpn_lxc = string
+    nix_host_lxc        = string
   })
   default = {
-    adguard_lxc    = "192.168.1.210"
-    edge_lxc       = "192.168.1.211"
-    docker_host_vm = "192.168.1.220"
-    jellyfin_lxc   = "192.168.1.230"
-    arr_lxc        = "192.168.1.232"
-    nix_host_lxc   = "192.168.1.240"
+    adguard_lxc         = "192.168.1.210"
+    edge_lxc            = "192.168.1.211"
+    docker_host_vm      = "192.168.1.220"
+    jellyfin_lxc        = "192.168.1.230"
+    arr_lxc             = "192.168.1.232"
+    qbittorrent_vpn_lxc = "192.168.1.233"
+    nix_host_lxc        = "192.168.1.240"
   }
 }
 

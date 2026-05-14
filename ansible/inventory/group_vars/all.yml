@@ -104,6 +104,12 @@ jellyfin_extra_packages: []
 
 qbittorrent_user: qbittorrent
 qbittorrent_port: 8080
+qbittorrent_listen_port: 6881
+qbittorrent_host: "{{ hostvars[groups['qbittorrent_vpn'][0]].ansible_host if groups['qbittorrent_vpn'] | default([]) | length > 0 else 'localhost' }}"
+qbittorrent_lan_cidr: "192.168.1.0/24"
+qbittorrent_vpn_interface: wg0
+qbittorrent_vpn_wireguard_config_b64: "{{ lookup('env', 'PROTONVPN_WIREGUARD_CONFIG_B64') | default('', true) }}"
+qbittorrent_vpn_peer_port: 51820
 byparr_enabled: true
 byparr_user: byparr
 byparr_repo_url: "https://github.com/ThePhaseless/Byparr.git"

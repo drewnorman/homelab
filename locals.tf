@@ -20,6 +20,10 @@ locals {
       role = "arr"
       ip   = var.service_ips.arr_lxc
     }
+    qbittorrent_vpn = {
+      role = "qbittorrent_vpn"
+      ip   = var.service_ips.qbittorrent_vpn_lxc
+    }
     nix = {
       role = "nix"
       ip   = var.service_ips.nix_host_lxc
@@ -35,6 +39,12 @@ locals {
   arr_inventory = var.enable_arr_stack ? trimspace(<<-EOT
     [arr]
     ${var.homelab_name}-arr ansible_host=${local.guests.arr.ip} ansible_user=root
+  EOT
+  ) : ""
+
+  qbittorrent_vpn_inventory = var.enable_qbittorrent_vpn ? trimspace(<<-EOT
+    [qbittorrent_vpn]
+    ${var.homelab_name}-qbittorrent-vpn ansible_host=${local.guests.qbittorrent_vpn.ip} ansible_user=root
   EOT
   ) : ""
 
@@ -57,6 +67,7 @@ locals {
     ,
     local.docker_inventory,
     local.arr_inventory,
+    local.qbittorrent_vpn_inventory,
     local.nix_inventory,
     <<-EOT
     [media]

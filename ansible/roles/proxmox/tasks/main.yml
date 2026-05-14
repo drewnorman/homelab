@@ -90,42 +90,46 @@
   when: jellyfin_lxc_mp.changed
   changed_when: true
 
-- name: List Proxmox containers for Tailscale TUN configuration
+- name: Set Proxmox TUN LXC names
+  ansible.builtin.set_fact:
+    _proxmox_tun_lxc_names: "{{ proxmox_tun_lxc_names | default(proxmox_tailscale_lxc_names | default([])) }}"
+
+- name: List Proxmox containers for TUN configuration
   ansible.builtin.command: pct list --output-format json
   register: _proxmox_pct_list
   changed_when: false
-  when: proxmox_tailscale_lxc_names | default([]) | length > 0
+  when: _proxmox_tun_lxc_names | length > 0
 
-- name: Resolve Tailscale LXC VMIDs
+- name: Resolve TUN LXC VMIDs
   ansible.builtin.set_fact:
-    _proxmox_tailscale_lxc_vmids: >-
+    _proxmox_tun_lxc_vmids: >-
       {{
         _proxmox_pct_list.stdout
         | from_json
-        | selectattr('name', 'in', proxmox_tailscale_lxc_names)
+        | selectattr('name', 'in', _proxmox_tun_lxc_names)
         | map(attribute='vmid')
         | list
       }}
-  when: proxmox_tailscale_lxc_names | default([]) | length > 0
+  when: _proxmox_tun_lxc_names | length > 0
 
-- name: Verify Tailscale LXCs were found
+- name: Verify TUN LXCs were found
   ansible.builtin.assert:
     that:
-      - _proxmox_tailscale_lxc_vmids | length == proxmox_tailscale_lxc_names | length
-    fail_msg: "Could not find all Tailscale LXCs by name: {{ proxmox_tailscale_lxc_names | join(', ') }}"
-  when: proxmox_tailscale_lxc_names | default([]) | length > 0
+      - _proxmox_tun_lxc_vmids | length == _proxmox_tun_lxc_names | length
+    fail_msg: "Could not find all TUN LXCs by name: {{ _proxmox_tun_lxc_names | join(', ') }}"
+  when: _proxmox_tun_lxc_names | length > 0
 
-- name: Allow Tailscale TUN device in selected LXCs
+- name: Allow TUN device in selected LXCs
   ansible.builtin.blockinfile:
     path: "/etc/pve/lxc/{{ item }}.conf"
-    marker: "# {mark} ANSIBLE MANAGED TAILSCALE TUN"
+    marker: "# {mark} ANSIBLE MANAGED TUN DEVICE"
     block: |
       lxc.cgroup2.devices.allow: c 10:200 rwm
       lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
-  loop: "{{ _proxmox_tailscale_lxc_vmids | default([]) }}"
-  register: _proxmox_tailscale_tun_config
+  loop: "{{ _proxmox_tun_lxc_vmids | default([]) }}"
+  register: _proxmox_tun_config
 
-- name: Reboot LXCs after Tailscale TUN changes
+- name: Reboot LXCs after TUN changes
   ansible.builtin.command: "pct reboot {{ item.item }}"
-  loop: "{{ _proxmox_tailscale_tun_config.results | default([]) }}"
+  loop: "{{ _proxmox_tun_config.results | default([]) }}"
   when: item.changed

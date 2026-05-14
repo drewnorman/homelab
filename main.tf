@@ -241,7 +241,7 @@ resource "proxmox_virtual_environment_container" "arr" {
   count = var.enable_arr_stack ? 1 : 0
 
   node_name     = var.proxmox_node_name
-  description   = "Media automation container (qBittorrent, Radarr, Sonarr, Prowlarr) managed by OpenTofu"
+  description   = "Media automation container (Radarr, Sonarr, Prowlarr) managed by OpenTofu"
   start_on_boot = true
   started       = true
   tags          = ["arr", "homelab", "media"]
@@ -288,6 +288,69 @@ resource "proxmox_virtual_environment_container" "arr" {
     ip_config {
       ipv4 {
         address = "${local.guests.arr.ip}/${var.network_cidr}"
+        gateway = var.network_gateway
+      }
+    }
+
+    user_account {
+      keys = [trimspace(var.ssh_public_key)]
+    }
+  }
+
+  network_interface {
+    name   = "veth0"
+    bridge = var.network_bridge
+  }
+
+  operating_system {
+    template_file_id = var.lxc_template_file_id
+    type             = var.lxc_os_type
+  }
+}
+
+resource "proxmox_virtual_environment_container" "qbittorrent_vpn" {
+  count = var.enable_qbittorrent_vpn ? 1 : 0
+
+  node_name     = var.proxmox_node_name
+  description   = "qBittorrent container with Proton VPN routing managed by OpenTofu"
+  start_on_boot = true
+  started       = true
+  tags          = ["homelab", "media", "qbittorrent", "vpn"]
+  unprivileged  = true
+
+  cpu {
+    cores = 1
+  }
+
+  memory {
+    dedicated = 1024
+    swap      = 512
+  }
+
+  disk {
+    datastore_id = var.lxc_storage
+    size         = 8
+  }
+
+  dynamic "mount_point" {
+    for_each = var.arr_media_bind_mount_host_path == null ? [] : [var.arr_media_bind_mount_host_path]
+    content {
+      path   = "/mnt/media"
+      volume = mount_point.value
+    }
+  }
+
+  initialization {
+    hostname = "${var.homelab_name}-qbittorrent-vpn"
+
+    dns {
+      domain  = var.search_domain
+      servers = var.dns_servers
+    }
+
+    ip_config {
+      ipv4 {
+        address = "${local.guests.qbittorrent_vpn.ip}/${var.network_cidr}"
         gateway = var.network_gateway
       }
     }
