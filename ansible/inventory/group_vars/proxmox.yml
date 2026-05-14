@@ -9,6 +9,4 @@ proxmox_arr_lxc_vmid: 104
 proxmox_jellyfin_lxc_vmid: 101
 
 # LXCs that need /dev/net/tun for VPN-style interfaces.
-proxmox_tun_lxc_names:
-  - "{{ homelab_name }}-edge"
-  - "{{ homelab_name }}-qbittorrent-vpn"
+proxmox_tun_lxc_names: "{{ [homelab_name ~ '-edge'] + ([homelab_name ~ '-qbittorrent-vpn'] if groups['qbittorrent_vpn'] | default([]) | length > 0 else []) }}"
