@@ -95,21 +95,18 @@
     _proxmox_tun_lxc_names: "{{ proxmox_tun_lxc_names | default(proxmox_tailscale_lxc_names | default([])) }}"
 
 - name: List Proxmox containers for TUN configuration
-  ansible.builtin.command: pct list --output-format json
+  ansible.builtin.shell: pct list | awk 'NR > 1 { print $NF "=" $1 }'
   register: _proxmox_pct_list
   changed_when: false
   when: _proxmox_tun_lxc_names | length > 0
 
 - name: Resolve TUN LXC VMIDs
   ansible.builtin.set_fact:
-    _proxmox_tun_lxc_vmids: >-
-      {{
-        _proxmox_pct_list.stdout
-        | from_json
-        | selectattr('name', 'in', _proxmox_tun_lxc_names)
-        | map(attribute='vmid')
-        | list
-      }}
+    _proxmox_tun_lxc_vmids: "{{ (_proxmox_tun_lxc_vmids | default([])) + _proxmox_tun_lxc_vmid_candidate }}"
+  vars:
+    _proxmox_tun_lxc_vmid: "{{ _proxmox_pct_list.stdout_lines | select('match', '^' ~ item ~ '=') | first | default('') | regex_replace('^.*=', '') }}"
+    _proxmox_tun_lxc_vmid_candidate: "{{ [_proxmox_tun_lxc_vmid] if _proxmox_tun_lxc_vmid | length > 0 else [] }}"
+  loop: "{{ _proxmox_tun_lxc_names }}"
   when: _proxmox_tun_lxc_names | length > 0
 
 - name: Verify TUN LXCs were found
@@ -119,17 +116,30 @@
     fail_msg: "Could not find all TUN LXCs by name: {{ _proxmox_tun_lxc_names | join(', ') }}"
   when: _proxmox_tun_lxc_names | length > 0
 
-- name: Allow TUN device in selected LXCs
-  ansible.builtin.blockinfile:
+- name: Remove legacy TUN marker comments from selected LXCs
+  ansible.builtin.lineinfile:
     path: "/etc/pve/lxc/{{ item }}.conf"
-    marker: "# {mark} ANSIBLE MANAGED TUN DEVICE"
-    block: |
-      lxc.cgroup2.devices.allow: c 10:200 rwm
-      lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
+    regexp: "^# (BEGIN|END) ANSIBLE MANAGED TUN DEVICE$"
+    state: absent
   loop: "{{ _proxmox_tun_lxc_vmids | default([]) }}"
+  register: _proxmox_tun_marker_cleanup
+
+- name: Allow TUN device in selected LXCs
+  ansible.builtin.lineinfile:
+    path: "/etc/pve/lxc/{{ item.0 }}.conf"
+    regexp: "{{ item.1.regexp }}"
+    line: "{{ item.1.line }}"
+    state: present
+  loop: "{{ _proxmox_tun_lxc_vmids | default([]) | product(_proxmox_tun_lxc_config_lines) | list }}"
+  vars:
+    _proxmox_tun_lxc_config_lines:
+      - regexp: "^lxc\\.cgroup2\\.devices\\.allow: c 10:200 rwm$"
+        line: "lxc.cgroup2.devices.allow: c 10:200 rwm"
+      - regexp: "^lxc\\.mount\\.entry: /dev/net/tun dev/net/tun none bind,create=file$"
+        line: "lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file"
   register: _proxmox_tun_config
 
 - name: Reboot LXCs after TUN changes
-  ansible.builtin.command: "pct reboot {{ item.item }}"
-  loop: "{{ _proxmox_tun_config.results | default([]) }}"
-  when: item.changed
+  ansible.builtin.command: "pct reboot {{ item }}"
+  loop: "{{ _proxmox_tun_lxc_vmids | default([]) }}"
+  when: _proxmox_tun_config.changed
