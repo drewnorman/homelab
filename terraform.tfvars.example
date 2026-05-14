@@ -23,6 +23,7 @@ service_ips = {
   docker_host_vm = "192.168.1.220"
   jellyfin_lxc   = "192.168.1.230"
   arr_lxc        = "192.168.1.232"
+  qbittorrent_vpn_lxc = "192.168.1.233"
   nix_host_lxc   = "192.168.1.240"
 }
 
@@ -49,6 +50,7 @@ jellyfin_media_bind_mount_host_path = "/mnt/media"
 
 # For hardlinks to work, downloads and media must be on the same host filesystem.
 enable_arr_stack = false
+enable_qbittorrent_vpn = false
 # arr_media_bind_mount_host_path = "/mnt/media"
 
 # Enable after adre.me is using Cloudflare DNS and an API token is available.

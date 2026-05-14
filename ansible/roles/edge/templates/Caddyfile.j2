@@ -32,9 +32,12 @@
 		reverse_proxy {{ arr_host }}:9696
 	}
 
+{% endif %}
+{% if groups['qbittorrent_vpn'] | default([]) | length > 0 %}
+{% set qbittorrent_host = hostvars[groups['qbittorrent_vpn'][0]].ansible_host %}
 	@qbittorrent host qbittorrent.{{ edge_base_domain }}
 	handle @qbittorrent {
-		reverse_proxy {{ arr_host }}:8080
+		reverse_proxy {{ qbittorrent_host }}:{{ qbittorrent_port }}
 	}
 
 {% endif %}

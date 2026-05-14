@@ -95,8 +95,7 @@
 
 - name: Set {{ arr_app.name }} qBittorrent field overrides
   ansible.builtin.set_fact:
-    _arr_qbt_overrides: "{{ {'host': 'localhost', 'port': qbittorrent_port, 'useSsl': false, arr_app.qbt_category_field: arr_app.name} }}"
-  when: _arr_needs_qbt
+    _arr_qbt_overrides: "{{ {'host': qbittorrent_host, 'port': qbittorrent_port, 'useSsl': false, arr_app.qbt_category_field: arr_app.name} }}"
 
 - name: Reset {{ arr_app.name }} qBittorrent fields list
   ansible.builtin.set_fact:
@@ -109,6 +108,17 @@
   loop: "{{ _arr_qbt_schema.fields if _arr_needs_qbt else [] }}"
   when: _arr_needs_qbt
 
+- name: Reset {{ arr_app.name }} existing qBittorrent fields list
+  ansible.builtin.set_fact:
+    _arr_existing_qbt_fields: []
+  when: not _arr_needs_qbt
+
+- name: Build {{ arr_app.name }} existing qBittorrent fields
+  ansible.builtin.set_fact:
+    _arr_existing_qbt_fields: "{{ _arr_existing_qbt_fields + [item | combine({'value': _arr_qbt_overrides[item.name]} if item.name in _arr_qbt_overrides else {})] }}"
+  loop: "{{ _arr_qbt_download_client.fields | default([]) }}"
+  when: not _arr_needs_qbt
+
 - name: Create {{ arr_app.name }} qBittorrent download client
   ansible.builtin.uri:
     url: "http://localhost:{{ arr_app.port }}/api/v3/downloadclient"
@@ -120,15 +130,13 @@
     status_code: [200, 201]
   when: _arr_needs_qbt
 
-- name: Disable {{ arr_app.name }} qBittorrent completed download removal
+- name: Update {{ arr_app.name }} qBittorrent download client
   ansible.builtin.uri:
     url: "http://localhost:{{ arr_app.port }}/api/v3/downloadclient/{{ _arr_qbt_download_client.id }}"
     method: PUT
     headers:
       X-Api-Key: "{{ _arr_app_api_key }}"
     body_format: json
-    body: "{{ _arr_qbt_download_client | combine({'removeCompletedDownloads': false}) }}"
+    body: "{{ _arr_qbt_download_client | combine({'removeCompletedDownloads': false, 'fields': _arr_existing_qbt_fields}) }}"
     status_code: [200, 202]
-  when:
-    - not _arr_needs_qbt
-    - _arr_qbt_download_client.removeCompletedDownloads | default(true) | bool
+  when: not _arr_needs_qbt

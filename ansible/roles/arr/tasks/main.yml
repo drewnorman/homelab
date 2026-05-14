@@ -5,7 +5,6 @@
       - libicu72
       - libssl3
       - sqlite3
-      - qbittorrent-nox
       - ca-certificates
       - curl
       - git
@@ -119,37 +118,6 @@
     system: true
     state: present
 
-- name: Create qbittorrent user
-  ansible.builtin.user:
-    name: "{{ qbittorrent_user }}"
-    system: true
-    shell: /usr/sbin/nologin
-    home: /var/lib/qbittorrent
-    create_home: true
-    groups: media
-    append: true
-    state: present
-
-- name: Enable qBittorrent service
-  ansible.builtin.service:
-    name: "qbittorrent-nox@{{ qbittorrent_user }}"
-    enabled: true
-    state: started
-
-- name: Create download directories
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    owner: "{{ qbittorrent_user }}"
-    group: media
-    mode: "0775"
-  loop:
-    - "{{ arr_downloads_path }}"
-    - "{{ arr_downloads_path }}/complete"
-    - "{{ arr_downloads_path }}/complete/movies"
-    - "{{ arr_downloads_path }}/complete/tv"
-    - "{{ arr_downloads_path }}/incomplete"
-
 - name: Create arr service users
   ansible.builtin.user:
     name: "{{ item.user }}"
@@ -230,76 +198,6 @@
     enabled: true
     state: started
   loop: "{{ arr_apps }}"
-
-- name: Check qBittorrent config settings
-  ansible.builtin.shell: |
-    grep -qF 'WebUI\LocalHostAuth=false' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
-    grep -qF 'Bittorrent\MaxRatioEnabled=true' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
-    grep -qF 'Bittorrent\MaxRatio=0' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
-    grep -qF 'Session\GlobalMaxRatio=0' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
-    grep -qF 'Session\MaxRatioAction=0' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
-    grep -qF 'Downloads\SavePath={{ arr_downloads_path }}/complete' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
-    grep -qF 'Downloads\TempPath={{ arr_downloads_path }}/incomplete' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
-    grep -qF 'Downloads\TempPathEnabled=true' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf
-  register: _qbt_config_check
-  changed_when: false
-  failed_when: false
-
-- name: Stop qBittorrent to safely apply config
-  ansible.builtin.service:
-    name: "qbittorrent-nox@{{ qbittorrent_user }}"
-    state: stopped
-  when: _qbt_config_check.rc != 0
-
-- name: Configure qBittorrent settings
-  community.general.ini_file:
-    path: /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf
-    section: Preferences
-    option: "{{ item.option }}"
-    value: "{{ item.value }}"
-    owner: "{{ qbittorrent_user }}"
-    group: "{{ qbittorrent_user }}"
-    mode: "0600"
-    create: true
-    no_extra_spaces: true
-  loop:
-    - { option: "WebUI\\LocalHostAuth", value: "false" }
-    - { option: "Bittorrent\\MaxRatioEnabled", value: "true" }
-    - { option: "Bittorrent\\MaxRatio", value: "0" }
-    - { option: "Bittorrent\\MaxRatioAction", value: "0" }
-    - { option: "Session\\GlobalMaxRatio", value: "0" }
-    - { option: "Session\\MaxRatioAction", value: "0" }
-    - { option: "Downloads\\SavePath", value: "{{ arr_downloads_path }}/complete" }
-    - { option: "Downloads\\TempPath", value: "{{ arr_downloads_path }}/incomplete" }
-    - { option: "Downloads\\TempPathEnabled", value: "true" }
-  when: _qbt_config_check.rc != 0
-
-- name: Start qBittorrent
-  ansible.builtin.service:
-    name: "qbittorrent-nox@{{ qbittorrent_user }}"
-    state: started
-  when: _qbt_config_check.rc != 0
-
-- name: Get qBittorrent live preferences
-  ansible.builtin.uri:
-    url: "http://localhost:{{ qbittorrent_port }}/api/v2/app/preferences"
-    return_content: true
-  register: _qbt_live_preferences
-
-- name: Configure qBittorrent live preferences
-  ansible.builtin.uri:
-    url: "http://localhost:{{ qbittorrent_port }}/api/v2/app/setPreferences"
-    method: POST
-    body_format: form-urlencoded
-    body:
-      json: "{{ {'save_path': arr_downloads_path + '/complete', 'temp_path': arr_downloads_path + '/incomplete', 'temp_path_enabled': true, 'max_ratio_enabled': true, 'max_ratio': 0, 'max_ratio_act': 0} | to_json }}"
-  when: >
-    _qbt_live_preferences.json.save_path != arr_downloads_path + '/complete' or
-    _qbt_live_preferences.json.temp_path != arr_downloads_path + '/incomplete' or
-    not _qbt_live_preferences.json.temp_path_enabled or
-    not (_qbt_live_preferences.json.max_ratio_enabled | default(false) | bool) or
-    (_qbt_live_preferences.json.max_ratio | default(-1) | float) != 0.0 or
-    (_qbt_live_preferences.json.max_ratio_act | default(-1) | int) != 0
 
 - name: Configure arr app API settings
   ansible.builtin.include_tasks: configure.yml

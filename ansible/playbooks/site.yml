@@ -36,6 +36,16 @@
   roles:
     - docker_host
 
+- name: Configure qBittorrent VPN host
+  hosts: qbittorrent_vpn
+  become: true
+  pre_tasks:
+    - name: Wait for connection
+      ansible.builtin.wait_for_connection:
+        timeout: 60
+  roles:
+    - qbittorrent_vpn
+
 - name: Configure media automation host
   hosts: arr
   become: true
