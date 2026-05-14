@@ -237,7 +237,7 @@
     grep -qF 'Bittorrent\MaxRatioEnabled=true' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
     grep -qF 'Bittorrent\MaxRatio=0' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
     grep -qF 'Session\GlobalMaxRatio=0' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
-    grep -qF 'Session\MaxRatioAction=1' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
+    grep -qF 'Session\MaxRatioAction=0' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
     grep -qF 'Downloads\SavePath={{ arr_downloads_path }}/complete' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
     grep -qF 'Downloads\TempPath={{ arr_downloads_path }}/incomplete' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf &&
     grep -qF 'Downloads\TempPathEnabled=true' /var/lib/qbittorrent/.config/qBittorrent/qBittorrent.conf
@@ -266,9 +266,9 @@
     - { option: "WebUI\\LocalHostAuth", value: "false" }
     - { option: "Bittorrent\\MaxRatioEnabled", value: "true" }
     - { option: "Bittorrent\\MaxRatio", value: "0" }
-    - { option: "Bittorrent\\MaxRatioAction", value: "1" }
+    - { option: "Bittorrent\\MaxRatioAction", value: "0" }
     - { option: "Session\\GlobalMaxRatio", value: "0" }
-    - { option: "Session\\MaxRatioAction", value: "1" }
+    - { option: "Session\\MaxRatioAction", value: "0" }
     - { option: "Downloads\\SavePath", value: "{{ arr_downloads_path }}/complete" }
     - { option: "Downloads\\TempPath", value: "{{ arr_downloads_path }}/incomplete" }
     - { option: "Downloads\\TempPathEnabled", value: "true" }
@@ -292,14 +292,14 @@
     method: POST
     body_format: form-urlencoded
     body:
-      json: "{{ {'save_path': arr_downloads_path + '/complete', 'temp_path': arr_downloads_path + '/incomplete', 'temp_path_enabled': true, 'max_ratio_enabled': true, 'max_ratio': 0, 'max_ratio_act': 1} | to_json }}"
+      json: "{{ {'save_path': arr_downloads_path + '/complete', 'temp_path': arr_downloads_path + '/incomplete', 'temp_path_enabled': true, 'max_ratio_enabled': true, 'max_ratio': 0, 'max_ratio_act': 0} | to_json }}"
   when: >
     _qbt_live_preferences.json.save_path != arr_downloads_path + '/complete' or
     _qbt_live_preferences.json.temp_path != arr_downloads_path + '/incomplete' or
     not _qbt_live_preferences.json.temp_path_enabled or
     not (_qbt_live_preferences.json.max_ratio_enabled | default(false) | bool) or
     (_qbt_live_preferences.json.max_ratio | default(-1) | float) != 0.0 or
-    (_qbt_live_preferences.json.max_ratio_act | default(-1) | int) != 1
+    (_qbt_live_preferences.json.max_ratio_act | default(-1) | int) != 0
 
 - name: Configure arr app API settings
   ansible.builtin.include_tasks: configure.yml
