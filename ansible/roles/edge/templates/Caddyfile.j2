@@ -40,6 +40,12 @@
 		reverse_proxy {{ qbittorrent_host }}:{{ qbittorrent_port }}
 	}
 
+{% elif groups['arr'] | default([]) | length > 0 %}
+	@qbittorrent host qbittorrent.{{ edge_base_domain }} downloads.{{ edge_base_domain }} torrents.{{ edge_base_domain }}
+	handle @qbittorrent {
+		reverse_proxy {{ arr_host }}:{{ qbittorrent_port }}
+	}
+
 {% endif %}
 {% for service in edge_extra_services %}
 	@service_{{ loop.index }} host {{ service.host }}
