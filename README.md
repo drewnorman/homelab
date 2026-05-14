@@ -104,6 +104,29 @@ The Ansible edge role requests a certificate for both `lab.adre.me` and `*.lab.a
 
 Additional app hostnames should be added to `edge_extra_services` in [ansible/inventory/group_vars/all.yml](/home/drew/documents/personal/homelab/ansible/inventory/group_vars/all.yml:1). The wildcard DNS rewrite means any `*.lab.adre.me` hostname will already resolve to `lab-edge`; you only need to tell Caddy which upstream each hostname should proxy to.
 
+### Remote Access with Tailscale
+
+This lab uses Tailscale on `lab-edge` for private remote access without router port forwards or a static ISP IP. `lab-edge` advertises two narrow subnet routes by default:
+
+- `192.168.1.210/32` for AdGuard split DNS
+- `192.168.1.211/32` for the Caddy edge proxy
+
+Generate a Tailscale auth key in the Tailscale admin console, then export it before running Ansible:
+
+```sh
+export TAILSCALE_AUTH_KEY="tskey-auth-..."
+```
+
+The Proxmox role grants `/dev/net/tun` to the `lab-edge` LXC and reboots that container only when the TUN config changes. The Tailscale role installs the Tailscale Debian package, enables IP forwarding, starts `tailscaled`, and runs `tailscale up` with the advertised routes.
+
+After the first run:
+
+1. Approve the advertised subnet routes for `lab-edge` in the Tailscale admin console.
+2. Configure split DNS in Tailscale so `lab.adre.me` uses AdGuard at `192.168.1.210`.
+3. Disable key expiry for the `lab-edge` machine in Tailscale.
+
+Once approved, remote clients connected to your tailnet should resolve `jellyfin.lab.adre.me`, `adguard.lab.adre.me`, and other configured lab hosts through AdGuard, then reach Caddy on `lab-edge` over the Tailscale route.
+
 ### Nix Host
 
 The Nix host reserves `lab-nix` at `192.168.1.240` and `nix.lab.adre.me`. When `enable_nix_host = true`, OpenTofu creates an always-running NixOS LXC from `nix_lxc_template_file_id` and includes a `[nix]` Ansible inventory group.
