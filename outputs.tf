@@ -14,9 +14,18 @@ output "service_hosts" {
   description = "Suggested DNS hostnames for public or internal reverse proxy use."
   value = {
     adguard     = "adguard.${var.search_domain}"
+    downloads   = "downloads.${var.search_domain}"
     entrypoint  = var.search_domain
+    indexers    = "indexers.${var.search_domain}"
     jellyfin    = "jellyfin.${var.search_domain}"
+    movies      = "movies.${var.search_domain}"
     qbittorrent = "qbittorrent.${var.search_domain}"
+    radarr      = "radarr.${var.search_domain}"
+    search      = "search.${var.search_domain}"
+    sonarr      = "sonarr.${var.search_domain}"
+    torrents    = "torrents.${var.search_domain}"
+    tv          = "tv.${var.search_domain}"
+    watch       = "watch.${var.search_domain}"
     nix         = "nix.${var.search_domain}"
   }
 }
