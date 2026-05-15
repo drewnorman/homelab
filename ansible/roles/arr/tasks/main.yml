@@ -35,6 +35,19 @@
     creates: /usr/local/bin/uv
   when: byparr_enabled
 
+- name: Check Byparr Git safe directories
+  ansible.builtin.command: git config --system --get-all safe.directory
+  register: _git_safe_directories
+  changed_when: false
+  failed_when: false
+  when: byparr_enabled
+
+- name: Trust Byparr Git checkout directory
+  ansible.builtin.command: "git config --system --add safe.directory {{ byparr_install_dir }}"
+  when: >
+    byparr_enabled and
+    byparr_install_dir not in (_git_safe_directories.stdout_lines | default([]))
+
 - name: Clone Byparr
   ansible.builtin.git:
     repo: "{{ byparr_repo_url }}"
