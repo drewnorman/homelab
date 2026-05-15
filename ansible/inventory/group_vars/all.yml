@@ -124,6 +124,12 @@ prowlarr_cloudflare_indexers:
 arr_media_path: /mnt/media/media
 arr_downloads_path: /mnt/media/downloads
 arr_indexer_maximum_size_mb: 1536
+bazarr_version: "1.5.6"
+bazarr_user: bazarr
+bazarr_port: 6767
+bazarr_install_dir: /opt/bazarr
+bazarr_data_dir: /var/lib/bazarr
+bazarr_archive_url: "https://github.com/morpheus65535/bazarr/releases/download/v{{ bazarr_version }}/bazarr.zip"
 
 jellyfin_media_path: /mnt/media/media
 arr_apps:

@@ -67,7 +67,7 @@ An existing unmanaged container named `adguard` may coexist with these resources
 - `lab-edge`: reverse proxy and browser-trusted wildcard HTTPS
 - `lab-docker`: non-critical self-hosted apps
 - `lab-jellyfin`: Jellyfin and a bind-mounted media path from the Proxmox host
-- `lab-arr`: Radarr, Sonarr, Prowlarr, and Byparr
+- `lab-arr`: Radarr, Sonarr, Prowlarr, Bazarr, and Byparr
 - `lab-qbittorrent-vpn`: qBittorrent with BitTorrent traffic bound to Proton VPN
 - `lab-nix`: NixOS LXC for SSH-accessible lab work
 
@@ -84,9 +84,10 @@ Friendly service names are preferred for day-to-day use:
 - `movies.lab.adre.me` for Radarr
 - `tv.lab.adre.me` for Sonarr
 - `search.lab.adre.me` or `indexers.lab.adre.me` for Prowlarr
+- `subtitles.lab.adre.me` for Bazarr
 - `downloads.lab.adre.me` or `torrents.lab.adre.me` for qBittorrent
 
-The app-native names such as `jellyfin.lab.adre.me`, `radarr.lab.adre.me`, `sonarr.lab.adre.me`, `prowlarr.lab.adre.me`, and `qbittorrent.lab.adre.me` remain valid aliases.
+The app-native names such as `jellyfin.lab.adre.me`, `radarr.lab.adre.me`, `sonarr.lab.adre.me`, `prowlarr.lab.adre.me`, `bazarr.lab.adre.me`, and `qbittorrent.lab.adre.me` remain valid aliases.
 
 The wildcard certificate is issued with DNS-01 validation through Cloudflare using `lego`. DNS-01 proves ownership by creating temporary `_acme-challenge.lab.adre.me` TXT records, so ports 80 and 443 do not need to be exposed publicly.
 
