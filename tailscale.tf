@@ -35,6 +35,8 @@ resource "tailscale_device_subnet_routes" "edge" {
   routes = [
     "${local.guests.adguard.ip}/32",
     "${local.guests.edge.ip}/32",
+    "${local.guests.jellyfin.ip}/32",
+    "${local.guests.nix.ip}/32",
   ]
 }
 

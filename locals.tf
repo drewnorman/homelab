@@ -50,7 +50,7 @@ locals {
 
   nix_inventory = var.enable_nix_host ? trimspace(<<-EOT
     [nix]
-    ${var.homelab_name}-nix ansible_host=nix.${var.search_domain} ansible_user=${var.vm_ci_user}
+    ${var.homelab_name}-nix ansible_host=${local.guests.nix.ip} ansible_user=${var.vm_ci_user}
   EOT
   ) : ""
 
