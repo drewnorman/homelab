@@ -33,6 +33,8 @@ tailscale_auth_key: "{{ lookup('env', 'TAILSCALE_AUTH_KEY') | default('', true) 
 tailscale_advertised_routes:
   - "{{ hostvars[groups['adguard'][0]].ansible_host }}/32"
   - "{{ hostvars[groups['edge'][0]].ansible_host }}/32"
+  - "{{ hostvars[groups['media'][0]].ansible_host }}/32"
+  - "{{ hostvars[groups['nix'][0]].ansible_host }}/32"
 
 adguard_bind_port: 80
 adguard_admin_user: "admin"
