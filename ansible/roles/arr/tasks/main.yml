@@ -326,6 +326,9 @@
   loop_control:
     loop_var: arr_app
 
+- name: Configure Bazarr Sonarr and Radarr connections
+  ansible.builtin.include_tasks: configure-bazarr.yml
+
 - name: Wait for Prowlarr config file
   ansible.builtin.wait_for:
     path: /var/lib/prowlarr/config.xml
