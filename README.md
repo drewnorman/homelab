@@ -121,10 +121,12 @@ Additional app hostnames should be added to `edge_extra_services` in [ansible/in
 
 ### Remote Access with Tailscale
 
-This lab uses Tailscale on `lab-edge` for private remote access without router port forwards or a static ISP IP. `lab-edge` advertises two narrow subnet routes by default:
+This lab uses Tailscale on `lab-edge` for private remote access without router port forwards or a static ISP IP. `lab-edge` advertises four narrow subnet routes by default:
 
 - `192.168.1.210/32` for AdGuard split DNS
 - `192.168.1.211/32` for the Caddy edge proxy
+- `192.168.1.230/32` for Jellyfin (direct streaming, bypasses Caddy)
+- `192.168.1.240/32` for the Nix host
 
 OpenTofu can manage the Tailscale admin-console pieces through the official Tailscale provider. Set a Tailscale API token outside source control:
 
@@ -159,7 +161,7 @@ After the first Ansible run, `lab-edge` should be joined to the tailnet. Enable 
 enable_tailscale_edge_device_management = true
 ```
 
-That second apply approves the advertised `/32` subnet routes for AdGuard and Caddy, and disables key expiry for `lab-edge`.
+That second apply approves the advertised `/32` subnet routes for AdGuard, Caddy, Jellyfin, and the Nix host, and disables key expiry for `lab-edge`.
 
 Once approved, remote clients connected to your tailnet should resolve `jellyfin.lab.adre.me`, `movies.lab.adre.me`, `downloads.lab.adre.me`, and other configured lab hosts through AdGuard, then reach Caddy on `lab-edge` over the Tailscale route.
 
@@ -198,7 +200,7 @@ ssh -i ~/.ssh/drew@nix.lab.adre.me -o IdentitiesOnly=yes drew@nix.lab.adre.me
 The intended flake target is:
 
 ```text
-https://github.com/drewnorman/nix-config#nix
+https://github.com/drewnorman/nix-config#lab-nix
 ```
 
 OpenTofu downloads the NixOS Proxmox LXC template from Hydra into Proxmox storage when `manage_nix_lxc_template = true`. The configured template file ID is `local:vztmpl/nixos-lxc-lab-nix.tar.xz`.
