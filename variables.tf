@@ -285,7 +285,7 @@ variable "nix_config_repo_url" {
 variable "nix_config_flake_host" {
   description = "Expected nixosConfigurations attribute for the lab Nix host."
   type        = string
-  default     = "nix"
+  default     = "lab-nix"
 }
 
 variable "enable_cloudflare_dns" {
