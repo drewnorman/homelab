@@ -7,9 +7,6 @@ per_host_ssh_key_fqdn: "{{ inventory_hostname | regex_replace('^' ~ homelab_name
 per_host_ssh_private_key_file: "~/.ssh/{{ ansible_user }}@{{ per_host_ssh_key_fqdn }}"
 ansible_ssh_private_key_file: "{{ per_host_ssh_private_key_file }}"
 
-docker_admin_user: "drew"
-docker_compose_root: "/opt/compose"
-
 edge_base_domain: "lab.adre.me"
 edge_tls_mode: "public_dns"
 edge_acme_email: "{{ lookup('env', 'EDGE_ACME_EMAIL') | default('', true) }}"

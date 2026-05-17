@@ -4,8 +4,8 @@ lab-adguard ansible_host=192.168.1.210 ansible_user=root
 [edge]
 lab-edge ansible_host=192.168.1.211 ansible_user=root
 
-# [docker]
-# lab-docker ansible_host=192.168.1.220 ansible_user=drew
+[homepage]
+lab-homepage ansible_host=192.168.1.212 ansible_user=root
 
 [nix]
 lab-nix ansible_host=nix.lab.adre.me ansible_user=drew
