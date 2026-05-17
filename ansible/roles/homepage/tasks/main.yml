@@ -1,56 +1,102 @@
 ---
-- name: Install homepage dependencies
+- name: Install prerequisites
   ansible.builtin.apt:
     name:
-      - nodejs
-      - unzip
       - ca-certificates
+      - curl
+      - git
     state: present
     update_cache: true
 
-- name: Create homepage user
-  ansible.builtin.user:
-    name: homepage
-    system: true
-    shell: /usr/sbin/nologin
-    home: "{{ homepage_install_dir }}"
-    create_home: false
-    state: present
-
-- name: Ensure homepage directories exist
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    owner: homepage
-    group: homepage
-    mode: "0755"
-  loop:
-    - "{{ homepage_install_dir }}"
-    - "{{ homepage_config_dir }}"
-
-- name: Download homepage release archive
+- name: Download NodeSource setup script
   ansible.builtin.get_url:
-    url: "{{ homepage_archive_url }}"
-    dest: "/tmp/homepage-linux-amd64.zip"
-    mode: "0644"
-  register: _homepage_download
+    url: "https://deb.nodesource.com/setup_{{ homepage_node_version }}.x"
+    dest: /tmp/nodesource_setup.sh
+    mode: "0755"
 
-- name: Extract homepage release
-  ansible.builtin.unarchive:
-    src: "/tmp/homepage-linux-amd64.zip"
+- name: Run NodeSource setup script
+  ansible.builtin.command:
+    cmd: bash /tmp/nodesource_setup.sh
+    creates: /etc/apt/sources.list.d/nodesource.list
+
+- name: Install Node.js from NodeSource
+  ansible.builtin.apt:
+    name: nodejs
+    state: latest
+    update_cache: true
+
+- name: Install pnpm globally
+  ansible.builtin.command:
+    cmd: npm install -g pnpm
+    creates: /usr/local/bin/pnpm
+
+- name: Ensure config directory exists
+  ansible.builtin.file:
+    path: "{{ homepage_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Mark homepage install dir as git safe directory
+  ansible.builtin.command:
+    cmd: "git config --global --add safe.directory {{ homepage_install_dir }}"
+  changed_when: false
+
+- name: Check if homepage install dir is a git repo
+  ansible.builtin.stat:
+    path: "{{ homepage_install_dir }}/.git"
+  register: _homepage_git_dir
+
+- name: Remove stale install dir if not a git repo
+  ansible.builtin.file:
+    path: "{{ homepage_install_dir }}"
+    state: absent
+  when: not _homepage_git_dir.stat.exists
+
+- name: Clone homepage repository
+  ansible.builtin.git:
+    repo: https://github.com/gethomepage/homepage.git
     dest: "{{ homepage_install_dir }}"
-    remote_src: true
-    owner: homepage
-    group: homepage
-  when: _homepage_download.changed
+    version: "v{{ homepage_version }}"
+  register: _homepage_git
+
+- name: Check if homepage standalone build exists
+  ansible.builtin.stat:
+    path: "{{ homepage_install_dir }}/.next/standalone/server.js"
+  register: _homepage_build
+
+- name: Install pnpm dependencies
+  ansible.builtin.command:
+    cmd: pnpm install --frozen-lockfile
+    chdir: "{{ homepage_install_dir }}"
+  environment:
+    HOME: /root
+  when: _homepage_git.changed or not _homepage_build.stat.exists
+
+- name: Build homepage
+  ansible.builtin.command:
+    cmd: pnpm build
+    chdir: "{{ homepage_install_dir }}"
+  environment:
+    HOME: /root
+  when: _homepage_git.changed or not _homepage_build.stat.exists
   notify: Restart homepage
+
+- name: Copy static assets into standalone directory
+  ansible.builtin.shell:
+    cmd: |
+      cp -r .next/static .next/standalone/.next/static
+      cp -r public .next/standalone/public
+    chdir: "{{ homepage_install_dir }}"
+  when: _homepage_git.changed or not _homepage_build.stat.exists
 
 - name: Render homepage services config
   ansible.builtin.template:
     src: services.yaml.j2
     dest: "{{ homepage_config_dir }}/services.yaml"
-    owner: homepage
-    group: homepage
+    owner: root
+    group: root
     mode: "0644"
   notify: Restart homepage
 
@@ -58,8 +104,8 @@
   ansible.builtin.template:
     src: settings.yaml.j2
     dest: "{{ homepage_config_dir }}/settings.yaml"
-    owner: homepage
-    group: homepage
+    owner: root
+    group: root
     mode: "0644"
   notify: Restart homepage
 
