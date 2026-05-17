@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=homepage
-WorkingDirectory={{ homepage_install_dir }}
+WorkingDirectory={{ homepage_install_dir }}/.next/standalone
 Environment=HOMEPAGE_CONFIG_DIR={{ homepage_config_dir }}
+Environment=HOMEPAGE_ALLOWED_HOSTS={{ edge_base_domain }}
 Environment=PORT={{ homepage_port }}
-ExecStart=/usr/bin/node {{ homepage_install_dir }}/server.js
+ExecStart=/usr/bin/node server.js
 Restart=on-failure
 RestartSec=5
 

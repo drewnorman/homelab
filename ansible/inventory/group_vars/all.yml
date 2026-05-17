@@ -23,11 +23,11 @@ edge_lego_archive_url: "https://github.com/go-acme/lego/releases/download/v{{ ed
 edge_extra_services: []
 
 # Check https://github.com/gethomepage/homepage/releases for the current version.
-homepage_version: "0.9.10"
+homepage_version: "1.13.1"
+homepage_node_version: "22"
 homepage_port: 3000
 homepage_install_dir: /opt/homepage
 homepage_config_dir: /etc/homepage
-homepage_archive_url: "https://github.com/gethomepage/homepage/releases/download/v{{ homepage_version }}/linux-amd64.zip"
 
 tailscale_enabled: true
 tailscale_track: stable
