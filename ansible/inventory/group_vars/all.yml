@@ -25,6 +25,13 @@ edge_lego_version: "4.34.0"
 edge_lego_archive_url: "https://github.com/go-acme/lego/releases/download/v{{ edge_lego_version }}/lego_v{{ edge_lego_version }}_linux_amd64.tar.gz"
 edge_extra_services: []
 
+# Check https://github.com/gethomepage/homepage/releases for the current version.
+homepage_version: "0.9.10"
+homepage_port: 3000
+homepage_install_dir: /opt/homepage
+homepage_config_dir: /etc/homepage
+homepage_archive_url: "https://github.com/gethomepage/homepage/releases/download/v{{ homepage_version }}/linux-amd64.zip"
+
 tailscale_enabled: true
 tailscale_track: stable
 tailscale_hostname: "{{ inventory_hostname }}"

@@ -1,0 +1,80 @@
+---
+- name: Install homepage dependencies
+  ansible.builtin.apt:
+    name:
+      - nodejs
+      - unzip
+      - ca-certificates
+    state: present
+    update_cache: true
+
+- name: Create homepage user
+  ansible.builtin.user:
+    name: homepage
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ homepage_install_dir }}"
+    create_home: false
+    state: present
+
+- name: Ensure homepage directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: homepage
+    group: homepage
+    mode: "0755"
+  loop:
+    - "{{ homepage_install_dir }}"
+    - "{{ homepage_config_dir }}"
+
+- name: Download homepage release archive
+  ansible.builtin.get_url:
+    url: "{{ homepage_archive_url }}"
+    dest: "/tmp/homepage-linux-amd64.zip"
+    mode: "0644"
+  register: _homepage_download
+
+- name: Extract homepage release
+  ansible.builtin.unarchive:
+    src: "/tmp/homepage-linux-amd64.zip"
+    dest: "{{ homepage_install_dir }}"
+    remote_src: true
+    owner: homepage
+    group: homepage
+  when: _homepage_download.changed
+  notify: Restart homepage
+
+- name: Render homepage services config
+  ansible.builtin.template:
+    src: services.yaml.j2
+    dest: "{{ homepage_config_dir }}/services.yaml"
+    owner: homepage
+    group: homepage
+    mode: "0644"
+  notify: Restart homepage
+
+- name: Render homepage settings config
+  ansible.builtin.template:
+    src: settings.yaml.j2
+    dest: "{{ homepage_config_dir }}/settings.yaml"
+    owner: homepage
+    group: homepage
+    mode: "0644"
+  notify: Restart homepage
+
+- name: Install homepage systemd service
+  ansible.builtin.template:
+    src: homepage.service.j2
+    dest: /etc/systemd/system/homepage.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart homepage
+
+- name: Ensure homepage service is enabled and started
+  ansible.builtin.systemd:
+    name: homepage
+    enabled: true
+    state: started
+    daemon_reload: true

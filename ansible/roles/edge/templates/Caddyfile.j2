@@ -1,4 +1,4 @@
-*.{{ edge_base_domain }} {
+*.{{ edge_base_domain }}, {{ edge_base_domain }} {
 {% if edge_tls_mode == "public_dns" %}
 	tls {{ edge_tls_cert_path }} {{ edge_tls_key_path }}
 {% else %}
@@ -49,6 +49,13 @@
 	@qbittorrent host qbittorrent.{{ edge_base_domain }} downloads.{{ edge_base_domain }} torrents.{{ edge_base_domain }}
 	handle @qbittorrent {
 		reverse_proxy {{ arr_host }}:{{ qbittorrent_port }}
+	}
+
+{% endif %}
+{% if groups['homepage'] | default([]) | length > 0 %}
+	@homepage host {{ edge_base_domain }}
+	handle @homepage {
+		reverse_proxy {{ hostvars[groups['homepage'][0]].ansible_host }}:{{ homepage_port }}
 	}
 
 {% endif %}
