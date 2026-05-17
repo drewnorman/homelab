@@ -70,12 +70,6 @@ variable "lxc_storage" {
   default     = "local-lvm"
 }
 
-variable "vm_storage" {
-  description = "Proxmox storage for VM disks."
-  type        = string
-  default     = "local-lvm"
-}
-
 variable "lxc_template_file_id" {
   description = "LXC template file ID, for example local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst."
   type        = string
@@ -86,18 +80,6 @@ variable "lxc_os_type" {
   description = "Container operating system type."
   type        = string
   default     = "debian"
-}
-
-variable "vm_template_id" {
-  description = "VM ID of the cloud-init capable template cloned for service VMs."
-  type        = number
-  default     = null
-}
-
-variable "enable_docker_host" {
-  description = "Create the Docker host VM. Requires vm_template_id to point at an existing cloud-init-capable VM template."
-  type        = bool
-  default     = false
 }
 
 variable "enable_nix_host" {
@@ -244,7 +226,6 @@ variable "service_ips" {
     adguard_lxc         = string
     edge_lxc            = string
     homepage_lxc        = string
-    docker_host_vm      = string
     jellyfin_lxc        = string
     arr_lxc             = string
     qbittorrent_vpn_lxc = string
@@ -254,7 +235,6 @@ variable "service_ips" {
     adguard_lxc         = "192.168.1.210"
     edge_lxc            = "192.168.1.211"
     homepage_lxc        = "192.168.1.212"
-    docker_host_vm      = "192.168.1.220"
     jellyfin_lxc        = "192.168.1.230"
     arr_lxc             = "192.168.1.232"
     qbittorrent_vpn_lxc = "192.168.1.233"
@@ -372,13 +352,6 @@ variable "cloudflare_dns_records" {
       proxied = false
     }
   ]
-}
-
-check "docker_host_template" {
-  assert {
-    condition     = !var.enable_docker_host || var.vm_template_id != null
-    error_message = "enable_docker_host requires vm_template_id to be set to an existing cloud-init-capable VM template ID."
-  }
 }
 
 check "nix_host_template" {

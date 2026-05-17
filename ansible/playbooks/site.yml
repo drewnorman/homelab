@@ -36,12 +36,6 @@
   roles:
     - homepage
 
-- name: Configure Docker host
-  hosts: docker
-  become: true
-  roles:
-    - docker_host
-
 - name: Configure qBittorrent VPN host
   hosts: qbittorrent_vpn
   become: true

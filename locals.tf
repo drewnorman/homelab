@@ -12,10 +12,6 @@ locals {
       role = "homepage"
       ip   = var.service_ips.homepage_lxc
     }
-    docker = {
-      role = "docker"
-      ip   = var.service_ips.docker_host_vm
-    }
     jellyfin = {
       role = "jellyfin"
       ip   = var.service_ips.jellyfin_lxc
@@ -33,12 +29,6 @@ locals {
       ip   = var.service_ips.nix_host_lxc
     }
   }
-
-  docker_inventory = var.enable_docker_host ? trimspace(<<-EOT
-    [docker]
-    ${proxmox_virtual_environment_vm.docker_host[0].name} ansible_host=${local.guests.docker.ip} ansible_user=${var.vm_ci_user}
-  EOT
-  ) : ""
 
   arr_inventory = var.enable_arr_stack ? trimspace(<<-EOT
     [arr]
@@ -74,7 +64,6 @@ locals {
     ${var.homelab_name}-homepage ansible_host=${local.guests.homepage.ip} ansible_user=root
     EOT
     ,
-    local.docker_inventory,
     local.arr_inventory,
     local.qbittorrent_vpn_inventory,
     local.nix_inventory,
