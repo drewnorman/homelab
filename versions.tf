@@ -1,6 +1,11 @@
 terraform {
   required_version = ">= 1.8.0"
 
+  backend "gcs" {
+    bucket = "drew-infra-tofu-state"
+    prefix = "homelab/prod"
+  }
+
   required_providers {
     proxmox = {
       source  = "bpg/proxmox"
