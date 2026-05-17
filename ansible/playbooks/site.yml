@@ -30,6 +30,12 @@
     - tailscale
     - edge
 
+- name: Configure homepage dashboard
+  hosts: homepage
+  become: true
+  roles:
+    - homepage
+
 - name: Configure Docker host
   hosts: docker
   become: true

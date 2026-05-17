@@ -1,0 +1,16 @@
+[Unit]
+Description=Homepage dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=homepage
+WorkingDirectory={{ homepage_install_dir }}
+Environment=HOMEPAGE_CONFIG_DIR={{ homepage_config_dir }}
+Environment=PORT={{ homepage_port }}
+ExecStart=/usr/bin/node {{ homepage_install_dir }}/server.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -8,6 +8,10 @@ locals {
       role = "edge"
       ip   = var.service_ips.edge_lxc
     }
+    homepage = {
+      role = "homepage"
+      ip   = var.service_ips.homepage_lxc
+    }
     docker = {
       role = "docker"
       ip   = var.service_ips.docker_host_vm
@@ -63,6 +67,11 @@ locals {
     <<-EOT
     [edge]
     ${var.homelab_name}-edge ansible_host=${local.guests.edge.ip} ansible_user=root
+    EOT
+    ,
+    <<-EOT
+    [homepage]
+    ${var.homelab_name}-homepage ansible_host=${local.guests.homepage.ip} ansible_user=root
     EOT
     ,
     local.docker_inventory,

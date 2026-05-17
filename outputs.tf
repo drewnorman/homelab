@@ -3,6 +3,7 @@ output "service_ips" {
   value = {
     adguard         = local.guests.adguard.ip
     edge            = local.guests.edge.ip
+    homepage        = local.guests.homepage.ip
     docker          = var.enable_docker_host ? local.guests.docker.ip : null
     jellyfin        = local.guests.jellyfin.ip
     qbittorrent_vpn = var.enable_qbittorrent_vpn ? local.guests.qbittorrent_vpn.ip : null

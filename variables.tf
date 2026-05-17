@@ -243,6 +243,7 @@ variable "service_ips" {
   type = object({
     adguard_lxc         = string
     edge_lxc            = string
+    homepage_lxc        = string
     docker_host_vm      = string
     jellyfin_lxc        = string
     arr_lxc             = string
@@ -252,6 +253,7 @@ variable "service_ips" {
   default = {
     adguard_lxc         = "192.168.1.210"
     edge_lxc            = "192.168.1.211"
+    homepage_lxc        = "192.168.1.212"
     docker_host_vm      = "192.168.1.220"
     jellyfin_lxc        = "192.168.1.230"
     arr_lxc             = "192.168.1.232"

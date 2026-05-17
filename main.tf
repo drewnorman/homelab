@@ -108,6 +108,63 @@ resource "proxmox_virtual_environment_container" "edge" {
   }
 }
 
+resource "proxmox_virtual_environment_container" "homepage" {
+  node_name     = var.proxmox_node_name
+  description   = "Homepage dashboard container managed by OpenTofu"
+  start_on_boot = true
+  started       = true
+  tags          = ["homelab", "homepage"]
+  unprivileged  = true
+
+  cpu {
+    cores = 1
+  }
+
+  memory {
+    dedicated = 512
+    swap      = 512
+  }
+
+  disk {
+    datastore_id = var.lxc_storage
+    size         = 4
+  }
+
+  features {
+    nesting = true
+  }
+
+  initialization {
+    hostname = "${var.homelab_name}-homepage"
+
+    dns {
+      domain  = var.search_domain
+      servers = var.dns_servers
+    }
+
+    ip_config {
+      ipv4 {
+        address = "${local.guests.homepage.ip}/${var.network_cidr}"
+        gateway = var.network_gateway
+      }
+    }
+
+    user_account {
+      keys = [trimspace(var.ssh_public_key)]
+    }
+  }
+
+  network_interface {
+    name   = "veth0"
+    bridge = var.network_bridge
+  }
+
+  operating_system {
+    template_file_id = var.lxc_template_file_id
+    type             = var.lxc_os_type
+  }
+}
+
 resource "proxmox_virtual_environment_vm" "docker_host" {
   count = var.enable_docker_host ? 1 : 0
 
