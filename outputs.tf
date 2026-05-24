@@ -59,3 +59,8 @@ output "claude_troubleshooter_uri" {
   description = "Claude troubleshooter Cloud Run service URI."
   value       = var.enable_claude_troubleshooter ? google_cloud_run_v2_service.claude_troubleshooter[0].uri : null
 }
+
+output "claude_troubleshooter_image_uri" {
+  description = "Artifact Registry URI to build and push the custom Open WebUI image to."
+  value       = var.enable_claude_troubleshooter ? local.claude_troubleshooter_image_uri : null
+}

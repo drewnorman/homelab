@@ -1,5 +1,6 @@
 locals {
-  claude_troubleshooter_name = "claude-troubleshooter"
+  claude_troubleshooter_name      = "claude-troubleshooter"
+  claude_troubleshooter_image_uri = "${var.gcp_region}-docker.pkg.dev/${var.gcp_project}/${local.claude_troubleshooter_name}/open-webui:latest"
 }
 
 resource "google_project_service" "run" {
@@ -18,12 +19,32 @@ resource "google_project_service" "secretmanager" {
   disable_on_destroy = false
 }
 
+resource "google_project_service" "artifactregistry" {
+  count   = var.enable_claude_troubleshooter ? 1 : 0
+  project = var.gcp_project
+  service = "artifactregistry.googleapis.com"
+
+  disable_on_destroy = false
+}
+
+resource "google_artifact_registry_repository" "claude_troubleshooter" {
+  count         = var.enable_claude_troubleshooter ? 1 : 0
+  project       = var.gcp_project
+  location      = var.gcp_region
+  repository_id = local.claude_troubleshooter_name
+  format        = "DOCKER"
+
+  depends_on = [google_project_service.artifactregistry]
+}
+
 resource "google_service_account" "claude_troubleshooter" {
   count        = var.enable_claude_troubleshooter ? 1 : 0
   project      = var.gcp_project
   account_id   = local.claude_troubleshooter_name
   display_name = "Claude Troubleshooter"
 }
+
+# Secrets
 
 resource "google_secret_manager_secret" "anthropic_api_key" {
   count     = var.enable_claude_troubleshooter ? 1 : 0
@@ -43,10 +64,69 @@ resource "google_secret_manager_secret_version" "anthropic_api_key" {
   secret_data = var.anthropic_api_key
 }
 
-resource "google_secret_manager_secret_iam_member" "claude_troubleshooter" {
+resource "random_password" "webui_secret_key" {
+  count   = var.enable_claude_troubleshooter ? 1 : 0
+  length  = 32
+  special = false
+}
+
+resource "google_secret_manager_secret" "webui_secret_key" {
+  count     = var.enable_claude_troubleshooter ? 1 : 0
+  project   = var.gcp_project
+  secret_id = "claude-troubleshooter-webui-secret-key"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.secretmanager]
+}
+
+resource "google_secret_manager_secret_version" "webui_secret_key" {
+  count       = var.enable_claude_troubleshooter ? 1 : 0
+  secret      = google_secret_manager_secret.webui_secret_key[0].id
+  secret_data = random_password.webui_secret_key[0].result
+}
+
+resource "google_secret_manager_secret" "webui_admin_password" {
+  count     = var.enable_claude_troubleshooter ? 1 : 0
+  project   = var.gcp_project
+  secret_id = "claude-troubleshooter-webui-admin-password"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.secretmanager]
+}
+
+resource "google_secret_manager_secret_version" "webui_admin_password" {
+  count       = var.enable_claude_troubleshooter ? 1 : 0
+  secret      = google_secret_manager_secret.webui_admin_password[0].id
+  secret_data = var.webui_admin_password
+}
+
+# Grant the service account access to all three secrets.
+resource "google_secret_manager_secret_iam_member" "anthropic_api_key" {
   count     = var.enable_claude_troubleshooter ? 1 : 0
   project   = var.gcp_project
   secret_id = google_secret_manager_secret.anthropic_api_key[0].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.claude_troubleshooter[0].email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "webui_secret_key" {
+  count     = var.enable_claude_troubleshooter ? 1 : 0
+  project   = var.gcp_project
+  secret_id = google_secret_manager_secret.webui_secret_key[0].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.claude_troubleshooter[0].email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "webui_admin_password" {
+  count     = var.enable_claude_troubleshooter ? 1 : 0
+  project   = var.gcp_project
+  secret_id = google_secret_manager_secret.webui_admin_password[0].secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.claude_troubleshooter[0].email}"
 }
@@ -64,6 +144,29 @@ resource "google_cloud_run_v2_service" "claude_troubleshooter" {
     containers {
       image = var.claude_troubleshooter_image
 
+      resources {
+        limits = {
+          memory = "2Gi"
+          cpu    = "1"
+        }
+      }
+
+      env {
+        name  = "WEBUI_ADMIN_EMAIL"
+        value = var.webui_admin_email
+      }
+      env {
+        name  = "HOMELAB_REPO"
+        value = "drewnorman/homelab"
+      }
+      env {
+        name  = "ENABLE_OLLAMA_API"
+        value = "false"
+      }
+      env {
+        name  = "ENABLE_SIGNUP"
+        value = "false"
+      }
       env {
         name = "ANTHROPIC_API_KEY"
         value_source {
@@ -73,17 +176,37 @@ resource "google_cloud_run_v2_service" "claude_troubleshooter" {
           }
         }
       }
+      env {
+        name = "WEBUI_SECRET_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.webui_secret_key[0].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "WEBUI_ADMIN_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.webui_admin_password[0].secret_id
+            version = "latest"
+          }
+        }
+      }
     }
   }
 
   depends_on = [
     google_project_service.run,
-    google_secret_manager_secret_iam_member.claude_troubleshooter,
+    google_secret_manager_secret_iam_member.anthropic_api_key,
+    google_secret_manager_secret_iam_member.webui_secret_key,
+    google_secret_manager_secret_iam_member.webui_admin_password,
   ]
 }
 
 # Allow unauthenticated access so the web UI is reachable in a browser.
-# The application is responsible for its own authentication.
+# Open WebUI's own auth (WEBUI_AUTH=true by default) gates access.
 resource "google_cloud_run_v2_service_iam_member" "claude_troubleshooter_public_invoker" {
   count    = var.enable_claude_troubleshooter ? 1 : 0
   project  = var.gcp_project

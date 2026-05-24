@@ -373,9 +373,22 @@ variable "enable_claude_troubleshooter" {
 }
 
 variable "claude_troubleshooter_image" {
-  description = "Container image URI for the Claude troubleshooter Cloud Run service."
+  description = "Container image URI for the Claude troubleshooter Cloud Run service. Defaults to a placeholder; update to the Artifact Registry URI after building and pushing the custom image."
   type        = string
   default     = "us-docker.pkg.dev/cloudrun/container/hello"
+}
+
+variable "webui_admin_email" {
+  description = "Email address for the Open WebUI admin account created on first startup."
+  type        = string
+  default     = ""
+}
+
+variable "webui_admin_password" {
+  description = "Password for the Open WebUI admin account."
+  type        = string
+  sensitive   = true
+  default     = ""
 }
 
 variable "anthropic_api_key" {
