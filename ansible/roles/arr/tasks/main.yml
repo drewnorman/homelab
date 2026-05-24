@@ -202,7 +202,7 @@
     state: directory
     owner: root
     group: media
-    mode: "0775"
+    mode: "2775"
   loop:
     - "{{ arr_media_path }}"
     - "{{ arr_media_path }}/movies"

@@ -45,7 +45,7 @@
     state: directory
     owner: "100000"
     group: "101000"
-    mode: "0775"
+    mode: "2775"
   loop:
     - /mnt/media/media
     - /mnt/media/media/movies
