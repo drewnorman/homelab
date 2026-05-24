@@ -354,6 +354,37 @@ variable "cloudflare_dns_records" {
   ]
 }
 
+variable "gcp_project" {
+  description = "GCP project ID for Cloud Run services."
+  type        = string
+  default     = ""
+}
+
+variable "gcp_region" {
+  description = "GCP region for Cloud Run services."
+  type        = string
+  default     = "us-central1"
+}
+
+variable "enable_claude_troubleshooter" {
+  description = "Deploy the Claude troubleshooter Cloud Run service to GCP."
+  type        = bool
+  default     = false
+}
+
+variable "claude_troubleshooter_image" {
+  description = "Container image URI for the Claude troubleshooter Cloud Run service."
+  type        = string
+  default     = "us-docker.pkg.dev/cloudrun/container/hello"
+}
+
+variable "anthropic_api_key" {
+  description = "Anthropic API key injected into the Claude troubleshooter via Secret Manager."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 check "nix_host_template" {
   assert {
     condition     = !var.enable_nix_host || var.nix_lxc_template_file_id != ""

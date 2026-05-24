@@ -17,3 +17,8 @@ provider "tailscale" {
   api_key = var.tailscale_api_key != "" ? var.tailscale_api_key : null
   tailnet = var.tailscale_tailnet
 }
+
+provider "google" {
+  project = var.gcp_project != "" ? var.gcp_project : null
+  region  = var.gcp_region
+}

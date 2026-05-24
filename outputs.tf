@@ -54,3 +54,8 @@ output "tailscale_edge_auth_key" {
   value       = var.enable_tailscale_management ? tailscale_tailnet_key.edge[0].key : null
   sensitive   = true
 }
+
+output "claude_troubleshooter_uri" {
+  description = "Claude troubleshooter Cloud Run service URI."
+  value       = var.enable_claude_troubleshooter ? google_cloud_run_v2_service.claude_troubleshooter[0].uri : null
+}

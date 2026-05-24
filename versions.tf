@@ -19,5 +19,9 @@ terraform {
       source  = "tailscale/tailscale"
       version = "~> 0.28"
     }
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 6.0"
+    }
   }
 }
