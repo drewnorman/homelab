@@ -34,11 +34,13 @@ tailscale_track: stable
 tailscale_hostname: "{{ inventory_hostname }}"
 tailscale_accept_dns: false
 tailscale_auth_key: "{{ lookup('env', 'TAILSCALE_AUTH_KEY') | default('', true) }}"
-tailscale_advertised_routes:
-  - "{{ hostvars[groups['adguard'][0]].ansible_host }}/32"
-  - "{{ hostvars[groups['edge'][0]].ansible_host }}/32"
-  - "{{ hostvars[groups['media'][0]].ansible_host }}/32"
-  - "{{ hostvars[groups['nix'][0]].ansible_host }}/32"
+tailscale_advertised_routes: >-
+  {{
+    (groups['adguard'] | default([]) | length > 0) | ternary([hostvars[groups['adguard'][0]].ansible_host ~ '/32'], [])
+    + (groups['edge'] | default([]) | length > 0) | ternary([hostvars[groups['edge'][0]].ansible_host ~ '/32'], [])
+    + (groups['media'] | default([]) | length > 0) | ternary([hostvars[groups['media'][0]].ansible_host ~ '/32'], [])
+    + (groups['nix'] | default([]) | length > 0) | ternary([hostvars[groups['nix'][0]].ansible_host ~ '/32'], [])
+  }}
 
 adguard_bind_port: 80
 adguard_admin_user: "admin"
