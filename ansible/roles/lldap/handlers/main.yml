@@ -1,0 +1,6 @@
+---
+- name: Restart LLDAP
+  ansible.builtin.systemd:
+    name: lldap
+    state: restarted
+    daemon_reload: true

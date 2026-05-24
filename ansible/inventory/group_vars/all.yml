@@ -29,6 +29,17 @@ homepage_port: 3000
 homepage_install_dir: /opt/homepage
 homepage_config_dir: /etc/homepage
 
+authelia_version: "4.38.18"
+authelia_port: 9091
+authelia_archive_url: "https://github.com/authelia/authelia/releases/download/v{{ authelia_version }}/authelia-v{{ authelia_version }}-linux-amd64.tar.gz"
+
+lldap_version: "0.6.1"
+lldap_ldap_port: 3890
+lldap_http_port: 17170
+lldap_archive_url: "https://github.com/lldap/lldap/releases/download/v{{ lldap_version }}/lldap-x86_64-unknown-linux-musl.tar.gz"
+lldap_base_dn: "{{ edge_base_domain.split('.') | map('regex_replace', '^(.*)$', 'dc=\\1') | join(',') }}"
+lldap_admin_password: "{{ lookup('env', 'LLDAP_ADMIN_PASSWORD') | default('', true) }}"
+
 tailscale_enabled: true
 tailscale_track: stable
 tailscale_hostname: "{{ inventory_hostname }}"

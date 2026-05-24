@@ -1,0 +1,47 @@
+---
+theme: dark
+default_redirection_url: 'https://{{ edge_base_domain }}'
+
+server:
+  address: 'tcp://0.0.0.0:{{ authelia_port }}'
+
+log:
+  level: info
+  keep_stdout: true
+
+totp:
+  issuer: '{{ edge_base_domain }}'
+  period: 30
+  skew: 1
+
+authentication_backend:
+  ldap:
+    implementation: lldap
+    address: 'ldap://{{ hostvars[groups["lldap"][0]].ansible_host }}:{{ lldap_ldap_port }}'
+    base_dn: '{{ lldap_base_dn }}'
+    user: 'uid=admin,ou=people,{{ lldap_base_dn }}'
+
+access_control:
+  default_policy: one_factor
+
+session:
+  cookies:
+    - name: authelia_session
+      domain: '{{ edge_base_domain }}'
+      authelia_url: 'https://auth.{{ edge_base_domain }}'
+      expiration: 12h
+      inactivity: 1h
+      remember_me: 1M
+
+regulation:
+  max_retries: 5
+  find_time: 5m
+  ban_time: 15m
+
+storage:
+  local:
+    path: /var/lib/authelia/db.sqlite3
+
+notifier:
+  filesystem:
+    filename: /var/log/authelia/notification.txt

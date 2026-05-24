@@ -36,6 +36,18 @@
   roles:
     - homepage
 
+- name: Configure LLDAP user directory
+  hosts: lldap
+  become: true
+  roles:
+    - lldap
+
+- name: Configure Authelia authentication server
+  hosts: authelia
+  become: true
+  roles:
+    - authelia
+
 - name: Configure qBittorrent VPN host
   hosts: qbittorrent_vpn
   become: true

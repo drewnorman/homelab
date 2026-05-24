@@ -65,6 +65,13 @@
     - { key: ssl, value: "false" }
   register: _bazarr_radarr_endpoint
 
+- name: Disable Bazarr authentication
+  ansible.builtin.replace:
+    path: "{{ bazarr_data_dir }}/config/config.yaml"
+    regexp: '^(auth:\n(?:  .*\n)*?  type: ).*$'
+    replace: '\g<1>None'
+  register: _bazarr_auth
+
 - name: Restart Bazarr after connection changes
   ansible.builtin.service:
     name: bazarr
@@ -73,4 +80,5 @@
     _bazarr_sonarr_key.changed or
     _bazarr_radarr_key.changed or
     _bazarr_sonarr_endpoint.changed or
-    _bazarr_radarr_endpoint.changed
+    _bazarr_radarr_endpoint.changed or
+    _bazarr_auth.changed
