@@ -93,14 +93,16 @@ resource "google_cloud_run_v2_service_iam_member" "claude_troubleshooter_public_
   member   = "allUsers"
 }
 
-# DNS: point claude.adre.me at the Cloud Run service.
-# Custom domain serving requires one-time domain verification in Google Search Console
-# followed by a google_cloud_run_domain_mapping resource. Until then the CNAME resolves
-# to the service host but requests will be served by Cloud Run's generated URL only.
+# DNS: point claude.lab.adre.me at the Cloud Run service.
+# Within the homelab, *.lab.adre.me resolves to lab-edge via AdGuard; Caddy on lab-edge
+# must be configured with claude.lab.adre.me as an edge_extra_service to proxy to this URI.
+# Externally, this CNAME resolves to the Cloud Run host, but Cloud Run will only serve
+# claude.lab.adre.me after domain verification and a google_cloud_run_domain_mapping is added.
+# Until then, use the claude_troubleshooter_uri output for direct external access.
 resource "cloudflare_dns_record" "claude_troubleshooter" {
   count   = var.enable_claude_troubleshooter && var.enable_cloudflare_dns ? 1 : 0
   zone_id = local.cloudflare_managed_zone_id
-  name    = "claude.${var.cloudflare_zone_name}"
+  name    = "claude.lab.${var.cloudflare_zone_name}"
   type    = "CNAME"
   content = trimprefix(google_cloud_run_v2_service.claude_troubleshooter[0].uri, "https://")
   ttl     = 3600
