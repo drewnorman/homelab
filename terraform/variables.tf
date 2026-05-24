@@ -29,13 +29,13 @@ variable "proxmox_node_name" {
 }
 
 variable "homelab_name" {
-  description = "Short name used as a prefix for guests."
+  description = "Short name used as a prefix for guest hostnames."
   type        = string
   default     = "lab"
 }
 
 variable "network_bridge" {
-  description = "Proxmox bridge used by LXCs and VMs."
+  description = "Proxmox bridge used by LXC containers."
   type        = string
   default     = "vmbr0"
 }
@@ -53,7 +53,7 @@ variable "network_cidr" {
 }
 
 variable "dns_servers" {
-  description = "DNS servers used by guests."
+  description = "DNS servers used during initial LXC provisioning."
   type        = list(string)
   default     = ["192.168.1.1", "1.1.1.1"]
 }
@@ -65,75 +65,108 @@ variable "search_domain" {
 }
 
 variable "lxc_storage" {
-  description = "Proxmox storage for LXC root filesystems."
+  description = "Proxmox storage pool for LXC root filesystems."
   type        = string
   default     = "local-lvm"
 }
 
+variable "ssh_public_key" {
+  description = "SSH public key injected into all NixOS LXC containers at first boot."
+  type        = string
+}
+
+# ---------------------------------------------------------------------------
+# NixOS LXC template
+# ---------------------------------------------------------------------------
+
 variable "lxc_template_file_id" {
-  description = "LXC template file ID, for example local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst."
+  description = "NixOS LXC template file ID as seen by Proxmox, e.g. local:vztmpl/nixos-lxc-homelab.tar.xz."
   type        = string
-  default     = "local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst"
+  default     = "local:vztmpl/nixos-lxc-homelab.tar.xz"
 }
 
-variable "lxc_os_type" {
-  description = "Container operating system type."
-  type        = string
-  default     = "debian"
-}
-
-variable "enable_nix_host" {
-  description = "Create the NixOS lab LXC. Requires nix_lxc_template_file_id to point at a NixOS LXC template."
-  type        = bool
-  default     = false
-}
-
-variable "nix_lxc_template_file_id" {
-  description = "NixOS LXC template file ID, for example local:vztmpl/nixos-lxc-lab-nix.tar.xz."
-  type        = string
-  default     = "local:vztmpl/nixos-lxc-lab-nix.tar.xz"
-}
-
-variable "manage_nix_lxc_template" {
-  description = "Download the NixOS LXC template into Proxmox storage with OpenTofu."
+variable "manage_lxc_template" {
+  description = "Download the NixOS LXC template into Proxmox storage via OpenTofu."
   type        = bool
   default     = true
 }
 
-variable "nix_lxc_template_datastore_id" {
-  description = "Proxmox datastore where the NixOS LXC template should be downloaded."
+variable "lxc_template_datastore_id" {
+  description = "Proxmox datastore to download the NixOS LXC template into."
   type        = string
   default     = "local"
 }
 
-variable "nix_lxc_template_file_name" {
-  description = "File name to use for the downloaded NixOS LXC template."
+variable "lxc_template_file_name" {
+  description = "File name for the downloaded NixOS LXC template."
   type        = string
-  default     = "nixos-lxc-lab-nix.tar.xz"
+  default     = "nixos-lxc-homelab.tar.xz"
 }
 
-variable "nix_lxc_template_url" {
-  description = "Hydra URL for the NixOS Proxmox LXC template."
+variable "lxc_template_url" {
+  description = "Download URL for the NixOS Proxmox LXC tarball."
   type        = string
   default     = "https://hydra.nixos.org/job/nixos/release-25.11/nixos.proxmoxLXC.x86_64-linux/latest/download-by-type/file/system-tarball"
 }
 
-variable "nix_lxc_template_download_timeout_seconds" {
+variable "lxc_template_download_timeout_seconds" {
   description = "Timeout for downloading the NixOS LXC template through the Proxmox API."
   type        = number
   default     = 1800
 }
 
-variable "nix_lxc_os_type" {
-  description = "NixOS container operating system type."
-  type        = string
-  default     = "nixos"
+# ---------------------------------------------------------------------------
+# Service IPs
+# ---------------------------------------------------------------------------
+
+variable "service_ips" {
+  description = "Static IP addresses for each NixOS LXC container."
+  type = object({
+    adguard_lxc         = string
+    edge_lxc            = string
+    homepage_lxc        = string
+    authelia_lxc        = string
+    lldap_lxc           = string
+    jellyfin_lxc        = string
+    arr_lxc             = string
+    qbittorrent_vpn_lxc = string
+  })
+  default = {
+    adguard_lxc         = "192.168.1.210"
+    edge_lxc            = "192.168.1.211"
+    homepage_lxc        = "192.168.1.212"
+    authelia_lxc        = "192.168.1.213"
+    lldap_lxc           = "192.168.1.214"
+    jellyfin_lxc        = "192.168.1.230"
+    arr_lxc             = "192.168.1.232"
+    qbittorrent_vpn_lxc = "192.168.1.233"
+  }
 }
 
-variable "vm_ci_user" {
-  description = "Cloud-init user created on service VMs."
-  type        = string
-  default     = "drew"
+# ---------------------------------------------------------------------------
+# Optional service toggles
+# ---------------------------------------------------------------------------
+
+variable "enable_arr_stack" {
+  description = "Create the arr media automation LXC (Radarr, Sonarr, Prowlarr, Bazarr)."
+  type        = bool
+  default     = false
+}
+
+variable "enable_qbittorrent_vpn" {
+  description = "Create the qBittorrent LXC with Proton VPN WireGuard routing."
+  type        = bool
+  default     = false
+}
+
+# ---------------------------------------------------------------------------
+# Per-service sizing
+# ---------------------------------------------------------------------------
+
+variable "jellyfin_lxc_disk_size_gb" {
+  description = "Jellyfin LXC root disk size in GiB."
+  type        = number
+  default     = 16
 }
 
 variable "jellyfin_media_bind_mount_host_path" {
@@ -142,23 +175,21 @@ variable "jellyfin_media_bind_mount_host_path" {
   default     = null
 }
 
-variable "jellyfin_lxc_disk_size_gb" {
-  description = "Jellyfin LXC root disk size in GiB."
-  type        = number
-  default     = 16
+variable "arr_downloads_bind_mount_host_path" {
+  description = "Optional Proxmox host path bind-mounted into the arr container at /srv/downloads."
+  type        = string
+  default     = null
 }
 
-variable "enable_arr_stack" {
-  description = "Create the media automation LXC running Radarr, Sonarr, and Prowlarr."
-  type        = bool
-  default     = false
+variable "arr_media_bind_mount_host_path" {
+  description = "Optional Proxmox host path bind-mounted into the arr container at /mnt/media. Should match jellyfin_media_bind_mount_host_path so hardlinks work."
+  type        = string
+  default     = null
 }
 
-variable "enable_qbittorrent_vpn" {
-  description = "Create the qBittorrent LXC with Proton VPN routing."
-  type        = bool
-  default     = false
-}
+# ---------------------------------------------------------------------------
+# Tailscale
+# ---------------------------------------------------------------------------
 
 variable "enable_tailscale_management" {
   description = "Manage tailnet DNS settings and auth key generation with the Tailscale provider."
@@ -167,20 +198,20 @@ variable "enable_tailscale_management" {
 }
 
 variable "enable_tailscale_edge_device_management" {
-  description = "Manage lab-edge device routes and key expiry after it has joined Tailscale."
+  description = "Manage lab-edge device subnet routes and key expiry. Enable after lab-edge has joined the tailnet."
   type        = bool
   default     = false
 }
 
 variable "tailscale_api_key" {
-  description = "Tailscale API access token. Prefer setting TF_VAR_tailscale_api_key or TAILSCALE_API_KEY outside source control."
+  description = "Tailscale API access token."
   type        = string
   sensitive   = true
   default     = ""
 }
 
 variable "tailscale_tailnet" {
-  description = "Tailscale tailnet ID/name. Use '-' to let Tailscale infer the default tailnet from the credential."
+  description = "Tailscale tailnet ID. Use '-' to infer the default tailnet from the credential."
   type        = string
   default     = "-"
 }
@@ -198,81 +229,14 @@ variable "tailscale_auth_key_reusable" {
 }
 
 variable "tailscale_auth_key_preauthorized" {
-  description = "Whether devices using the generated Tailscale auth key are preauthorized."
+  description = "Whether devices using the generated auth key are preauthorized."
   type        = bool
   default     = true
 }
 
-variable "arr_downloads_bind_mount_host_path" {
-  description = "Optional Proxmox host path bind-mounted into the arr container at /srv/downloads."
-  type        = string
-  default     = null
-}
-
-variable "arr_media_bind_mount_host_path" {
-  description = "Optional Proxmox host path bind-mounted into the arr container at /mnt/media. Should match jellyfin_media_bind_mount_host_path so that hardlinks work between the two containers."
-  type        = string
-  default     = null
-}
-
-variable "ssh_public_key" {
-  description = "SSH public key injected into service guests."
-  type        = string
-}
-
-variable "service_ips" {
-  description = "Static IP addresses for the provisioned guests."
-  type = object({
-    adguard_lxc         = string
-    edge_lxc            = string
-    homepage_lxc        = string
-    authelia_lxc        = string
-    lldap_lxc           = string
-    jellyfin_lxc        = string
-    arr_lxc             = string
-    qbittorrent_vpn_lxc = string
-    nix_host_lxc        = string
-  })
-  default = {
-    adguard_lxc         = "192.168.1.210"
-    edge_lxc            = "192.168.1.211"
-    homepage_lxc        = "192.168.1.212"
-    authelia_lxc        = "192.168.1.213"
-    lldap_lxc           = "192.168.1.214"
-    jellyfin_lxc        = "192.168.1.230"
-    arr_lxc             = "192.168.1.232"
-    qbittorrent_vpn_lxc = "192.168.1.233"
-    nix_host_lxc        = "192.168.1.240"
-  }
-}
-
-variable "nix_host_lxc_resources" {
-  description = "Resource sizing for the NixOS lab LXC."
-  type = object({
-    cores        = number
-    memory_mb    = number
-    swap_mb      = number
-    disk_size_gb = number
-  })
-  default = {
-    cores        = 4
-    memory_mb    = 4096
-    swap_mb      = 1024
-    disk_size_gb = 32
-  }
-}
-
-variable "nix_config_repo_url" {
-  description = "Git repository containing the NixOS flake intended for the lab Nix host."
-  type        = string
-  default     = "https://github.com/drewnorman/nix-config"
-}
-
-variable "nix_config_flake_host" {
-  description = "Expected nixosConfigurations attribute for the lab Nix host."
-  type        = string
-  default     = "lab-nix"
-}
+# ---------------------------------------------------------------------------
+# Cloudflare DNS
+# ---------------------------------------------------------------------------
 
 variable "enable_cloudflare_dns" {
   description = "Manage public DNS records for cloudflare_zone_name through the Cloudflare provider."
@@ -281,19 +245,19 @@ variable "enable_cloudflare_dns" {
 }
 
 variable "cloudflare_zone_name" {
-  description = "Cloudflare-managed apex domain for public DNS records."
+  description = "Cloudflare-managed apex domain."
   type        = string
   default     = "adre.me"
 }
 
 variable "cloudflare_zone_id" {
-  description = "Optional Cloudflare zone ID for cloudflare_zone_name. Leave empty to look up the zone by name."
+  description = "Optional Cloudflare zone ID. Leave empty to look up by name."
   type        = string
   default     = ""
 }
 
 variable "cloudflare_api_token" {
-  description = "Cloudflare API token. Can also be provided with CLOUDFLARE_API_TOKEN."
+  description = "Cloudflare API token. Can also be set via CLOUDFLARE_API_TOKEN."
   type        = string
   default     = ""
   sensitive   = true
@@ -358,16 +322,9 @@ variable "cloudflare_dns_records" {
   ]
 }
 
-check "nix_host_template" {
-  assert {
-    condition     = !var.enable_nix_host || var.nix_lxc_template_file_id != ""
-    error_message = "enable_nix_host requires nix_lxc_template_file_id to point at an existing NixOS LXC template file ID."
-  }
-}
-
 check "cloudflare_dns_credentials" {
   assert {
     condition     = !var.enable_cloudflare_dns || var.cloudflare_zone_name != ""
-    error_message = "enable_cloudflare_dns requires cloudflare_zone_name and Cloudflare API credentials through cloudflare_api_token or CLOUDFLARE_API_TOKEN."
+    error_message = "enable_cloudflare_dns requires cloudflare_zone_name and Cloudflare API credentials."
   }
 }
