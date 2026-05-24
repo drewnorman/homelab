@@ -18,13 +18,15 @@ enable_nix_host    = true
 # vm_template_id   = 9000
 
 service_ips = {
-  adguard_lxc    = "192.168.1.210"
-  edge_lxc       = "192.168.1.211"
-  docker_host_vm = "192.168.1.220"
-  jellyfin_lxc   = "192.168.1.230"
-  arr_lxc        = "192.168.1.232"
+  adguard_lxc         = "192.168.1.210"
+  edge_lxc            = "192.168.1.211"
+  homepage_lxc        = "192.168.1.212"
+  authelia_lxc        = "192.168.1.213"
+  lldap_lxc           = "192.168.1.214"
+  jellyfin_lxc        = "192.168.1.230"
+  arr_lxc             = "192.168.1.232"
   qbittorrent_vpn_lxc = "192.168.1.233"
-  nix_host_lxc   = "192.168.1.240"
+  nix_host_lxc        = "192.168.1.240"
 }
 
 nix_config_repo_url   = "https://github.com/drewnorman/nix-config"

@@ -23,6 +23,26 @@
   retries: 30
   delay: 2
 
+# Authentication
+
+- name: Get {{ arr_app.name }} host config
+  ansible.builtin.uri:
+    url: "http://localhost:{{ arr_app.port }}/api/v3/config/host"
+    headers:
+      X-Api-Key: "{{ _arr_app_api_key }}"
+  register: _arr_host_config
+
+- name: Disable {{ arr_app.name }} authentication
+  ansible.builtin.uri:
+    url: "http://localhost:{{ arr_app.port }}/api/v3/config/host/{{ _arr_host_config.json.id }}"
+    method: PUT
+    headers:
+      X-Api-Key: "{{ _arr_app_api_key }}"
+    body_format: json
+    body: "{{ _arr_host_config.json | combine({'authenticationMethod': 'External', 'authenticationRequired': 'Enabled'}) }}"
+    status_code: [200, 202]
+  when: _arr_host_config.json.authenticationMethod != 'External'
+
 # Root folder
 
 - name: Get {{ arr_app.name }} root folders

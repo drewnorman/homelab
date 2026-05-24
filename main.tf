@@ -361,6 +361,112 @@ resource "proxmox_virtual_environment_container" "qbittorrent_vpn" {
   }
 }
 
+resource "proxmox_virtual_environment_container" "lldap" {
+  node_name     = var.proxmox_node_name
+  description   = "LLDAP user directory managed by OpenTofu"
+  start_on_boot = true
+  started       = true
+  tags          = ["homelab", "lldap"]
+  unprivileged  = true
+
+  cpu {
+    cores = 1
+  }
+
+  memory {
+    dedicated = 256
+    swap      = 256
+  }
+
+  disk {
+    datastore_id = var.lxc_storage
+    size         = 4
+  }
+
+  initialization {
+    hostname = "${var.homelab_name}-lldap"
+
+    dns {
+      domain  = var.search_domain
+      servers = var.dns_servers
+    }
+
+    ip_config {
+      ipv4 {
+        address = "${local.guests.lldap.ip}/${var.network_cidr}"
+        gateway = var.network_gateway
+      }
+    }
+
+    user_account {
+      keys = [trimspace(var.ssh_public_key)]
+    }
+  }
+
+  network_interface {
+    name   = "veth0"
+    bridge = var.network_bridge
+  }
+
+  operating_system {
+    template_file_id = var.lxc_template_file_id
+    type             = var.lxc_os_type
+  }
+}
+
+resource "proxmox_virtual_environment_container" "authelia" {
+  node_name     = var.proxmox_node_name
+  description   = "Authelia authentication server managed by OpenTofu"
+  start_on_boot = true
+  started       = true
+  tags          = ["authelia", "homelab"]
+  unprivileged  = true
+
+  cpu {
+    cores = 1
+  }
+
+  memory {
+    dedicated = 512
+    swap      = 512
+  }
+
+  disk {
+    datastore_id = var.lxc_storage
+    size         = 4
+  }
+
+  initialization {
+    hostname = "${var.homelab_name}-authelia"
+
+    dns {
+      domain  = var.search_domain
+      servers = var.dns_servers
+    }
+
+    ip_config {
+      ipv4 {
+        address = "${local.guests.authelia.ip}/${var.network_cidr}"
+        gateway = var.network_gateway
+      }
+    }
+
+    user_account {
+      keys = [trimspace(var.ssh_public_key)]
+    }
+  }
+
+  network_interface {
+    name   = "veth0"
+    bridge = var.network_bridge
+  }
+
+  operating_system {
+    template_file_id = var.lxc_template_file_id
+    type             = var.lxc_os_type
+  }
+}
+
 resource "proxmox_virtual_environment_container" "jellyfin" {
   node_name     = var.proxmox_node_name
   description   = "Lean Jellyfin container managed by OpenTofu"

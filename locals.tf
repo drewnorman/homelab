@@ -12,6 +12,14 @@ locals {
       role = "homepage"
       ip   = var.service_ips.homepage_lxc
     }
+    authelia = {
+      role = "authelia"
+      ip   = var.service_ips.authelia_lxc
+    }
+    lldap = {
+      role = "lldap"
+      ip   = var.service_ips.lldap_lxc
+    }
     jellyfin = {
       role = "jellyfin"
       ip   = var.service_ips.jellyfin_lxc
@@ -62,6 +70,16 @@ locals {
     <<-EOT
     [homepage]
     ${var.homelab_name}-homepage ansible_host=${local.guests.homepage.ip} ansible_user=root
+    EOT
+    ,
+    <<-EOT
+    [authelia]
+    ${var.homelab_name}-authelia ansible_host=${local.guests.authelia.ip} ansible_user=root
+    EOT
+    ,
+    <<-EOT
+    [lldap]
+    ${var.homelab_name}-lldap ansible_host=${local.guests.lldap.ip} ansible_user=root
     EOT
     ,
     local.arr_inventory,

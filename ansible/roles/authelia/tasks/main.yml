@@ -1,0 +1,121 @@
+---
+- name: Install Authelia dependencies
+  ansible.builtin.apt:
+    name:
+      - openssl
+      - sqlite3
+    state: present
+    update_cache: true
+
+- name: Create authelia group
+  ansible.builtin.group:
+    name: authelia
+    system: true
+    state: present
+
+- name: Create authelia user
+  ansible.builtin.user:
+    name: authelia
+    system: true
+    group: authelia
+    shell: /usr/sbin/nologin
+    home: /var/lib/authelia
+    create_home: false
+    state: present
+
+- name: Ensure authelia directories exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - path: /etc/authelia
+      owner: root
+      group: authelia
+      mode: "0750"
+    - path: /var/lib/authelia
+      owner: authelia
+      group: authelia
+      mode: "0750"
+    - path: /var/log/authelia
+      owner: authelia
+      group: authelia
+      mode: "0750"
+
+- name: Check installed Authelia version
+  ansible.builtin.command:
+    cmd: /usr/local/bin/authelia --version
+  register: _authelia_version_check
+  changed_when: false
+  failed_when: false
+
+- name: Download Authelia archive
+  ansible.builtin.get_url:
+    url: "{{ authelia_archive_url }}"
+    dest: "/tmp/authelia-v{{ authelia_version }}-linux-amd64.tar.gz"
+    mode: "0644"
+  when: authelia_version not in (_authelia_version_check.stdout | default(''))
+  register: _authelia_archive
+
+- name: Install Authelia binary
+  ansible.builtin.unarchive:
+    src: "/tmp/authelia-v{{ authelia_version }}-linux-amd64.tar.gz"
+    dest: /usr/local/bin
+    remote_src: true
+    include:
+      - authelia
+    owner: root
+    group: root
+    mode: "0755"
+  when: _authelia_archive is changed
+  notify: Restart Authelia
+
+- name: Generate Authelia secrets
+  ansible.builtin.shell:
+    cmd: |
+      printf 'AUTHELIA_JWT_SECRET=%s\n' "$(openssl rand -hex 64)" > /etc/authelia/authelia.env
+      printf 'AUTHELIA_SESSION_SECRET=%s\n' "$(openssl rand -hex 64)" >> /etc/authelia/authelia.env
+      printf 'AUTHELIA_STORAGE_ENCRYPTION_KEY=%s\n' "$(openssl rand -hex 64)" >> /etc/authelia/authelia.env
+    creates: /etc/authelia/authelia.env
+  notify: Restart Authelia
+
+- name: Set authelia.env permissions
+  ansible.builtin.file:
+    path: /etc/authelia/authelia.env
+    owner: root
+    group: authelia
+    mode: "0640"
+
+- name: Ensure LLDAP admin password is in Authelia env
+  ansible.builtin.lineinfile:
+    path: /etc/authelia/authelia.env
+    regexp: '^AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD='
+    line: "AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD={{ lldap_admin_password }}"
+  notify: Restart Authelia
+
+- name: Render Authelia configuration
+  ansible.builtin.template:
+    src: configuration.yml.j2
+    dest: /etc/authelia/configuration.yml
+    owner: root
+    group: authelia
+    mode: "0640"
+  notify: Restart Authelia
+
+- name: Install Authelia systemd service
+  ansible.builtin.template:
+    src: authelia.service.j2
+    dest: /etc/systemd/system/authelia.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Authelia
+
+- name: Ensure Authelia service is enabled and started
+  ansible.builtin.systemd:
+    name: authelia
+    enabled: true
+    state: started
+    daemon_reload: true

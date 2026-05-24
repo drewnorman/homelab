@@ -1,0 +1,20 @@
+[Unit]
+Description=LLDAP user directory
+Documentation=https://github.com/lldap/lldap
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=lldap
+Group=lldap
+EnvironmentFile=/etc/lldap/lldap.env
+ExecStart=/usr/local/bin/lldap run
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/lldap
+
+[Install]
+WantedBy=multi-user.target

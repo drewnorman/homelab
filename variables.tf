@@ -226,6 +226,8 @@ variable "service_ips" {
     adguard_lxc         = string
     edge_lxc            = string
     homepage_lxc        = string
+    authelia_lxc        = string
+    lldap_lxc           = string
     jellyfin_lxc        = string
     arr_lxc             = string
     qbittorrent_vpn_lxc = string
@@ -235,6 +237,8 @@ variable "service_ips" {
     adguard_lxc         = "192.168.1.210"
     edge_lxc            = "192.168.1.211"
     homepage_lxc        = "192.168.1.212"
+    authelia_lxc        = "192.168.1.213"
+    lldap_lxc           = "192.168.1.214"
     jellyfin_lxc        = "192.168.1.230"
     arr_lxc             = "192.168.1.232"
     qbittorrent_vpn_lxc = "192.168.1.233"

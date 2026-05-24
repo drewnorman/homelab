@@ -1,0 +1,9 @@
+---
+users:
+  {{ authelia_admin_username }}:
+    disabled: false
+    displayname: '{{ authelia_admin_displayname }}'
+    password: '{{ authelia_users_password_bcrypt }}'
+    email: '{{ authelia_admin_email }}'
+    groups:
+      - admins
