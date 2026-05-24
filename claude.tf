@@ -18,14 +18,6 @@ resource "google_project_service" "secretmanager" {
   disable_on_destroy = false
 }
 
-resource "google_project_service" "siteverification" {
-  count   = var.enable_claude_troubleshooter ? 1 : 0
-  project = var.gcp_project
-  service = "siteverification.googleapis.com"
-
-  disable_on_destroy = false
-}
-
 resource "google_service_account" "claude_troubleshooter" {
   count        = var.enable_claude_troubleshooter ? 1 : 0
   project      = var.gcp_project
@@ -102,41 +94,10 @@ resource "google_cloud_run_v2_service_iam_member" "claude_troubleshooter_public_
 }
 
 # Domain mapping: serve claude.lab.adre.me from Cloud Run.
-#
-# Step 1 — verify ownership of lab.adre.me so Cloud Run accepts the mapping.
-# The token is placed as a TXT record at lab.adre.me; Cloudflare propagates
-# near-instantly so the google_site_verification_owner apply succeeds immediately after.
-data "google_site_verification_token" "lab_domain" {
-  count               = var.enable_claude_troubleshooter && var.enable_cloudflare_dns ? 1 : 0
-  type                = "INET_DOMAIN"
-  identifier          = "lab.${var.cloudflare_zone_name}"
-  verification_method = "DNS_TXT"
+# Domain ownership of lab.adre.me is verified in dns.tf via google_site_verification_owner.
 
-  depends_on = [google_project_service.siteverification]
-}
-
-resource "cloudflare_dns_record" "lab_domain_verification" {
-  count   = var.enable_claude_troubleshooter && var.enable_cloudflare_dns ? 1 : 0
-  zone_id = local.cloudflare_managed_zone_id
-  name    = "lab.${var.cloudflare_zone_name}"
-  type    = "TXT"
-  content = data.google_site_verification_token.lab_domain[0].token
-  ttl     = 300
-  proxied = false
-  comment = "Managed by OpenTofu - Google site verification for Cloud Run domain mapping"
-}
-
-resource "google_site_verification_owner" "lab_domain" {
-  count               = var.enable_claude_troubleshooter && var.enable_cloudflare_dns ? 1 : 0
-  type                = "INET_DOMAIN"
-  identifier          = "lab.${var.cloudflare_zone_name}"
-  verification_method = "DNS_TXT"
-
-  depends_on = [cloudflare_dns_record.lab_domain_verification]
-}
-
-# Step 2 — map the custom domain to the Cloud Run service.
-# The mapping resource returns the DNS records Cloud Run needs to route traffic.
+# Step 1 — map the custom domain to the Cloud Run service.
+# Returns the DNS records (CNAME target) Cloud Run needs to route traffic.
 resource "google_cloud_run_domain_mapping" "claude_troubleshooter" {
   count    = var.enable_claude_troubleshooter && var.enable_cloudflare_dns ? 1 : 0
   location = var.gcp_region
@@ -153,7 +114,7 @@ resource "google_cloud_run_domain_mapping" "claude_troubleshooter" {
   depends_on = [google_site_verification_owner.lab_domain]
 }
 
-# Step 3 — point claude.lab.adre.me at the CNAME Cloud Run provides via the mapping.
+# Step 2 — point claude.lab.adre.me at the CNAME Cloud Run provides via the mapping.
 # When enable_cloudflare_dns is false the mapping is skipped and the service is
 # reachable only via the claude_troubleshooter_uri output.
 resource "cloudflare_dns_record" "claude_troubleshooter" {
