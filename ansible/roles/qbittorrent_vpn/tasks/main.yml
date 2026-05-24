@@ -42,7 +42,7 @@
     state: directory
     owner: "{{ qbittorrent_user }}"
     group: media
-    mode: "0775"
+    mode: "2775"
   loop:
     - "{{ arr_downloads_path }}"
     - "{{ arr_downloads_path }}/complete"

@@ -23,17 +23,34 @@
     state: present
     update_cache: true
 
+- name: Create media group
+  ansible.builtin.group:
+    name: media
+    gid: 1000
+    system: true
+    state: present
+
+- name: Add Jellyfin user to media group
+  ansible.builtin.user:
+    name: jellyfin
+    groups: media
+    append: true
+    state: present
+  register: _jellyfin_media_user
+
 - name: Ensure Jellyfin service is enabled
   ansible.builtin.service:
     name: jellyfin
     enabled: true
-    state: started
+    state: "{{ 'restarted' if _jellyfin_media_user.changed else 'started' }}"
 
 - name: Ensure media directories exist
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    mode: "0755"
+    owner: root
+    group: media
+    mode: "2775"
   loop:
     - "{{ jellyfin_media_path }}"
     - "{{ jellyfin_media_path }}/movies"
