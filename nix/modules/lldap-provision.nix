@@ -121,6 +121,24 @@ let
 
       done < <(jq -c '.users[]' "$DESIRED")
 
+      # ---- delete stale users -------------------------------------------
+      # Build a set of desired usernames for fast lookup.
+      declare -A DESIRED_USERS
+      while IFS= read -r uid; do
+        DESIRED_USERS["$uid"]=1
+      done < <(jq -r '.users[].username' "$DESIRED")
+
+      while IFS= read -r uid; do
+        # Never touch the built-in admin account.
+        [ "$uid" = "admin" ] && continue
+        if [ -z "''${DESIRED_USERS[$uid]:-}" ]; then
+          echo "lldap-provision: deleting stale user $uid"
+          gql "mutation {
+            deleteUser(userId: $(printf '%s' "$uid" | jq -Rs .)) { ok }
+          }" > /dev/null
+        fi
+      done < <(printf '%s\n' "''${!EXISTING_USERS[@]}")
+
       echo "lldap-provision: done"
     '';
   };
@@ -137,9 +155,9 @@ in {
     users = lib.mkOption {
       default     = [];
       description = ''
-        Declarative LLDAP users. Users are created on first deploy; never
-        deleted. Passwords are set/updated on every deploy when passwordFile
-        is provided — the sops secret is always the source of truth.
+        Declarative LLDAP users. This list is the source of truth: users are
+        created when added, deleted when removed (except the built-in admin),
+        and passwords are updated on every deploy when passwordFile is set.
       '';
       type = lib.types.listOf (lib.types.submodule {
         options = {
