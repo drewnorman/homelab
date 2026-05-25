@@ -10,23 +10,48 @@
     sopsFile = ../../secrets/lldap.yaml;
     owner    = "lldap";
   };
+  # One sops secret per user password; add a key to lldap.yaml for each.
+  sops.secrets."lldap-user-drew-password" = {
+    sopsFile = ../../secrets/lldap.yaml;
+    owner    = "lldap";
+  };
 
   services.lldap = {
     enable = true;
 
     settings = {
-      http_port  = 17170;
-      ldap_port  = 3890;
+      http_port    = 17170;
+      ldap_port    = 3890;
       ldap_base_dn = "dc=lab,dc=adre,dc=me";
-      http_url   = "https://users.lab.adre.me";
+      http_url     = "https://users.lab.adre.me";
     };
 
-    # Secrets are passed as environment variables via the environment file.
-    # sops-nix writes the secret values to files; we render an env file in the
-    # activation script so the service picks them up on start.
     environment = {
-      LLDAP_JWT_SECRET_FILE      = config.sops.secrets.lldap-jwt-secret.path;
-      LLDAP_LDAP_USER_PASS_FILE  = config.sops.secrets.lldap-admin-password.path;
+      LLDAP_JWT_SECRET_FILE     = config.sops.secrets.lldap-jwt-secret.path;
+      LLDAP_LDAP_USER_PASS_FILE = config.sops.secrets.lldap-admin-password.path;
+    };
+
+    provision = {
+      enable            = true;
+      adminPasswordFile = config.sops.secrets.lldap-admin-password.path;
+
+      groups = [
+        { name = "lldap_strict_readonly"; displayName = "LLDAP Read-Only"; }
+        { name = "media";                 displayName = "Media Users"; }
+      ];
+
+      users = [
+        {
+          username     = "drew";
+          email        = "drewnorman739@gmail.com";
+          displayName  = "Drew Norman";
+          groups       = [ "lldap_strict_readonly" "media" ];
+          passwordFile = config.sops.secrets."lldap-user-drew-password".path;
+        }
+        # Add more users here and run:
+        #   nixos-rebuild switch --flake .#lldap --target-host root@192.168.1.214
+        # Add a sops.secrets."lldap-user-<name>-password" entry for each new user.
+      ];
     };
   };
 }

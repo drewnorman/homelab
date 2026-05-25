@@ -46,6 +46,7 @@
             { nixpkgs.overlays = overlays; }
             sops-nix.nixosModules.sops
             ./modules/common.nix
+            ./modules/lldap-provision.nix
             ./hosts/${name}
           ] ++ extraModules;
         };
