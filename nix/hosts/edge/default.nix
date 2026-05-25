@@ -1,114 +1,98 @@
-# Caddy reverse proxy with wildcard TLS via Cloudflare DNS-01 ACME.
-# Uses pkgs.caddy-cloudflare from the homelab overlay (overlays/caddy-cloudflare.nix),
-# which builds Caddy 2.10.0 with the caddy-dns/cloudflare plugin compiled in.
 { config, lib, pkgs, allHosts, ... }:
 
 let
   domain = "lab.adre.me";
+
+  # Injected into each SSO-protected location block.
+  autheliaGuard = ''
+    auth_request /authelia;
+    auth_request_set $user   $upstream_http_remote_user;
+    auth_request_set $groups $upstream_http_remote_groups;
+    auth_request_set $name   $upstream_http_remote_name;
+    auth_request_set $email  $upstream_http_remote_email;
+    proxy_set_header Remote-User   $user;
+    proxy_set_header Remote-Groups $groups;
+    proxy_set_header Remote-Name   $name;
+    proxy_set_header Remote-Email  $email;
+  '';
+
+  # Locations added to every SSO-protected vhost.
+  autheliaLocations = {
+    "/authelia" = {
+      proxyPass = "http://${allHosts.authelia.ip}:9091/api/authz/forward-auth";
+      extraConfig = ''
+        internal;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header X-Original-URL $scheme://$http_host$request_uri;
+      '';
+    };
+    "@authelia_login" = {
+      return = "302 https://auth.${domain}/?rd=$scheme://$http_host$request_uri";
+    };
+  };
+
+  # Build a vhost. sso = true adds the Authelia forward-auth guard.
+  mkVhost = { backend, sso ? false, aliases ? [] }: {
+    useACMEHost    = domain;
+    forceSSL       = true;
+    serverAliases  = aliases;
+    extraConfig    = lib.optionalString sso "error_page 401 = @authelia_login;";
+    locations      = lib.optionalAttrs sso autheliaLocations // {
+      "/" = {
+        proxyPass       = backend;
+        proxyWebsockets = true;
+        extraConfig     = lib.optionalString sso autheliaGuard;
+      };
+    };
+  };
+
 in
 {
   networking.firewall.allowedTCPPorts = [ 80 443 ];
 
-  # Cloudflare DNS API token for ACME DNS-01 challenge.
-  # The secret file must contain a single line: CLOUDFLARE_DNS_API_TOKEN=<token>
   sops.secrets.cloudflare-dns-api-token = {
-    sopsFile  = ../../secrets/edge.yaml;
-    owner     = "caddy";
-    # Path is used as an EnvironmentFile so Caddy picks up the token on start
-    restartUnits = [ "caddy.service" ];
+    sopsFile     = ../../secrets/edge.yaml;
+    owner        = "acme";
+    group        = "acme";
+    restartUnits = [ "acme-${domain}.service" ];
   };
 
-  services.caddy = {
-    enable  = true;
-    package = pkgs.caddy-cloudflare;
-
-    globalConfig = ''
-      email drewnorman739@gmail.com
-    '';
-
-    # Snippet imported by routes that require SSO
-    extraConfig = ''
-      (authelia_guard) {
-        forward_auth http://${allHosts.authelia.ip}:9091 {
-          uri /api/authz/forward-auth
-          copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
-        }
-      }
-    '';
-
-    virtualHosts."*.${domain}, ${domain}" = {
-      extraConfig = ''
-        tls {
-          dns cloudflare {env.CLOUDFLARE_DNS_API_TOKEN}
-          resolvers 1.1.1.1
-        }
-
-        @authelia host auth.${domain}
-        handle @authelia {
-          reverse_proxy ${allHosts.authelia.ip}:9091
-        }
-
-        @lldap host users.${domain} lldap.${domain}
-        handle @lldap {
-          reverse_proxy ${allHosts.lldap.ip}:17170
-        }
-
-        @adguard host adguard.${domain}
-        handle @adguard {
-          import authelia_guard
-          reverse_proxy ${allHosts.adguard.ip}:80
-        }
-
-        @homepage host ${domain}
-        handle @homepage {
-          import authelia_guard
-          reverse_proxy ${allHosts.homepage.ip}:3000
-        }
-
-        @jellyfin host jellyfin.${domain} watch.${domain}
-        handle @jellyfin {
-          reverse_proxy ${allHosts.jellyfin.ip}:8096
-        }
-
-        @radarr host radarr.${domain} movies.${domain}
-        handle @radarr {
-          import authelia_guard
-          reverse_proxy ${allHosts.arr.ip}:7878
-        }
-
-        @sonarr host sonarr.${domain} tv.${domain}
-        handle @sonarr {
-          import authelia_guard
-          reverse_proxy ${allHosts.arr.ip}:8989
-        }
-
-        @prowlarr host prowlarr.${domain} indexers.${domain}
-        handle @prowlarr {
-          import authelia_guard
-          reverse_proxy ${allHosts.arr.ip}:9696
-        }
-
-        @bazarr host bazarr.${domain} subtitles.${domain}
-        handle @bazarr {
-          import authelia_guard
-          reverse_proxy ${allHosts.arr.ip}:6767
-        }
-
-        @qbittorrent host qbittorrent.${domain} downloads.${domain}
-        handle @qbittorrent {
-          import authelia_guard
-          reverse_proxy ${allHosts.qbittorrent.ip}:8080
-        }
-
-        handle {
-          respond "Unknown homelab service" 404
-        }
-      '';
+  security.acme = {
+    acceptTerms = true;
+    defaults.email = "drewnorman739@gmail.com";
+    certs.${domain} = {
+      domain          = "*.${domain}";
+      extraDomainNames = [ domain ];
+      dnsProvider     = "cloudflare";
+      environmentFile = config.sops.secrets.cloudflare-dns-api-token.path;
+      group           = "nginx";
     };
   };
 
-  # Inject the Cloudflare token into Caddy's environment.
-  # sops-nix writes the secret to a file; systemd reads it as an EnvironmentFile.
-  systemd.services.caddy.serviceConfig.EnvironmentFile =
-    config.sops.secrets.cloudflare-dns-api-token.path;
+  services.nginx = {
+    enable = true;
+    recommendedProxySettings = true;
+    recommendedTlsSettings   = true;
+    recommendedOptimisation  = true;
+    recommendedGzipSettings  = true;
+
+    virtualHosts = {
+      "auth.${domain}"        = mkVhost { backend = "http://${allHosts.authelia.ip}:9091"; };
+      "users.${domain}"       = mkVhost { backend = "http://${allHosts.lldap.ip}:17170";   aliases = [ "lldap.${domain}" ]; };
+      "adguard.${domain}"     = mkVhost { backend = "http://${allHosts.adguard.ip}:80";    sso = true; };
+      "${domain}"             = mkVhost { backend = "http://${allHosts.homepage.ip}:3000"; sso = true; };
+      "jellyfin.${domain}"    = mkVhost { backend = "http://${allHosts.jellyfin.ip}:8096"; aliases = [ "watch.${domain}" ]; };
+      "radarr.${domain}"      = mkVhost { backend = "http://${allHosts.arr.ip}:7878";      sso = true; aliases = [ "movies.${domain}" ]; };
+      "sonarr.${domain}"      = mkVhost { backend = "http://${allHosts.arr.ip}:8989";      sso = true; aliases = [ "tv.${domain}" ]; };
+      "prowlarr.${domain}"    = mkVhost { backend = "http://${allHosts.arr.ip}:9696";      sso = true; aliases = [ "indexers.${domain}" ]; };
+      "bazarr.${domain}"      = mkVhost { backend = "http://${allHosts.arr.ip}:6767";      sso = true; aliases = [ "subtitles.${domain}" ]; };
+      "qbittorrent.${domain}" = mkVhost { backend = "http://${allHosts.qbittorrent.ip}:8080"; sso = true; aliases = [ "downloads.${domain}" ]; };
+    };
+  };
+
+  # ACME certificates must survive container restarts.
+  environment.persistence."/persist" = {
+    directories = [ "/var/lib/acme" ];
+  };
 }

@@ -23,12 +23,6 @@
       lib    = nixpkgs.lib;
       hosts  = import ./lib/hosts.nix;
 
-      overlays = [ (import ./overlays/caddy-cloudflare.nix) ];
-
-      # nixpkgs with homelab overlays applied — used for package outputs and
-      # threaded into all NixOS configurations via nixpkgs.overlays.
-      pkgs = import nixpkgs { inherit system overlays; };
-
       # SSH public key injected into all hosts. Must match terraform ssh_public_key.
       sshAuthorizedKeys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBty1Aq+Be79tfzubhT7B+jlcZ1xWfWLIszbItuWveAf drew@x1c-g9"
@@ -45,7 +39,6 @@
             flakeAttr = name; # nixosConfigurations key — used by system.autoUpgrade
           };
           modules = [
-            { nixpkgs.overlays = overlays; }
             sops-nix.nixosModules.sops
             impermanence.nixosModules.impermanence
             ./modules/common.nix
@@ -87,11 +80,8 @@
         qbittorrent = mkNode "qbittorrent";
       };
 
-      packages.${system} = {
-        caddy-cloudflare = pkgs.caddy-cloudflare;
-        # Pin deploy-rs to the flake-locked version: nix run .#deploy-rs -- --help
-        deploy-rs = deploy-rs.packages.${system}.deploy-rs;
-      };
+      # Pin deploy-rs to the flake-locked version: nix run .#deploy-rs -- --help
+      packages.${system}.deploy-rs = deploy-rs.packages.${system}.deploy-rs;
 
       # deploy-rs schema checks — run with `nix flake check`
       checks = builtins.mapAttrs
