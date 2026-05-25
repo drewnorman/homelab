@@ -1,4 +1,5 @@
 # sops-nix secret encryption configuration.
+# Run all sops commands from the nix/ directory (where this file lives).
 #
 # Setup workflow:
 #   1. Install tools: nix shell nixpkgs#age nixpkgs#ssh-to-age
@@ -6,12 +7,12 @@
 #   3. After `tofu apply`, get each host's age key:
 #        ssh-keyscan -t ed25519 <HOST_IP> | ssh-to-age
 #   4. Replace the placeholder age1... values below with real keys.
-#   5. Create and encrypt each secrets file:
+#   5. Create and encrypt each secrets file (from nix/):
 #        sops secrets/edge.yaml
 #        sops secrets/lldap.yaml
 #        sops secrets/authelia.yaml
 #        sops secrets/qbittorrent.yaml
-#   6. To re-encrypt after adding a new host key:
+#   6. To re-encrypt after adding a new host key (from nix/):
 #        sops updatekeys secrets/<file>.yaml
 
 keys:
