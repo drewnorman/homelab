@@ -1,0 +1,37 @@
+name: deploy
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'nix/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      # Join the tailnet so the runner can reach 192.168.1.0/24 via lab-edge's
+      # subnet route. Requires TAILSCALE_AUTH_KEY to be an ephemeral, reusable,
+      # pre-authorized key in the Tailscale admin console.
+      - uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+          args: --accept-routes
+
+      # Load the SSH private key matching the authorized key on all NixOS hosts.
+      # Secret: contents of ~/.ssh/drew@x1c-g9 (the private key).
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: deploy
+        run: |
+          cd nix
+          nix run .#deploy-rs -- \
+            --skip-checks \
+            --ssh-opts="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+            .

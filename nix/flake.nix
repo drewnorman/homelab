@@ -87,8 +87,11 @@
         qbittorrent = mkNode "qbittorrent";
       };
 
-      # Expose the patched Caddy for easy testing: nix build .#packages.x86_64-linux.caddy-cloudflare
-      packages.${system}.caddy-cloudflare = pkgs.caddy-cloudflare;
+      packages.${system} = {
+        caddy-cloudflare = pkgs.caddy-cloudflare;
+        # Pin deploy-rs to the flake-locked version: nix run .#deploy-rs -- --help
+        deploy-rs = deploy-rs.packages.${system}.deploy-rs;
+      };
 
       # deploy-rs schema checks — run with `nix flake check`
       checks = builtins.mapAttrs
