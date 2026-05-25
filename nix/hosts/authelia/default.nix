@@ -23,6 +23,10 @@ in
     sopsFile = ../../secrets/authelia.yaml;
     owner    = "authelia";
   };
+  sops.secrets.tailscale-auth-key = {
+    sopsFile = ../../secrets/authelia.yaml;
+    owner    = "root";
+  };
 
   services.authelia.instances.main = {
     enable = true;
@@ -55,7 +59,8 @@ in
         address        = "ldap://${allHosts.lldap.ip}:3890";
         base_dn        = baseDn;
         user           = "uid=admin,ou=people,${baseDn}";
-        password       = config.sops.secrets.authelia-lldap-password.path;
+        # password is injected via AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE
+        # below — do not set it here or the path string becomes the literal password.
       };
 
       access_control.default_policy = "one_factor";
@@ -82,6 +87,15 @@ in
       notifier.filesystem.filename = "/var/log/authelia/notification.txt";
     };
   };
+
+  # Authelia's secret-file env var mechanism: reads the LDAP password from the
+  # sops-managed file rather than embedding the path string in the YAML config.
+  systemd.services."authelia-main".environment = {
+    AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE =
+      config.sops.secrets.authelia-lldap-password.path;
+  };
+
+  services.tailscale.authKeyFile = config.sops.secrets.tailscale-auth-key.path;
 
   systemd.tmpfiles.rules = [
     "d /var/log/authelia 0750 authelia authelia -"

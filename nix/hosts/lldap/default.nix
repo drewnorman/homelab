@@ -15,6 +15,12 @@
     sopsFile = ../../secrets/lldap.yaml;
     owner    = "lldap";
   };
+  sops.secrets.tailscale-auth-key = {
+    sopsFile = ../../secrets/lldap.yaml;
+    owner    = "root";
+  };
+
+  services.tailscale.authKeyFile = config.sops.secrets.tailscale-auth-key.path;
 
   services.lldap = {
     enable = true;

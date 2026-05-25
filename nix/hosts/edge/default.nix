@@ -51,11 +51,24 @@ in
 {
   networking.firewall.allowedTCPPorts = [ 80 443 ];
 
+  # Edge acts as a Tailscale subnet router for 192.168.1.0/24, making all
+  # homelab hosts reachable from the tailnet (including the GHA deploy runner).
+  # After first deploy: approve the advertised route in the Tailscale admin console.
+  services.tailscale = {
+    authKeyFile        = config.sops.secrets.tailscale-auth-key.path;
+    useRoutingFeatures = "server";
+    extraUpFlags       = [ "--advertise-routes=192.168.1.0/24" ];
+  };
+
   sops.secrets.cloudflare-dns-api-token = {
     sopsFile     = ../../secrets/edge.yaml;
     owner        = "acme";
     group        = "acme";
     restartUnits = [ "acme-${domain}.service" ];
+  };
+  sops.secrets.tailscale-auth-key = {
+    sopsFile = ../../secrets/edge.yaml;
+    owner    = "root";
   };
 
   security.acme = {
