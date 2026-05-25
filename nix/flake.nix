@@ -38,8 +38,9 @@
           inherit system;
           specialArgs = {
             inherit sshAuthorizedKeys;
-            hostMeta = hosts.${name};
-            allHosts = hosts;
+            hostMeta  = hosts.${name};
+            allHosts  = hosts;
+            flakeAttr = name; # nixosConfigurations key — used by system.autoUpgrade
           };
           modules = [
             { nixpkgs.overlays = overlays; }
