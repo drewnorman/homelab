@@ -13,9 +13,11 @@
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    impermanence.url = "github:nix-community/impermanence";
   };
 
-  outputs = { self, nixpkgs, deploy-rs, sops-nix, ... }:
+  outputs = { self, nixpkgs, deploy-rs, sops-nix, impermanence, ... }:
     let
       system = "x86_64-linux";
       lib    = nixpkgs.lib;
@@ -45,6 +47,7 @@
           modules = [
             { nixpkgs.overlays = overlays; }
             sops-nix.nixosModules.sops
+            impermanence.nixosModules.impermanence
             ./modules/common.nix
             ./modules/lldap-provision.nix
             ./hosts/${name}

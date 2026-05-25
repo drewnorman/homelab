@@ -63,7 +63,27 @@
   # After first Terraform provision, get the age pubkey with:
   #   ssh-keyscan -t ed25519 <HOST_IP> | ssh-to-age
   # then add it to nix/secrets/.sops.yaml and re-encrypt.
-  sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
+  sops.age.sshKeyPaths = [ "/persist/etc/ssh/ssh_host_ed25519_key" ];
+
+  # Impermanence — /persist is the only durable storage on each host.
+  # Everything else is ephemeral and starts clean on container restart.
+  # /persist itself lives on the Proxmox LVM root disk.
+  system.activationScripts.create-persist.text = "mkdir -p /persist";
+
+  environment.persistence."/persist" = {
+    hideMounts = true;
+    directories = [
+      "/var/lib/tailscale"   # Tailscale node identity + state
+    ];
+    files = [
+      # SSH host keys must survive restarts — sops-nix derives the age
+      # decryption key from the ed25519 host key.
+      "/etc/ssh/ssh_host_ed25519_key"
+      "/etc/ssh/ssh_host_ed25519_key.pub"
+      "/etc/ssh/ssh_host_rsa_key"
+      "/etc/ssh/ssh_host_rsa_key.pub"
+    ];
+  };
 
   # Tailscale — auth key comes from a per-host sops secret.
   # Set sops.secrets.tailscale-auth-key in each host that needs it,

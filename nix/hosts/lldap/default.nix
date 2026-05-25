@@ -24,6 +24,10 @@
       ldap_port    = 3890;
       ldap_base_dn = "dc=lab,dc=adre,dc=me";
       http_url     = "https://users.lab.adre.me";
+      # /run is a tmpfs — cleared on every container restart, which is
+      # what makes users declarative: restart wipes the DB, the provisioner
+      # recreates only the users declared in this file.
+      data_dir     = "/run/lldap";
     };
 
     environment = {
