@@ -9,19 +9,19 @@ in
 
   sops.secrets.authelia-jwt-secret = {
     sopsFile = ../../secrets/authelia.yaml;
-    owner    = "authelia";
+    owner    = "authelia-main";
   };
   sops.secrets.authelia-session-secret = {
     sopsFile = ../../secrets/authelia.yaml;
-    owner    = "authelia";
+    owner    = "authelia-main";
   };
   sops.secrets.authelia-storage-encryption-key = {
     sopsFile = ../../secrets/authelia.yaml;
-    owner    = "authelia";
+    owner    = "authelia-main";
   };
   sops.secrets.authelia-lldap-password = {
     sopsFile = ../../secrets/authelia.yaml;
-    owner    = "authelia";
+    owner    = "authelia-main";
   };
   sops.secrets.tailscale-auth-key = {
     sopsFile = ../../secrets/authelia.yaml;
@@ -98,6 +98,6 @@ in
   services.tailscale.authKeyFile = config.sops.secrets.tailscale-auth-key.path;
 
   systemd.tmpfiles.rules = [
-    "d /var/log/authelia 0750 authelia authelia -"
+    "d /var/log/authelia 0750 authelia-main authelia-main -"
   ];
 }
