@@ -6,6 +6,8 @@
   services.adguardhome = {
     enable      = true;
     openFirewall = true;
+    host        = "0.0.0.0";
+    port        = 80;
 
     # mutableSettings = false keeps all settings declarative; AdGuard cannot
     # override them through the UI. The admin user and bcrypt hash are declared
@@ -13,9 +15,6 @@
     mutableSettings = false;
 
     settings = {
-      bind_host = "0.0.0.0";
-      bind_port = 80;
-
       users = [
         {
           name     = "admin";

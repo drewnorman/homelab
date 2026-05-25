@@ -37,6 +37,7 @@ locals {
 # ---------------------------------------------------------------------------
 
 resource "proxmox_virtual_environment_container" "adguard" {
+  vm_id         = local.guests.adguard.vm_id
   node_name     = local.lxc_common.node_name
   description   = "AdGuard Home — managed by NixOS flake"
   start_on_boot = local.lxc_common.start_on_boot
@@ -54,6 +55,11 @@ resource "proxmox_virtual_environment_container" "adguard" {
     size         = 8
   }
   features { nesting = true }
+  device_passthrough {
+    path = "/dev/net/tun"
+    gid  = 0
+    uid  = 0
+  }
 
   initialization {
     hostname = "${var.homelab_name}-adguard"
@@ -85,7 +91,6 @@ resource "proxmox_virtual_environment_container" "adguard" {
   lifecycle {
     ignore_changes = [
       initialization[0].user_account,
-      operating_system[0].template_file_id,
     ]
   }
 
@@ -97,6 +102,7 @@ resource "proxmox_virtual_environment_container" "adguard" {
 # ---------------------------------------------------------------------------
 
 resource "proxmox_virtual_environment_container" "edge" {
+  vm_id         = local.guests.edge.vm_id
   node_name     = local.lxc_common.node_name
   description   = "Edge reverse proxy — managed by NixOS flake"
   start_on_boot = local.lxc_common.start_on_boot
@@ -112,6 +118,12 @@ resource "proxmox_virtual_environment_container" "edge" {
   disk {
     datastore_id = var.lxc_storage
     size         = 8
+  }
+  features { nesting = true }
+  device_passthrough {
+    path = "/dev/net/tun"
+    gid  = 0
+    uid  = 0
   }
 
   initialization {
@@ -144,7 +156,6 @@ resource "proxmox_virtual_environment_container" "edge" {
   lifecycle {
     ignore_changes = [
       initialization[0].user_account,
-      operating_system[0].template_file_id,
     ]
   }
 
@@ -156,6 +167,7 @@ resource "proxmox_virtual_environment_container" "edge" {
 # ---------------------------------------------------------------------------
 
 resource "proxmox_virtual_environment_container" "homepage" {
+  vm_id         = local.guests.homepage.vm_id
   node_name     = local.lxc_common.node_name
   description   = "Homepage dashboard — managed by NixOS flake"
   start_on_boot = local.lxc_common.start_on_boot
@@ -173,6 +185,11 @@ resource "proxmox_virtual_environment_container" "homepage" {
     size         = 4
   }
   features { nesting = true }
+  device_passthrough {
+    path = "/dev/net/tun"
+    gid  = 0
+    uid  = 0
+  }
 
   initialization {
     hostname = "${var.homelab_name}-homepage"
@@ -204,7 +221,6 @@ resource "proxmox_virtual_environment_container" "homepage" {
   lifecycle {
     ignore_changes = [
       initialization[0].user_account,
-      operating_system[0].template_file_id,
     ]
   }
 
@@ -216,6 +232,7 @@ resource "proxmox_virtual_environment_container" "homepage" {
 # ---------------------------------------------------------------------------
 
 resource "proxmox_virtual_environment_container" "authelia" {
+  vm_id         = local.guests.authelia.vm_id
   node_name     = local.lxc_common.node_name
   description   = "Authelia SSO — managed by NixOS flake"
   start_on_boot = local.lxc_common.start_on_boot
@@ -231,6 +248,12 @@ resource "proxmox_virtual_environment_container" "authelia" {
   disk {
     datastore_id = var.lxc_storage
     size         = 4
+  }
+  features { nesting = true }
+  device_passthrough {
+    path = "/dev/net/tun"
+    gid  = 0
+    uid  = 0
   }
 
   initialization {
@@ -263,7 +286,6 @@ resource "proxmox_virtual_environment_container" "authelia" {
   lifecycle {
     ignore_changes = [
       initialization[0].user_account,
-      operating_system[0].template_file_id,
     ]
   }
 
@@ -275,6 +297,7 @@ resource "proxmox_virtual_environment_container" "authelia" {
 # ---------------------------------------------------------------------------
 
 resource "proxmox_virtual_environment_container" "lldap" {
+  vm_id         = local.guests.lldap.vm_id
   node_name     = local.lxc_common.node_name
   description   = "LLDAP user directory — managed by NixOS flake"
   start_on_boot = local.lxc_common.start_on_boot
@@ -290,6 +313,12 @@ resource "proxmox_virtual_environment_container" "lldap" {
   disk {
     datastore_id = var.lxc_storage
     size         = 4
+  }
+  features { nesting = true }
+  device_passthrough {
+    path = "/dev/net/tun"
+    gid  = 0
+    uid  = 0
   }
 
   initialization {
@@ -322,7 +351,6 @@ resource "proxmox_virtual_environment_container" "lldap" {
   lifecycle {
     ignore_changes = [
       initialization[0].user_account,
-      operating_system[0].template_file_id,
     ]
   }
 
@@ -334,6 +362,7 @@ resource "proxmox_virtual_environment_container" "lldap" {
 # ---------------------------------------------------------------------------
 
 resource "proxmox_virtual_environment_container" "jellyfin" {
+  vm_id         = local.guests.jellyfin.vm_id
   node_name     = local.lxc_common.node_name
   description   = "Jellyfin media server — managed by NixOS flake"
   start_on_boot = local.lxc_common.start_on_boot
@@ -349,6 +378,12 @@ resource "proxmox_virtual_environment_container" "jellyfin" {
   disk {
     datastore_id = var.lxc_storage
     size         = var.jellyfin_lxc_disk_size_gb
+  }
+  features { nesting = true }
+  device_passthrough {
+    path = "/dev/net/tun"
+    gid  = 0
+    uid  = 0
   }
 
   initialization {
@@ -368,14 +403,6 @@ resource "proxmox_virtual_environment_container" "jellyfin" {
     }
   }
 
-  dynamic "mount_point" {
-    for_each = var.jellyfin_media_bind_mount_host_path == null ? [] : [var.jellyfin_media_bind_mount_host_path]
-    content {
-      path   = "/mnt/media"
-      volume = mount_point.value
-    }
-  }
-
   network_interface {
     name   = local.lxc_network.name
     bridge = local.lxc_network.bridge
@@ -389,7 +416,7 @@ resource "proxmox_virtual_environment_container" "jellyfin" {
   lifecycle {
     ignore_changes = [
       initialization[0].user_account,
-      operating_system[0].template_file_id,
+      mount_point,
     ]
   }
 
@@ -403,6 +430,7 @@ resource "proxmox_virtual_environment_container" "jellyfin" {
 resource "proxmox_virtual_environment_container" "arr" {
   count = var.enable_arr_stack ? 1 : 0
 
+  vm_id         = local.guests.arr.vm_id
   node_name     = local.lxc_common.node_name
   description   = "Arr media automation — managed by NixOS flake"
   start_on_boot = local.lxc_common.start_on_boot
@@ -419,21 +447,11 @@ resource "proxmox_virtual_environment_container" "arr" {
     datastore_id = var.lxc_storage
     size         = 8
   }
-
-  dynamic "mount_point" {
-    for_each = var.arr_downloads_bind_mount_host_path == null ? [] : [var.arr_downloads_bind_mount_host_path]
-    content {
-      path   = "/srv/downloads"
-      volume = mount_point.value
-    }
-  }
-
-  dynamic "mount_point" {
-    for_each = var.arr_media_bind_mount_host_path == null ? [] : [var.arr_media_bind_mount_host_path]
-    content {
-      path   = "/mnt/media"
-      volume = mount_point.value
-    }
+  features { nesting = true }
+  device_passthrough {
+    path = "/dev/net/tun"
+    gid  = 0
+    uid  = 0
   }
 
   initialization {
@@ -466,7 +484,7 @@ resource "proxmox_virtual_environment_container" "arr" {
   lifecycle {
     ignore_changes = [
       initialization[0].user_account,
-      operating_system[0].template_file_id,
+      mount_point,
     ]
   }
 
@@ -480,6 +498,7 @@ resource "proxmox_virtual_environment_container" "arr" {
 resource "proxmox_virtual_environment_container" "qbittorrent" {
   count = var.enable_qbittorrent ? 1 : 0
 
+  vm_id         = local.guests.qbittorrent.vm_id
   node_name     = local.lxc_common.node_name
   description   = "qBittorrent — managed by NixOS flake"
   start_on_boot = local.lxc_common.start_on_boot
@@ -496,13 +515,11 @@ resource "proxmox_virtual_environment_container" "qbittorrent" {
     datastore_id = var.lxc_storage
     size         = 8
   }
-
-  dynamic "mount_point" {
-    for_each = var.qbittorrent_downloads_bind_mount_host_path == null ? [] : [var.qbittorrent_downloads_bind_mount_host_path]
-    content {
-      path   = "/srv/downloads"
-      volume = mount_point.value
-    }
+  features { nesting = true }
+  device_passthrough {
+    path = "/dev/net/tun"
+    gid  = 0
+    uid  = 0
   }
 
   initialization {
@@ -535,7 +552,7 @@ resource "proxmox_virtual_environment_container" "qbittorrent" {
   lifecycle {
     ignore_changes = [
       initialization[0].user_account,
-      operating_system[0].template_file_id,
+      mount_point,
     ]
   }
 

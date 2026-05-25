@@ -14,6 +14,6 @@ provider "cloudflare" {
 }
 
 provider "tailscale" {
-  api_key = var.tailscale_api_key != "" ? var.tailscale_api_key : null
+  api_key = var.enable_tailscale_management ? var.tailscale_api_key : "unused-disabled-tailscale-provider-token"
   tailnet = var.tailscale_tailnet
 }

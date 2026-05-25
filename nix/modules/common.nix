@@ -7,6 +7,9 @@
   # Proxmox LXC — no bootloader, no initrd
   boot.isContainer = true;
 
+  # Unprivileged Proxmox LXCs cannot mount kernel debugfs.
+  systemd.suppressedSystemUnits = [ "sys-kernel-debug.mount" ];
+
   # Static networking via classic ip-based setup rather than systemd-networkd.
   # networkd fails in unprivileged LXC (systemd 258+ credential loading is
   # blocked by the container security profile); the classic path uses ip(8)
@@ -122,7 +125,7 @@
     flake           = "github:drewnorman/homelab?dir=nix#${flakeAttr}";
     flags           = [ "--accept-flake-config" ];
     dates           = "04:00";
-    randomizedDelaySec = 3600;
+    randomizedDelaySec = "1h";
     allowReboot     = false;
   };
 

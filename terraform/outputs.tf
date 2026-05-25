@@ -1,14 +1,14 @@
 output "service_ips" {
   description = "Static IP addresses for all provisioned NixOS LXC containers."
   value = {
-    adguard         = local.guests.adguard.ip
-    edge            = local.guests.edge.ip
-    homepage        = local.guests.homepage.ip
-    authelia        = local.guests.authelia.ip
-    lldap           = local.guests.lldap.ip
-    jellyfin        = local.guests.jellyfin.ip
-    arr             = var.enable_arr_stack ? local.guests.arr.ip : null
-    qbittorrent     = var.enable_qbittorrent ? local.guests.qbittorrent.ip : null
+    adguard     = local.guests.adguard.ip
+    edge        = local.guests.edge.ip
+    homepage    = local.guests.homepage.ip
+    authelia    = local.guests.authelia.ip
+    lldap       = local.guests.lldap.ip
+    jellyfin    = local.guests.jellyfin.ip
+    arr         = var.enable_arr_stack ? local.guests.arr.ip : null
+    qbittorrent = var.enable_qbittorrent ? local.guests.qbittorrent.ip : null
   }
 }
 

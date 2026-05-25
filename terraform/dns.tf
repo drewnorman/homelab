@@ -6,7 +6,9 @@ data "cloudflare_zones" "managed" {
 }
 
 locals {
-  cloudflare_managed_zone_id = var.cloudflare_zone_id != "" ? var.cloudflare_zone_id : data.cloudflare_zones.managed[0].result[0].id
+  cloudflare_managed_zone_id = var.enable_cloudflare_dns ? (
+    var.cloudflare_zone_id != "" ? var.cloudflare_zone_id : data.cloudflare_zones.managed[0].result[0].id
+  ) : null
 }
 
 resource "cloudflare_dns_record" "managed" {

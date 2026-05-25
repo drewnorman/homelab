@@ -20,6 +20,17 @@ service_ips = {
   qbittorrent_lxc = "192.168.1.233"
 }
 
+service_vmids = {
+  lldap_lxc       = 100
+  jellyfin_lxc    = 101
+  adguard_lxc     = 102
+  edge_lxc        = 103
+  arr_lxc         = 104
+  homepage_lxc    = 105
+  authelia_lxc    = 106
+  qbittorrent_lxc = 107
+}
+
 # NixOS LXC template — downloaded from Hydra if manage_lxc_template = true
 manage_lxc_template        = true
 lxc_template_datastore_id  = "local"
