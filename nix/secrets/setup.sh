@@ -61,9 +61,13 @@ cd "$SECRETS_DIR"
 # Value must be in KEY=VALUE format (systemd EnvironmentFile).
 
 : "${CLOUDFLARE_DNS_API_TOKEN:?CLOUDFLARE_DNS_API_TOKEN not set in .env}"
+: "${TAILSCALE_AUTH_KEY:?TAILSCALE_AUTH_KEY not set in .env}"
 
-encrypt_secret edge.yaml \
-"cloudflare-dns-api-token: \"CLOUDFLARE_DNS_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN}\""
+encrypt_secret edge.yaml "$(cat <<EOF
+cloudflare-dns-api-token: "CLOUDFLARE_DNS_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN}"
+tailscale-auth-key: "${TAILSCALE_AUTH_KEY}"
+EOF
+)"
 
 # ---- lldap ------------------------------------------------------------------
 
@@ -73,11 +77,19 @@ if [[ -z "${LLDAP_ADMIN_PASSWORD:-}" ]]; then
 fi
 [[ -n "$LLDAP_ADMIN_PASSWORD" ]] || die "LLDAP_ADMIN_PASSWORD must not be empty"
 
+if [[ -z "${LLDAP_USER_DREW_PASSWORD:-}" ]]; then
+  read -rsp "Password for LLDAP user 'drew': " LLDAP_USER_DREW_PASSWORD
+  echo
+fi
+[[ -n "$LLDAP_USER_DREW_PASSWORD" ]] || die "LLDAP_USER_DREW_PASSWORD must not be empty"
+
 LLDAP_JWT_SECRET=$(openssl rand -hex 32)
 
 encrypt_secret lldap.yaml "$(cat <<EOF
 lldap-jwt-secret: "${LLDAP_JWT_SECRET}"
 lldap-admin-password: "${LLDAP_ADMIN_PASSWORD}"
+lldap-user-drew-password: "${LLDAP_USER_DREW_PASSWORD}"
+tailscale-auth-key: "${TAILSCALE_AUTH_KEY}"
 EOF
 )"
 
@@ -92,6 +104,7 @@ authelia-jwt-secret: "${AUTHELIA_JWT_SECRET}"
 authelia-session-secret: "${AUTHELIA_SESSION_SECRET}"
 authelia-storage-encryption-key: "${AUTHELIA_STORAGE_ENCRYPTION_KEY}"
 authelia-lldap-password: "${LLDAP_ADMIN_PASSWORD}"
+tailscale-auth-key: "${TAILSCALE_AUTH_KEY}"
 EOF
 )"
 
