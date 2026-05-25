@@ -45,8 +45,14 @@ resource "proxmox_virtual_environment_container" "adguard" {
   tags          = ["adguard", "homelab", "nixos"]
 
   cpu { cores = 1 }
-  memory { dedicated = 512; swap = 512 }
-  disk { datastore_id = var.lxc_storage; size = 8 }
+  memory {
+    dedicated = 512
+    swap      = 512
+  }
+  disk {
+    datastore_id = var.lxc_storage
+    size         = 8
+  }
   features { nesting = true }
 
   initialization {
@@ -99,8 +105,14 @@ resource "proxmox_virtual_environment_container" "edge" {
   tags          = ["edge", "homelab", "nixos", "proxy"]
 
   cpu { cores = 1 }
-  memory { dedicated = 512; swap = 512 }
-  disk { datastore_id = var.lxc_storage; size = 8 }
+  memory {
+    dedicated = 512
+    swap      = 512
+  }
+  disk {
+    datastore_id = var.lxc_storage
+    size         = 8
+  }
 
   initialization {
     hostname = "${var.homelab_name}-edge"
@@ -152,8 +164,14 @@ resource "proxmox_virtual_environment_container" "homepage" {
   tags          = ["homelab", "homepage", "nixos"]
 
   cpu { cores = 1 }
-  memory { dedicated = 512; swap = 512 }
-  disk { datastore_id = var.lxc_storage; size = 4 }
+  memory {
+    dedicated = 512
+    swap      = 512
+  }
+  disk {
+    datastore_id = var.lxc_storage
+    size         = 4
+  }
   features { nesting = true }
 
   initialization {
@@ -206,8 +224,14 @@ resource "proxmox_virtual_environment_container" "authelia" {
   tags          = ["authelia", "homelab", "nixos"]
 
   cpu { cores = 1 }
-  memory { dedicated = 512; swap = 512 }
-  disk { datastore_id = var.lxc_storage; size = 4 }
+  memory {
+    dedicated = 512
+    swap      = 512
+  }
+  disk {
+    datastore_id = var.lxc_storage
+    size         = 4
+  }
 
   initialization {
     hostname = "${var.homelab_name}-authelia"
@@ -259,8 +283,14 @@ resource "proxmox_virtual_environment_container" "lldap" {
   tags          = ["homelab", "lldap", "nixos"]
 
   cpu { cores = 1 }
-  memory { dedicated = 256; swap = 256 }
-  disk { datastore_id = var.lxc_storage; size = 4 }
+  memory {
+    dedicated = 256
+    swap      = 256
+  }
+  disk {
+    datastore_id = var.lxc_storage
+    size         = 4
+  }
 
   initialization {
     hostname = "${var.homelab_name}-lldap"
@@ -312,8 +342,14 @@ resource "proxmox_virtual_environment_container" "jellyfin" {
   tags          = ["homelab", "jellyfin", "media", "nixos"]
 
   cpu { cores = 2 }
-  memory { dedicated = 2048; swap = 512 }
-  disk { datastore_id = var.lxc_storage; size = var.jellyfin_lxc_disk_size_gb }
+  memory {
+    dedicated = 2048
+    swap      = 512
+  }
+  disk {
+    datastore_id = var.lxc_storage
+    size         = var.jellyfin_lxc_disk_size_gb
+  }
 
   initialization {
     hostname = "${var.homelab_name}-jellyfin"
@@ -375,8 +411,14 @@ resource "proxmox_virtual_environment_container" "arr" {
   tags          = ["arr", "homelab", "media", "nixos"]
 
   cpu { cores = 2 }
-  memory { dedicated = 2048; swap = 512 }
-  disk { datastore_id = var.lxc_storage; size = 8 }
+  memory {
+    dedicated = 2048
+    swap      = 512
+  }
+  disk {
+    datastore_id = var.lxc_storage
+    size         = 8
+  }
 
   dynamic "mount_point" {
     for_each = var.arr_downloads_bind_mount_host_path == null ? [] : [var.arr_downloads_bind_mount_host_path]
@@ -446,8 +488,14 @@ resource "proxmox_virtual_environment_container" "qbittorrent_vpn" {
   tags          = ["homelab", "media", "nixos", "qbittorrent", "vpn"]
 
   cpu { cores = 1 }
-  memory { dedicated = 1024; swap = 512 }
-  disk { datastore_id = var.lxc_storage; size = 8 }
+  memory {
+    dedicated = 1024
+    swap      = 512
+  }
+  disk {
+    datastore_id = var.lxc_storage
+    size         = 8
+  }
 
   dynamic "mount_point" {
     for_each = var.arr_media_bind_mount_host_path == null ? [] : [var.arr_media_bind_mount_host_path]

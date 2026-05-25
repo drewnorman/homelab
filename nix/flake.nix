@@ -29,7 +29,7 @@
 
       # SSH public key injected into all hosts. Must match terraform ssh_public_key.
       sshAuthorizedKeys = [
-        "ssh-ed25519 AAAAIIH+qwzVnHyU19AY9TKxZD2iCU9/DPSbGq1HIPByr8Hc drew@x1c-g9"
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBty1Aq+Be79tfzubhT7B+jlcZ1xWfWLIszbItuWveAf drew@x1c-g9"
       ];
 
       # Build a NixOS configuration for a named host.

@@ -4,9 +4,21 @@
 {
   networking.hostName = hostMeta.hostname;
 
-  # Proxmox LXC — no bootloader, networking managed by the hypervisor
+  # Proxmox LXC — no bootloader, no initrd
   boot.isContainer = true;
-  networking.useDHCP = lib.mkDefault false;
+
+  # Static networking via classic ip-based setup rather than systemd-networkd.
+  # networkd fails in unprivileged LXC (systemd 258+ credential loading is
+  # blocked by the container security profile); the classic path uses ip(8)
+  # directly and works fine.
+  networking.useDHCP = false;
+  networking.useNetworkd = false;
+  networking.interfaces.veth0.ipv4.addresses = [{
+    address      = hostMeta.ip;
+    prefixLength = 24;
+  }];
+  networking.defaultGateway  = "192.168.1.1";
+  networking.nameservers     = [ "192.168.1.1" "1.1.1.1" ];
 
   # Nix
   nix = {
@@ -70,6 +82,7 @@
   environment.systemPackages = with pkgs; [
     curl
     htop
+    iproute2
     vim
   ];
 
