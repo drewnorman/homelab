@@ -32,11 +32,14 @@ resource "tailscale_device_subnet_routes" "edge" {
   count = var.enable_tailscale_management && var.enable_tailscale_edge_device_management ? 1 : 0
 
   device_id = data.tailscale_device.edge[0].node_id
+  # Expose key services through the edge Tailscale node.
+  # Each NixOS host also runs its own Tailscale daemon (via common.nix),
+  # so hosts are individually reachable; these routes cover services that
+  # don't join the tailnet themselves.
   routes = [
     "${local.guests.adguard.ip}/32",
     "${local.guests.edge.ip}/32",
     "${local.guests.jellyfin.ip}/32",
-    "${local.guests.nix.ip}/32",
   ]
 }
 
