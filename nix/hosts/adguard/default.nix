@@ -7,14 +7,21 @@
     enable      = true;
     openFirewall = true;
 
-    # mutableSettings = true means these settings seed the initial config and
-    # AdGuard manages subsequent changes. Set to false for fully declarative
-    # control, but then users/passwords must also be declared here.
-    mutableSettings = true;
+    # mutableSettings = false keeps all settings declarative; AdGuard cannot
+    # override them through the UI. The admin user and bcrypt hash are declared
+    # below so the account is ready without a first-run setup wizard.
+    mutableSettings = false;
 
     settings = {
       bind_host = "0.0.0.0";
       bind_port = 80;
+
+      users = [
+        {
+          name     = "admin";
+          password = "$2b$10$5KC8Aa8cZDMYRQyRUa2As./HhqCHUXSE4UHwiBENpavLDfr8fCYkO";
+        }
+      ];
 
       dns = {
         bind_hosts   = [ "0.0.0.0" ];
