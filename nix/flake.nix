@@ -21,6 +21,12 @@
       lib    = nixpkgs.lib;
       hosts  = import ./lib/hosts.nix;
 
+      overlays = [ (import ./overlays/caddy-cloudflare.nix) ];
+
+      # nixpkgs with homelab overlays applied — used for package outputs and
+      # threaded into all NixOS configurations via nixpkgs.overlays.
+      pkgs = import nixpkgs { inherit system overlays; };
+
       # SSH public key injected into all hosts. Must match terraform ssh_public_key.
       sshAuthorizedKeys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... drew@laptop" # replace with real key
@@ -36,6 +42,7 @@
             allHosts = hosts;
           };
           modules = [
+            { nixpkgs.overlays = overlays; }
             sops-nix.nixosModules.sops
             ./modules/common.nix
             ./hosts/${name}
@@ -46,7 +53,7 @@
       mkNode = name: {
         hostname = hosts.${name}.ip;
         profiles.system = {
-          sshUser    = "root";
+          sshUser       = "root";
           magicRollback = true;
           path = deploy-rs.lib.${system}.activate.nixos self.nixosConfigurations.${name};
         };
@@ -74,6 +81,9 @@
         arr         = mkNode "arr";
         qbittorrent = mkNode "qbittorrent";
       };
+
+      # Expose the patched Caddy for easy testing: nix build .#packages.x86_64-linux.caddy-cloudflare
+      packages.${system}.caddy-cloudflare = pkgs.caddy-cloudflare;
 
       # deploy-rs schema checks — run with `nix flake check`
       checks = builtins.mapAttrs

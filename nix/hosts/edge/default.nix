@@ -1,18 +1,6 @@
 # Caddy reverse proxy with wildcard TLS via Cloudflare DNS-01 ACME.
-#
-# Caddy needs the cloudflare DNS provider plugin to do DNS-01 challenges.
-# Build a custom Caddy package with the plugin by overriding in an overlay,
-# or use the xcaddy approach. Example overlay (add to flake.nix nixpkgs.overlays):
-#
-#   caddy-cloudflare = pkgs.caddy.override (old: {
-#     buildGoModule = args: old.buildGoModule (args // {
-#       subPackages = [ "cmd/caddy" ];
-#       # patch main.go to import caddy-dns/cloudflare
-#     });
-#   });
-#
-# For now the package defaults to standard Caddy; swap in the custom build once
-# the overlay is wired up.
+# Uses pkgs.caddy-cloudflare from the homelab overlay (overlays/caddy-cloudflare.nix),
+# which builds Caddy 2.10.0 with the caddy-dns/cloudflare plugin compiled in.
 { config, lib, pkgs, allHosts, ... }:
 
 let
@@ -21,22 +9,24 @@ in
 {
   networking.firewall.allowedTCPPorts = [ 80 443 ];
 
-  # Cloudflare DNS API token for ACME DNS-01 challenge
+  # Cloudflare DNS API token for ACME DNS-01 challenge.
+  # The secret file must contain a single line: CLOUDFLARE_DNS_API_TOKEN=<token>
   sops.secrets.cloudflare-dns-api-token = {
-    sopsFile = ../../secrets/edge.yaml;
-    owner    = "caddy";
+    sopsFile  = ../../secrets/edge.yaml;
+    owner     = "caddy";
+    # Path is used as an EnvironmentFile so Caddy picks up the token on start
+    restartUnits = [ "caddy.service" ];
   };
 
   services.caddy = {
-    enable = true;
+    enable  = true;
+    package = pkgs.caddy-cloudflare;
 
-    # Global ACME config — Caddy handles cert renewal automatically.
-    # The Cloudflare plugin must be compiled in (see note above).
     globalConfig = ''
       email drewnorman739@gmail.com
     '';
 
-    # Snippet: forward-auth via Authelia
+    # Snippet imported by routes that require SSO
     extraConfig = ''
       (authelia_guard) {
         forward_auth http://${allHosts.authelia.ip}:9091 {
@@ -46,10 +36,8 @@ in
       }
     '';
 
-    # Main virtual host block covering *.lab.adre.me and lab.adre.me
     virtualHosts."*.${domain}, ${domain}" = {
       extraConfig = ''
-        # TLS via Cloudflare DNS-01 — requires caddy-dns/cloudflare plugin
         tls {
           dns cloudflare {env.CLOUDFLARE_DNS_API_TOKEN}
           resolvers 1.1.1.1
@@ -119,7 +107,8 @@ in
     };
   };
 
-  # Expose the Cloudflare token as an environment variable for Caddy
+  # Inject the Cloudflare token into Caddy's environment.
+  # sops-nix writes the secret to a file; systemd reads it as an EnvironmentFile.
   systemd.services.caddy.serviceConfig.EnvironmentFile =
     config.sops.secrets.cloudflare-dns-api-token.path;
 }
