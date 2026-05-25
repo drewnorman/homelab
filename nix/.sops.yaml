@@ -23,8 +23,8 @@ keys:
   # Host keys — obtained after first `tofu apply`:
   #   ssh-keyscan -t ed25519 <IP> | ssh-to-age
   - &lab-edge        age1gynkf7was2ggtyhg5st7rc46qwuj96dtf2gw3zhlv3rwhg32r5uqvjar46
-  - &lab-lldap       age1p0ehlytttm03dlvk9wurtlk80d3qsd0fecauuufn5qyqkx8p8s6q9g4xrt
-  - &lab-authelia       age1gcjqgrk5rtrp72s45r5ckkc684j5n6vns32kyyeehh4648xmc53q0cq70h
+  - &lab-lldap       age1pt5wqp8wh8j8uunhzxkpjahd2q84a26smfv8lynd332cg3vq4qrslddvjt
+  - &lab-authelia    age1w27h6fdjlmavelzun0yq4hfle3qdkeahmyr044wl6v84fhagguwqj3lg4c
   - &lab-qbittorrent   age1fujhzkqfh3xdh3yln72q0prsrhped6lw3qu0qr4snwa5fmyq4c0sqh5pzk
 
 creation_rules:
