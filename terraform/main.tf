@@ -474,18 +474,18 @@ resource "proxmox_virtual_environment_container" "arr" {
 }
 
 # ---------------------------------------------------------------------------
-# qBittorrent — torrent client behind Proton VPN WireGuard kill switch
+# qBittorrent — download client
 # ---------------------------------------------------------------------------
 
-resource "proxmox_virtual_environment_container" "qbittorrent_vpn" {
-  count = var.enable_qbittorrent_vpn ? 1 : 0
+resource "proxmox_virtual_environment_container" "qbittorrent" {
+  count = var.enable_qbittorrent ? 1 : 0
 
   node_name     = local.lxc_common.node_name
-  description   = "qBittorrent + Proton VPN — managed by NixOS flake"
+  description   = "qBittorrent — managed by NixOS flake"
   start_on_boot = local.lxc_common.start_on_boot
   started       = local.lxc_common.started
   unprivileged  = local.lxc_common.unprivileged
-  tags          = ["homelab", "media", "nixos", "qbittorrent", "vpn"]
+  tags          = ["homelab", "media", "nixos", "qbittorrent"]
 
   cpu { cores = 1 }
   memory {
@@ -498,9 +498,9 @@ resource "proxmox_virtual_environment_container" "qbittorrent_vpn" {
   }
 
   dynamic "mount_point" {
-    for_each = var.arr_media_bind_mount_host_path == null ? [] : [var.arr_media_bind_mount_host_path]
+    for_each = var.qbittorrent_downloads_bind_mount_host_path == null ? [] : [var.qbittorrent_downloads_bind_mount_host_path]
     content {
-      path   = "/mnt/media"
+      path   = "/srv/downloads"
       volume = mount_point.value
     }
   }
@@ -513,7 +513,7 @@ resource "proxmox_virtual_environment_container" "qbittorrent_vpn" {
     }
     ip_config {
       ipv4 {
-        address = "${local.guests.qbittorrent_vpn.ip}/${var.network_cidr}"
+        address = "${local.guests.qbittorrent.ip}/${var.network_cidr}"
         gateway = var.network_gateway
       }
     }

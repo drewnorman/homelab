@@ -122,24 +122,24 @@ variable "lxc_template_download_timeout_seconds" {
 variable "service_ips" {
   description = "Static IP addresses for each NixOS LXC container."
   type = object({
-    adguard_lxc         = string
-    edge_lxc            = string
-    homepage_lxc        = string
-    authelia_lxc        = string
-    lldap_lxc           = string
-    jellyfin_lxc        = string
-    arr_lxc             = string
-    qbittorrent_vpn_lxc = string
+    adguard_lxc      = string
+    edge_lxc         = string
+    homepage_lxc     = string
+    authelia_lxc     = string
+    lldap_lxc        = string
+    jellyfin_lxc     = string
+    arr_lxc          = string
+    qbittorrent_lxc  = string
   })
   default = {
-    adguard_lxc         = "192.168.1.210"
-    edge_lxc            = "192.168.1.211"
-    homepage_lxc        = "192.168.1.212"
-    authelia_lxc        = "192.168.1.213"
-    lldap_lxc           = "192.168.1.214"
-    jellyfin_lxc        = "192.168.1.230"
-    arr_lxc             = "192.168.1.232"
-    qbittorrent_vpn_lxc = "192.168.1.233"
+    adguard_lxc      = "192.168.1.210"
+    edge_lxc         = "192.168.1.211"
+    homepage_lxc     = "192.168.1.212"
+    authelia_lxc     = "192.168.1.213"
+    lldap_lxc        = "192.168.1.214"
+    jellyfin_lxc     = "192.168.1.230"
+    arr_lxc          = "192.168.1.232"
+    qbittorrent_lxc  = "192.168.1.233"
   }
 }
 
@@ -153,8 +153,8 @@ variable "enable_arr_stack" {
   default     = false
 }
 
-variable "enable_qbittorrent_vpn" {
-  description = "Create the qBittorrent LXC with Proton VPN WireGuard routing."
+variable "enable_qbittorrent" {
+  description = "Create the qBittorrent download client LXC."
   type        = bool
   default     = false
 }
@@ -177,6 +177,12 @@ variable "jellyfin_media_bind_mount_host_path" {
 
 variable "arr_downloads_bind_mount_host_path" {
   description = "Optional Proxmox host path bind-mounted into the arr container at /srv/downloads."
+  type        = string
+  default     = null
+}
+
+variable "qbittorrent_downloads_bind_mount_host_path" {
+  description = "Optional Proxmox host path bind-mounted into the qBittorrent container at /srv/downloads. Should match arr_downloads_bind_mount_host_path so arr can import completed downloads."
   type        = string
   default     = null
 }

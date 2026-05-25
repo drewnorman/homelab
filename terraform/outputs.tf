@@ -8,7 +8,7 @@ output "service_ips" {
     lldap           = local.guests.lldap.ip
     jellyfin        = local.guests.jellyfin.ip
     arr             = var.enable_arr_stack ? local.guests.arr.ip : null
-    qbittorrent_vpn = var.enable_qbittorrent_vpn ? local.guests.qbittorrent_vpn.ip : null
+    qbittorrent     = var.enable_qbittorrent ? local.guests.qbittorrent.ip : null
   }
 }
 
@@ -18,7 +18,6 @@ output "service_hosts" {
     adguard     = "adguard.${var.search_domain}"
     authelia    = "auth.${var.search_domain}"
     bazarr      = "bazarr.${var.search_domain}"
-    downloads   = "downloads.${var.search_domain}"
     entrypoint  = var.search_domain
     indexers    = "indexers.${var.search_domain}"
     jellyfin    = "jellyfin.${var.search_domain}"
@@ -29,6 +28,8 @@ output "service_hosts" {
     subtitles   = "subtitles.${var.search_domain}"
     tv          = "tv.${var.search_domain}"
     watch       = "watch.${var.search_domain}"
+    downloads   = "downloads.${var.search_domain}"
+    qbittorrent = "qbittorrent.${var.search_domain}"
   }
 }
 
@@ -44,7 +45,7 @@ output "deploy_rs_targets" {
       jellyfin = "root@${local.guests.jellyfin.ip}"
     },
     var.enable_arr_stack ? { arr = "root@${local.guests.arr.ip}" } : {},
-    var.enable_qbittorrent_vpn ? { qbittorrent = "root@${local.guests.qbittorrent_vpn.ip}" } : {},
+    var.enable_qbittorrent ? { qbittorrent = "root@${local.guests.qbittorrent.ip}" } : {},
   )
 }
 

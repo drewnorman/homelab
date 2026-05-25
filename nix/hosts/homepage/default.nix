@@ -60,7 +60,7 @@ in
           {
             qBittorrent = {
               href        = "https://qbittorrent.${domain}";
-              description = "Torrent client";
+              description = "Download client";
               icon        = "qbittorrent.svg";
             };
           }

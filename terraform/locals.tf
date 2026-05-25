@@ -21,8 +21,8 @@ locals {
     arr = {
       ip = var.service_ips.arr_lxc
     }
-    qbittorrent_vpn = {
-      ip = var.service_ips.qbittorrent_vpn_lxc
+    qbittorrent = {
+      ip = var.service_ips.qbittorrent_lxc
     }
   }
 }

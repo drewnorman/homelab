@@ -94,7 +94,7 @@ in
           reverse_proxy ${allHosts.arr.ip}:6767
         }
 
-        @qbittorrent host qbittorrent.${domain} downloads.${domain} torrents.${domain}
+        @qbittorrent host qbittorrent.${domain} downloads.${domain}
         handle @qbittorrent {
           import authelia_guard
           reverse_proxy ${allHosts.qbittorrent.ip}:8080
