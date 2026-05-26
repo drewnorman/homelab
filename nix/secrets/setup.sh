@@ -57,7 +57,7 @@ encrypt_secret() {
 cd "$SECRETS_DIR"
 
 # ---- edge -------------------------------------------------------------------
-# Cloudflare DNS API token for Caddy's DNS-01 ACME challenge.
+# Cloudflare DNS API token for nginx/security.acme DNS-01 challenges.
 # Value must be in KEY=VALUE format (systemd EnvironmentFile).
 
 : "${CLOUDFLARE_DNS_API_TOKEN:?CLOUDFLARE_DNS_API_TOKEN not set in .env}"

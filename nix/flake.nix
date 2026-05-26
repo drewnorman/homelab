@@ -36,7 +36,7 @@
             inherit sshAuthorizedKeys;
             hostMeta  = hosts.${name};
             allHosts  = hosts;
-            flakeAttr = name; # nixosConfigurations key — used by system.autoUpgrade
+            flakeAttr = name; # nixosConfigurations key for optional host self-upgrade
           };
           modules = [
             sops-nix.nixosModules.sops

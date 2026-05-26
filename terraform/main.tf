@@ -45,14 +45,14 @@ resource "proxmox_virtual_environment_container" "adguard" {
   unprivileged  = local.lxc_common.unprivileged
   tags          = ["adguard", "homelab", "nixos"]
 
-  cpu { cores = 1 }
+  cpu { cores = var.lxc_resources.adguard.cores }
   memory {
-    dedicated = 512
-    swap      = 512
+    dedicated = var.lxc_resources.adguard.memory_mb
+    swap      = var.lxc_resources.adguard.swap_mb
   }
   disk {
     datastore_id = var.lxc_storage
-    size         = 8
+    size         = var.lxc_resources.adguard.disk_gb
   }
   features { nesting = true }
   device_passthrough {
@@ -98,7 +98,7 @@ resource "proxmox_virtual_environment_container" "adguard" {
 }
 
 # ---------------------------------------------------------------------------
-# Edge — Caddy reverse proxy + ACME TLS
+# Edge — nginx reverse proxy + ACME TLS
 # ---------------------------------------------------------------------------
 
 resource "proxmox_virtual_environment_container" "edge" {
@@ -110,14 +110,14 @@ resource "proxmox_virtual_environment_container" "edge" {
   unprivileged  = local.lxc_common.unprivileged
   tags          = ["edge", "homelab", "nixos", "proxy"]
 
-  cpu { cores = 1 }
+  cpu { cores = var.lxc_resources.edge.cores }
   memory {
-    dedicated = 512
-    swap      = 512
+    dedicated = var.lxc_resources.edge.memory_mb
+    swap      = var.lxc_resources.edge.swap_mb
   }
   disk {
     datastore_id = var.lxc_storage
-    size         = 8
+    size         = var.lxc_resources.edge.disk_gb
   }
   features { nesting = true }
   device_passthrough {
@@ -175,14 +175,14 @@ resource "proxmox_virtual_environment_container" "homepage" {
   unprivileged  = local.lxc_common.unprivileged
   tags          = ["homelab", "homepage", "nixos"]
 
-  cpu { cores = 1 }
+  cpu { cores = var.lxc_resources.homepage.cores }
   memory {
-    dedicated = 512
-    swap      = 512
+    dedicated = var.lxc_resources.homepage.memory_mb
+    swap      = var.lxc_resources.homepage.swap_mb
   }
   disk {
     datastore_id = var.lxc_storage
-    size         = 4
+    size         = var.lxc_resources.homepage.disk_gb
   }
   features { nesting = true }
   device_passthrough {
@@ -240,14 +240,14 @@ resource "proxmox_virtual_environment_container" "authelia" {
   unprivileged  = local.lxc_common.unprivileged
   tags          = ["authelia", "homelab", "nixos"]
 
-  cpu { cores = 1 }
+  cpu { cores = var.lxc_resources.authelia.cores }
   memory {
-    dedicated = 512
-    swap      = 512
+    dedicated = var.lxc_resources.authelia.memory_mb
+    swap      = var.lxc_resources.authelia.swap_mb
   }
   disk {
     datastore_id = var.lxc_storage
-    size         = 4
+    size         = var.lxc_resources.authelia.disk_gb
   }
   features { nesting = true }
   device_passthrough {
@@ -305,14 +305,14 @@ resource "proxmox_virtual_environment_container" "lldap" {
   unprivileged  = local.lxc_common.unprivileged
   tags          = ["homelab", "lldap", "nixos"]
 
-  cpu { cores = 1 }
+  cpu { cores = var.lxc_resources.lldap.cores }
   memory {
-    dedicated = 256
-    swap      = 256
+    dedicated = var.lxc_resources.lldap.memory_mb
+    swap      = var.lxc_resources.lldap.swap_mb
   }
   disk {
     datastore_id = var.lxc_storage
-    size         = 4
+    size         = var.lxc_resources.lldap.disk_gb
   }
   features { nesting = true }
   device_passthrough {
@@ -370,14 +370,14 @@ resource "proxmox_virtual_environment_container" "jellyfin" {
   unprivileged  = local.lxc_common.unprivileged
   tags          = ["homelab", "jellyfin", "media", "nixos"]
 
-  cpu { cores = 2 }
+  cpu { cores = var.lxc_resources.jellyfin.cores }
   memory {
-    dedicated = 2048
-    swap      = 512
+    dedicated = var.lxc_resources.jellyfin.memory_mb
+    swap      = var.lxc_resources.jellyfin.swap_mb
   }
   disk {
     datastore_id = var.lxc_storage
-    size         = var.jellyfin_lxc_disk_size_gb
+    size         = coalesce(var.jellyfin_lxc_disk_size_gb, var.lxc_resources.jellyfin.disk_gb)
   }
   features { nesting = true }
   device_passthrough {
@@ -438,14 +438,14 @@ resource "proxmox_virtual_environment_container" "arr" {
   unprivileged  = local.lxc_common.unprivileged
   tags          = ["arr", "homelab", "media", "nixos"]
 
-  cpu { cores = 2 }
+  cpu { cores = var.lxc_resources.arr.cores }
   memory {
-    dedicated = 2048
-    swap      = 512
+    dedicated = var.lxc_resources.arr.memory_mb
+    swap      = var.lxc_resources.arr.swap_mb
   }
   disk {
     datastore_id = var.lxc_storage
-    size         = 8
+    size         = var.lxc_resources.arr.disk_gb
   }
   features { nesting = true }
   device_passthrough {
@@ -506,14 +506,14 @@ resource "proxmox_virtual_environment_container" "qbittorrent" {
   unprivileged  = local.lxc_common.unprivileged
   tags          = ["homelab", "media", "nixos", "qbittorrent"]
 
-  cpu { cores = 1 }
+  cpu { cores = var.lxc_resources.qbittorrent.cores }
   memory {
-    dedicated = 1024
-    swap      = 512
+    dedicated = var.lxc_resources.qbittorrent.memory_mb
+    swap      = var.lxc_resources.qbittorrent.swap_mb
   }
   disk {
     datastore_id = var.lxc_storage
-    size         = 8
+    size         = var.lxc_resources.qbittorrent.disk_gb
   }
   features { nesting = true }
   device_passthrough {

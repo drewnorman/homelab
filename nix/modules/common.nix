@@ -109,24 +109,13 @@
     vim
   ];
 
-  # Auto-upgrade — each host pulls the flake from GitHub and rebuilds itself.
-  # This is the homelab equivalent of "deploy-rs as a service": push to the
-  # main branch and every host picks it up within the next upgrade window.
-  #
-  # deploy-rs is still useful for immediate one-off deploys from a dev machine;
-  # autoUpgrade handles the steady-state GitOps loop without any extra infra.
-  #
-  # Hosts upgrade independently with a randomised delay so they don't all
-  # restart services at the same time. allowReboot = false keeps services up
-  # across kernel upgrades; reboot manually when convenient.
+  # Deployment is intentionally push-based: OpenTofu owns Proxmox resources,
+  # and deploy-rs/GitHub Actions owns NixOS activation. Keep host self-upgrade
+  # disabled so there is one default control loop to debug when a deploy fails.
   system.autoUpgrade = {
-    enable          = true;
-    # github: fetcher resolves the default branch; ?dir=nix points at flake.nix
-    flake           = "github:drewnorman/homelab?dir=nix#${flakeAttr}";
-    flags           = [ "--accept-flake-config" ];
-    dates           = "04:00";
-    randomizedDelaySec = "1h";
-    allowReboot     = false;
+    enable = false;
+    flake  = "github:drewnorman/homelab?dir=nix#${flakeAttr}";
+    flags  = [ "--accept-flake-config" ];
   };
 
   system.stateVersion = "25.05";
