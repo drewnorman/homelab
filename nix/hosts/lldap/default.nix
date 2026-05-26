@@ -2,18 +2,26 @@
 {
   networking.firewall.allowedTCPPorts = [ 3890 17170 ];
 
+  users.groups.lldap-secrets = {};
+
   sops.secrets.lldap-jwt-secret = {
     sopsFile = ../../secrets/lldap.yaml;
-    owner    = "lldap";
+    owner    = "root";
+    group    = "lldap-secrets";
+    mode     = "0440";
   };
   sops.secrets.lldap-admin-password = {
     sopsFile = ../../secrets/lldap.yaml;
-    owner    = "lldap";
+    owner    = "root";
+    group    = "lldap-secrets";
+    mode     = "0440";
   };
   # One sops secret per user password; add a key to lldap.yaml for each.
   sops.secrets."lldap-user-drew-password" = {
     sopsFile = ../../secrets/lldap.yaml;
-    owner    = "lldap";
+    owner    = "root";
+    group    = "lldap-secrets";
+    mode     = "0440";
   };
   sops.secrets.tailscale-auth-key = {
     sopsFile = ../../secrets/lldap.yaml;
@@ -21,6 +29,8 @@
   };
 
   services.tailscale.authKeyFile = config.sops.secrets.tailscale-auth-key.path;
+
+  systemd.services.lldap.serviceConfig.SupplementaryGroups = [ "lldap-secrets" ];
 
   services.lldap = {
     enable = true;

@@ -31,7 +31,6 @@ jobs:
       - name: deploy
         run: |
           cd nix
-          nix run .#deploy-rs -- \
+          nix run .#deploy-core -- \
             --skip-checks \
-            --ssh-opts="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
-            .
+            --ssh-opts="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
