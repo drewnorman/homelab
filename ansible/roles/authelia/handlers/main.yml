@@ -1,6 +1,0 @@
----
-- name: Restart Authelia
-  ansible.builtin.systemd:
-    name: authelia
-    state: restarted
-    daemon_reload: true

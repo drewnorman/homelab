@@ -1,6 +1,0 @@
----
-- name: Restart AdGuard Home
-  ansible.builtin.systemd:
-    name: AdGuardHome
-    daemon_reload: true
-    state: restarted

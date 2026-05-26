@@ -1,9 +1,0 @@
----
-# Block device for the external media SSD. Run `lsblk` on the Proxmox host to confirm.
-proxmox_media_ssd_device: /dev/sda
-
-proxmox_arr_lxc_name: "{{ homelab_name }}-arr"
-proxmox_jellyfin_lxc_name: "{{ homelab_name }}-jellyfin"
-
-# LXCs that need /dev/net/tun for VPN-style interfaces.
-proxmox_tun_lxc_names: "{{ [homelab_name ~ '-edge'] + ([homelab_name ~ '-qbittorrent-vpn'] if groups['qbittorrent_vpn'] | default([]) | length > 0 else []) }}"

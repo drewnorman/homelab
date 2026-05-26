@@ -53,6 +53,52 @@ output "deploy_rs_targets" {
   )
 }
 
+output "ansible_inventory" {
+  description = "Inventory for SSH bootstrap and per-host key management."
+  value = join("\n\n", compact([
+    <<-EOT
+    [adguard]
+    lab-adguard ansible_host=${local.guests.adguard.ip} ansible_user=root
+    EOT
+    ,
+    <<-EOT
+    [edge]
+    lab-edge ansible_host=${local.guests.edge.ip} ansible_user=root
+    EOT
+    ,
+    <<-EOT
+    [monitoring]
+    lab-monitoring ansible_host=${local.guests.monitoring.ip} ansible_user=root
+    EOT
+    ,
+    <<-EOT
+    [authelia]
+    lab-authelia ansible_host=${local.guests.authelia.ip} ansible_user=root
+    EOT
+    ,
+    <<-EOT
+    [lldap]
+    lab-lldap ansible_host=${local.guests.lldap.ip} ansible_user=root
+    EOT
+    ,
+    <<-EOT
+    [media]
+    lab-jellyfin ansible_host=${local.guests.jellyfin.ip} ansible_user=root
+    EOT
+    ,
+    var.enable_arr_stack ? <<-EOT
+    [arr]
+    lab-arr ansible_host=${local.guests.arr.ip} ansible_user=root
+    EOT
+    : "",
+    var.enable_qbittorrent ? <<-EOT
+    [qbittorrent]
+    lab-qbittorrent ansible_host=${local.guests.qbittorrent.ip} ansible_user=root
+    EOT
+    : "",
+  ]))
+}
+
 output "tailscale_edge_auth_key" {
   description = "Generated Tailscale auth key for lab-edge. Set as the tailscale.authKeyFile sops secret."
   value       = var.enable_tailscale_management ? tailscale_tailnet_key.edge[0].key : null
