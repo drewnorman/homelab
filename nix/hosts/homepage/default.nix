@@ -4,6 +4,8 @@ let
   domain = "lab.adre.me";
 in
 {
+  networking.firewall.allowedTCPPorts = [ 8082 ];
+
   services.homepage-dashboard = {
     enable = true;
 

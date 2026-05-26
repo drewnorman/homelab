@@ -38,7 +38,8 @@ lxc_template_file_name     = "nixos-lxc-homelab.tar.xz"
 lxc_template_file_id       = "local:vztmpl/nixos-lxc-homelab.tar.xz"
 lxc_template_url           = "https://hydra.nixos.org/job/nixos/release-25.11/nixos.proxmoxLXC.x86_64-linux/latest/download-by-type/file/system-tarball"
 
-jellyfin_lxc_disk_size_gb = 16
+# Resource defaults live in variables.tf. Override lxc_resources here only when
+# the Proxmox host has a different memory budget.
 
 # Bind-mount host paths for shared media storage.
 # Both arr and Jellyfin should share the same host path so hardlinks work.

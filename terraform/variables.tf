@@ -187,10 +187,126 @@ variable "enable_qbittorrent" {
 # Per-service sizing
 # ---------------------------------------------------------------------------
 
+variable "lxc_resources" {
+  description = "CPU, memory, swap, and root disk sizing for each LXC. Memory and swap are MiB; disk is GiB."
+  type = object({
+    adguard = object({
+      cores     = number
+      memory_mb = number
+      swap_mb   = number
+      disk_gb   = number
+    })
+    edge = object({
+      cores     = number
+      memory_mb = number
+      swap_mb   = number
+      disk_gb   = number
+    })
+    homepage = object({
+      cores     = number
+      memory_mb = number
+      swap_mb   = number
+      disk_gb   = number
+    })
+    authelia = object({
+      cores     = number
+      memory_mb = number
+      swap_mb   = number
+      disk_gb   = number
+    })
+    lldap = object({
+      cores     = number
+      memory_mb = number
+      swap_mb   = number
+      disk_gb   = number
+    })
+    jellyfin = object({
+      cores     = number
+      memory_mb = number
+      swap_mb   = number
+      disk_gb   = number
+    })
+    arr = object({
+      cores     = number
+      memory_mb = number
+      swap_mb   = number
+      disk_gb   = number
+    })
+    qbittorrent = object({
+      cores     = number
+      memory_mb = number
+      swap_mb   = number
+      disk_gb   = number
+    })
+  })
+  default = {
+    adguard = {
+      cores     = 1
+      memory_mb = 768
+      swap_mb   = 512
+      disk_gb   = 8
+    }
+    edge = {
+      cores     = 2
+      memory_mb = 1536
+      swap_mb   = 1024
+      disk_gb   = 8
+    }
+    homepage = {
+      cores     = 1
+      memory_mb = 768
+      swap_mb   = 512
+      disk_gb   = 4
+    }
+    authelia = {
+      cores     = 1
+      memory_mb = 1024
+      swap_mb   = 1024
+      disk_gb   = 4
+    }
+    lldap = {
+      cores     = 1
+      memory_mb = 1024
+      swap_mb   = 1024
+      disk_gb   = 4
+    }
+    jellyfin = {
+      cores     = 2
+      memory_mb = 2048
+      swap_mb   = 512
+      disk_gb   = 16
+    }
+    arr = {
+      cores     = 2
+      memory_mb = 2048
+      swap_mb   = 512
+      disk_gb   = 8
+    }
+    qbittorrent = {
+      cores     = 1
+      memory_mb = 1024
+      swap_mb   = 512
+      disk_gb   = 8
+    }
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for resource in values(var.lxc_resources) : [
+        resource.cores >= 1,
+        resource.memory_mb >= 256,
+        resource.swap_mb >= 0,
+        resource.disk_gb >= 4,
+      ]
+    ]))
+    error_message = "Each LXC resource profile must have at least 1 core, 256 MiB memory, non-negative swap, and a 4 GiB root disk."
+  }
+}
+
 variable "jellyfin_lxc_disk_size_gb" {
-  description = "Jellyfin LXC root disk size in GiB."
+  description = "Deprecated. Use lxc_resources.jellyfin.disk_gb instead."
   type        = number
-  default     = 16
+  default     = null
 }
 
 variable "jellyfin_media_bind_mount_host_path" {

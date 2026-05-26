@@ -2,20 +2,32 @@
 
 This directory provisions a small Proxmox homelab optimized for a single 16 GB laptop host:
 
-- `lab-adguard` as a lightweight LXC for AdGuard Home
-- `lab-edge` as a lightweight LXC for reverse proxy and browser-trusted local HTTPS
-- `lab-docker` as a general-purpose VM for non-critical Docker Compose services
+- `lab-adguard` as a core-platform LXC for AdGuard Home
+- `lab-edge` as a core-platform LXC for reverse proxy, Tailscale ingress, and browser-trusted local HTTPS
+- `lab-homepage` as a dashboard LXC
+- `lab-authelia` as a core-platform LXC for SSO and forward auth
+- `lab-lldap` as a core-platform LXC for user directory services
 - `lab-jellyfin` as a lean LXC with optional host bind-mounted media storage
-- `lab-nix` as an always-running NixOS LXC for SSH-accessible lab work
+- optional media automation LXCs for Arr services and qBittorrent
 
 The checked-in defaults target the existing Proxmox node `norman` at `192.168.1.200` on `192.168.1.0/24`. The Proxmox host IP is managed outside this project and is not changed by Terraform.
+
+## Architecture
+
+The default control plane is intentionally split by ownership:
+
+- OpenTofu owns Proxmox resources: containers, VMIDs, CPU, memory, disks, network addresses, bind mounts, and provider-managed DNS or tailnet settings.
+- NixOS owns guest configuration: users, services, secrets, firewall rules, persistence, and package state.
+- deploy-rs is the default NixOS deployment path. Host self-upgrade is disabled by default so deploy failures have one primary control loop to inspect.
+- Ansible remains for legacy/bootstrap workflows only; new steady-state service configuration should move into the Nix flake.
+
+The core platform is `lab-adguard`, `lab-edge`, `lab-authelia`, and `lab-lldap`. These services get more memory than the smallest media/dashboard guests because DNS, ingress, auth, and directory lookups should stay healthy before optional apps do.
 
 ## Prerequisites
 
 - OpenTofu installed locally
 - A Proxmox API token with permissions to create LXCs and, if enabled, VMs
 - Debian and NixOS LXC templates already available in Proxmox storage
-- A bootstrappable VM template only if `enable_docker_host = true`
 - A `.env` file exporting secret `TF_VAR_*` values plus `TF_VAR_ssh_public_key`
 
 ## Secrets
@@ -53,11 +65,12 @@ For the current `norman` host, the default managed guest addresses are:
 
 - `lab-adguard`: `192.168.1.210`
 - `lab-edge`: `192.168.1.211`
+- `lab-homepage`: `192.168.1.212`
+- `lab-authelia`: `192.168.1.213`
+- `lab-lldap`: `192.168.1.214`
 - `lab-jellyfin`: `192.168.1.230`
 - `lab-arr`: disabled until `enable_arr_stack = true`
-- `lab-qbittorrent-vpn`: disabled until `enable_qbittorrent_vpn = true`
-- `lab-nix`: `192.168.1.240`
-- `lab-docker`: disabled until `enable_docker_host = true` and `vm_template_id` is set
+- `lab-qbittorrent`: disabled until `enable_qbittorrent = true`
 
 An existing unmanaged container named `adguard` may coexist with these resources. Terraform only manages guests present in its state.
 
@@ -65,17 +78,18 @@ An existing unmanaged container named `adguard` may coexist with these resources
 
 - `lab-adguard`: AdGuard Home only
 - `lab-edge`: reverse proxy and browser-trusted wildcard HTTPS
-- `lab-docker`: non-critical self-hosted apps
+- `lab-homepage`: service dashboard
+- `lab-authelia`: SSO and forward auth
+- `lab-lldap`: LDAP user directory
 - `lab-jellyfin`: Jellyfin and a bind-mounted media path from the Proxmox host
 - `lab-arr`: Radarr, Sonarr, Prowlarr, Bazarr, and Byparr
-- `lab-qbittorrent-vpn`: qBittorrent with BitTorrent traffic bound to Proton VPN
-- `lab-nix`: NixOS LXC for SSH-accessible lab work
+- `lab-qbittorrent`: qBittorrent
 
 For local-only HTTPS:
 
 - AdGuard rewrites `*.lab.adre.me` to `lab-edge`
-- Caddy in `lab-edge` serves `*.lab.adre.me` with a public Let's Encrypt wildcard certificate
-- only hosts explicitly listed in the Caddy config are proxied
+- nginx in `lab-edge` serves `*.lab.adre.me` with a public Let's Encrypt wildcard certificate
+- only hosts explicitly listed in the nginx virtual host config are proxied
 - nothing needs to be exposed on your router
 
 Friendly service names are preferred for day-to-day use:
@@ -89,7 +103,7 @@ Friendly service names are preferred for day-to-day use:
 
 The app-native names such as `jellyfin.lab.adre.me`, `radarr.lab.adre.me`, `sonarr.lab.adre.me`, `prowlarr.lab.adre.me`, `bazarr.lab.adre.me`, and `qbittorrent.lab.adre.me` remain valid aliases.
 
-The wildcard certificate is issued with DNS-01 validation through Cloudflare using `lego`. DNS-01 proves ownership by creating temporary `_acme-challenge.lab.adre.me` TXT records, so ports 80 and 443 do not need to be exposed publicly.
+The wildcard certificate is issued with DNS-01 validation through Cloudflare using NixOS `security.acme`. DNS-01 proves ownership by creating temporary `_acme-challenge.lab.adre.me` TXT records, so ports 80 and 443 do not need to be exposed publicly.
 
 ### Browser-Trusted HTTPS
 
@@ -105,28 +119,27 @@ export CLOUDFLARE_API_TOKEN="${CLOUDFLARE_DNS_API_TOKEN}"
 export TF_VAR_cloudflare_api_token="${CLOUDFLARE_DNS_API_TOKEN}"
 ```
 
-No permanent public `A`, `AAAA`, or `CNAME` record is required for `*.lab.adre.me` as long as access stays LAN-only. AdGuard keeps resolving `*.lab.adre.me` to `lab-edge` internally. `lego` will create and remove temporary TXT records under:
+No permanent public `A`, `AAAA`, or `CNAME` record is required for `*.lab.adre.me` as long as access stays LAN-only. AdGuard keeps resolving `*.lab.adre.me` to `lab-edge` internally. The ACME DNS provider will create and remove temporary TXT records under:
 
 ```text
 _acme-challenge.lab.adre.me
 ```
 
-The certificate state is stored on `lab-edge` under `/var/lib/lego/`. The active certificate and key are copied to `/etc/caddy/certs/` with permissions Caddy can read. A systemd timer named `lego-edge-cert-renew.timer` renews the certificate daily when it is close to expiry and reloads Caddy after renewal.
+The certificate state is stored on `lab-edge` under `/var/lib/acme/` and is persisted across container restarts. nginx reads the certificate through the NixOS virtual host configuration and reloads after ACME renewal.
 
 OpenTofu can manage public Cloudflare DNS records. The checked-in example includes CAA records allowing Let's Encrypt to issue for `adre.me`, `lab.adre.me`, and `*.lab.adre.me`; keep `enable_cloudflare_dns = false` until Cloudflare API credentials are configured. If `cloudflare_zone_id` is left empty, OpenTofu looks up the `adre.me` zone by name.
 
-The Ansible edge role requests a certificate for both `lab.adre.me` and `*.lab.adre.me`, copies it to `/etc/caddy/certs/`, and fails the run if the active certificate does not include both names.
+The NixOS edge module requests a certificate for both `lab.adre.me` and `*.lab.adre.me` and wires that certificate into nginx.
 
-Additional app hostnames should be added to `edge_extra_services` in [ansible/inventory/group_vars/all.yml](/home/drew/documents/personal/homelab/ansible/inventory/group_vars/all.yml:1). The wildcard DNS rewrite means any `*.lab.adre.me` hostname will already resolve to `lab-edge`; you only need to tell Caddy which upstream each hostname should proxy to.
+Additional app hostnames should be added to the nginx virtual hosts in [nix/hosts/edge/default.nix](/home/drew/code/personal/homelab/nix/hosts/edge/default.nix:93). The wildcard DNS rewrite means any `*.lab.adre.me` hostname will already resolve to `lab-edge`; you only need to tell nginx which upstream each hostname should proxy to.
 
 ### Remote Access with Tailscale
 
 This lab uses Tailscale on `lab-edge` for private remote access without router port forwards or a static ISP IP. `lab-edge` advertises four narrow subnet routes by default:
 
 - `192.168.1.210/32` for AdGuard split DNS
-- `192.168.1.211/32` for the Caddy edge proxy
-- `192.168.1.230/32` for Jellyfin (direct streaming, bypasses Caddy)
-- `192.168.1.240/32` for the Nix host
+- `192.168.1.211/32` for the nginx edge proxy
+- `192.168.1.230/32` for Jellyfin (direct streaming, bypasses nginx)
 
 OpenTofu can manage the Tailscale admin-console pieces through the official Tailscale provider. Set a Tailscale API token outside source control:
 
@@ -161,13 +174,13 @@ After the first Ansible run, `lab-edge` should be joined to the tailnet. Enable 
 enable_tailscale_edge_device_management = true
 ```
 
-That second apply approves the advertised `/32` subnet routes for AdGuard, Caddy, Jellyfin, and the Nix host, and disables key expiry for `lab-edge`.
+That second apply approves the advertised subnet routes for AdGuard, nginx, and Jellyfin, and disables key expiry for `lab-edge`.
 
-Once approved, remote clients connected to your tailnet should resolve `jellyfin.lab.adre.me`, `movies.lab.adre.me`, `downloads.lab.adre.me`, and other configured lab hosts through AdGuard, then reach Caddy on `lab-edge` over the Tailscale route.
+Once approved, remote clients connected to your tailnet should resolve `jellyfin.lab.adre.me`, `movies.lab.adre.me`, `downloads.lab.adre.me`, and other configured lab hosts through AdGuard, then reach nginx on `lab-edge` over the Tailscale route.
 
 ### qBittorrent over Proton VPN
 
-Set `enable_qbittorrent_vpn = true` to create `lab-qbittorrent-vpn`. When the Arr stack is enabled, Radarr and Sonarr use that LXC as their qBittorrent download client instead of running qBittorrent locally.
+Set `enable_qbittorrent = true` to create `lab-qbittorrent`. When the Arr stack is enabled, Radarr and Sonarr use that LXC as their qBittorrent download client instead of running qBittorrent locally.
 
 Export a Proton VPN Plus WireGuard config before running Ansible. The config should be a P2P-capable Proton server config encoded as base64:
 
@@ -182,36 +195,10 @@ If you enable Proton port forwarding, set `qbittorrent_listen_port` to the curre
 Remote access still flows through Tailscale on `lab-edge`:
 
 ```text
-remote client -> Tailscale -> lab-edge Caddy -> lab-qbittorrent-vpn:8080
+remote client -> Tailscale -> lab-edge nginx -> lab-qbittorrent:8080
 ```
 
-Do not install Tailscale on `lab-qbittorrent-vpn` unless you want direct tailnet access to that host. The default design keeps one Tailscale ingress point and uses Caddy for `downloads.lab.adre.me`.
-
-### Nix Host
-
-The Nix host reserves `lab-nix` at `192.168.1.240` and `nix.lab.adre.me`. When `enable_nix_host = true`, OpenTofu creates an always-running NixOS LXC from `nix_lxc_template_file_id` and includes a `[nix]` Ansible inventory group.
-
-This host is intended for LAN SSH access, not HTTP proxying. AdGuard resolves `nix.lab.adre.me` directly to `192.168.1.240`, so you can connect with:
-
-```sh
-ssh -i ~/.ssh/drew@nix.lab.adre.me -o IdentitiesOnly=yes drew@nix.lab.adre.me
-```
-
-The intended flake target is:
-
-```text
-https://github.com/drewnorman/nix-config#lab-nix
-```
-
-OpenTofu downloads the NixOS Proxmox LXC template from Hydra into Proxmox storage when `manage_nix_lxc_template = true`. The configured template file ID is `local:vztmpl/nixos-lxc-lab-nix.tar.xz`.
-
-The local `../nixos-configs` repository also defines the NixOS container configuration and exposes a `lab-nix-lxc-template` package if you need a custom template later:
-
-```sh
-cd ../nixos-configs
-nix build .#lab-nix-lxc-template
-scp -F /dev/null -i ~/.ssh/root@192.168.1.200 -o IdentitiesOnly=yes result/tarball/nixos-system-x86_64-linux.tar.xz root@192.168.1.200:/var/lib/vz/template/cache/nixos-lxc-lab-nix.tar.xz
-```
+Do not install Tailscale on `lab-qbittorrent` unless you want direct tailnet access to that host. The default design keeps one Tailscale ingress point and uses nginx for `downloads.lab.adre.me`.
 
 ## Ansible
 
@@ -288,19 +275,18 @@ The `ANSIBLE_HOME` and `ANSIBLE_LOCAL_TEMP` values keep generated Ansible files 
 
 - `common`: base packages, timezone, and guest agent
 - `adguard`: AdGuard Home installation plus a generated config
-- `edge`: Caddy for local wildcard HTTPS and proxying
-- `docker_host`: Docker Engine and a compose root for non-critical apps
+- `edge`: nginx for local wildcard HTTPS and proxying
 - `jellyfin`: Jellyfin package install and media directories
 
 ## Jellyfin Storage Model
 
 Jellyfin now runs as an unprivileged LXC sized for mostly direct-play streaming rather than a larger VM.
 
-- Root filesystem is sized by `jellyfin_lxc_disk_size_gb` on `lxc_storage`; the example value is 16 GiB
+- Root filesystem is sized by `lxc_resources.jellyfin.disk_gb` on `lxc_storage`; the default value is 16 GiB
 - Media stays on the Proxmox host, optionally on an external SSD
 - Set `jellyfin_media_bind_mount_host_path` to bind-mount that host path into the container at `/mnt/media`
 
-When no bind mount is configured, Jellyfin stores media on the container root filesystem. Increase `jellyfin_lxc_disk_size_gb` to grow that filesystem in place; do not decrease it unless you have migrated the data elsewhere.
+When no bind mount is configured, Jellyfin stores media on the container root filesystem. Increase `lxc_resources.jellyfin.disk_gb` to grow that filesystem in place; do not decrease it unless you have migrated the data elsewhere.
 
 Suggested pattern for an external SSD:
 
