@@ -56,23 +56,24 @@ tofu plan
 tofu apply
 ```
 
-After OpenTofu provisions the guests, deploy the always-on NixOS hosts from the repo root:
+After OpenTofu provisions the guests, deploy the always-on NixOS hosts:
 
 ```sh
-nix run ./nix#deploy-core
+cd nix
+nix run .#deploy-core
 ```
 
 Deploy optional hosts only after their corresponding OpenTofu toggles are enabled:
 
 ```sh
-nix run ./nix#deploy-rs -- ./nix#arr
-nix run ./nix#deploy-rs -- ./nix#qbittorrent
+nix run .#deploy-rs -- .#arr
+nix run .#deploy-rs -- .#qbittorrent
 ```
 
 For one-off host deploys, use the pinned deploy-rs package exposed by the flake:
 
 ```sh
-nix run ./nix#deploy-rs -- ./nix#monitoring
+nix run .#deploy-rs -- .#monitoring
 ```
 
 For the current `norman` host, the default managed guest addresses are:
