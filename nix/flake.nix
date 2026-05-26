@@ -21,7 +21,17 @@
     let
       system = "x86_64-linux";
       lib    = nixpkgs.lib;
+      pkgs   = import nixpkgs { inherit system; };
       hosts  = import ./lib/hosts.nix;
+
+      coreHosts = [
+        "adguard"
+        "edge"
+        "monitoring"
+        "authelia"
+        "lldap"
+        "jellyfin"
+      ];
 
       # SSH public key injected into all hosts. Must match terraform ssh_public_key.
       sshAuthorizedKeys = [
@@ -80,8 +90,21 @@
         qbittorrent = mkNode "qbittorrent";
       };
 
-      # Pin deploy-rs to the flake-locked version: nix run .#deploy-rs -- --help
-      packages.${system}.deploy-rs = deploy-rs.packages.${system}.deploy-rs;
+      packages.${system} = {
+        # Pin deploy-rs to the flake-locked version: nix run .#deploy-rs -- --help
+        deploy-rs = deploy-rs.packages.${system}.deploy-rs;
+
+        deploy-core = pkgs.writeShellApplication {
+          name = "deploy-core";
+          runtimeInputs = [ deploy-rs.packages.${system}.deploy-rs ];
+          text = lib.concatMapStringsSep "\n" (host: "deploy ${self}#${host}") coreHosts;
+        };
+      };
+
+      apps.${system}.deploy-core = {
+        type = "app";
+        program = "${self.packages.${system}.deploy-core}/bin/deploy-core";
+      };
 
       # deploy-rs schema checks — run with `nix flake check`
       checks = builtins.mapAttrs

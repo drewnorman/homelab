@@ -18,8 +18,7 @@ The default control plane is intentionally split by ownership:
 
 - OpenTofu owns Proxmox resources: containers, VMIDs, CPU, memory, disks, network addresses, bind mounts, and provider-managed DNS or tailnet settings.
 - NixOS owns guest configuration: users, services, secrets, firewall rules, persistence, and package state.
-- deploy-rs is the default NixOS deployment path. Host self-upgrade is disabled by default so deploy failures have one primary control loop to inspect.
-- Ansible remains only for SSH bootstrap and per-host key management.
+- deploy-rs is the NixOS deployment path. Host self-upgrade is disabled by default so deploy failures have one primary control loop to inspect.
 
 The core platform is `lab-adguard`, `lab-edge`, `lab-monitoring`, `lab-authelia`, and `lab-lldap`. These services get more memory than the smallest media guests because DNS, ingress, monitoring, auth, and directory lookups should stay healthy before optional apps do.
 
@@ -42,7 +41,7 @@ source .env
 set +a
 ```
 
-Provisioned guests are expected to be managed over SSH keys only. `TF_VAR_ssh_public_key` is injected during provisioning as the launch/bootstrap key. After a guest exists, use a per-host SSH key named `~/.ssh/<user>@<fqdn>` for normal connections and Ansible runs.
+Provisioned guests are managed over SSH keys only. `TF_VAR_ssh_public_key` is injected during provisioning as the launch/bootstrap key, and deploy-rs uses that key to connect as `root`.
 
 ## Usage
 
@@ -55,6 +54,25 @@ tofu fmt
 tofu validate
 tofu plan
 tofu apply
+```
+
+After OpenTofu provisions the guests, deploy the always-on NixOS hosts from the repo root:
+
+```sh
+nix run ./nix#deploy-core
+```
+
+Deploy optional hosts only after their corresponding OpenTofu toggles are enabled:
+
+```sh
+nix run ./nix#deploy-rs -- ./nix#arr
+nix run ./nix#deploy-rs -- ./nix#qbittorrent
+```
+
+For one-off host deploys, use the pinned deploy-rs package exposed by the flake:
+
+```sh
+nix run ./nix#deploy-rs -- ./nix#monitoring
 ```
 
 For the current `norman` host, the default managed guest addresses are:
@@ -196,59 +214,6 @@ remote client -> Tailscale -> lab-edge nginx -> lab-qbittorrent:8080
 ```
 
 Do not install Tailscale on `lab-qbittorrent` unless you want direct tailnet access to that host. The default design keeps one Tailscale ingress point and uses nginx for `downloads.lab.adre.me`.
-
-## Ansible
-
-Ansible is retained only for SSH bootstrap and per-host SSH key management. Steady-state service configuration lives in the Nix flake.
-
-### Ansible Usage
-
-After `tofu apply`, render inventory from state:
-
-```sh
-./scripts/render-ansible-inventory.sh
-```
-
-For the upstream NixOS LXC template, bootstrap the `drew` SSH user with raw
-Ansible before using the per-host key:
-
-```sh
-cd ansible
-ANSIBLE_HOME=../.ansible ANSIBLE_LOCAL_TEMP=../.ansible/tmp ../.venv/bin/ansible-playbook playbooks/nix_ssh.yml
-```
-
-If you need a static example instead of rendering from OpenTofu, copy `ansible/inventory/hosts.ini.example` to `ansible/inventory/hosts.ini` and edit it manually.
-
-Install Ansible in the local virtualenv if needed:
-
-```sh
-uv venv .venv
-UV_CACHE_DIR=.uv-cache uv pip install ansible
-cd ansible
-ANSIBLE_HOME=../.ansible ANSIBLE_LOCAL_TEMP=../.ansible/tmp ../.venv/bin/ansible-galaxy collection install -r requirements.yml
-```
-
-Ansible derives per-host private keys from `inventory_hostname`, `ansible_user`, `homelab_name`, and `homelab_domain`, producing names like `~/.ssh/root@edge.lab.adre.me` or `~/.ssh/drew@nix.lab.adre.me`. Terraform still injects `TF_VAR_ssh_public_key` during provisioning; the per-host keys are for post-launch access.
-
-Create local per-host keys whenever you add a host or regenerate inventory:
-
-```sh
-ANSIBLE_HOME=../.ansible ANSIBLE_LOCAL_TEMP=../.ansible/tmp ../.venv/bin/ansible-playbook playbooks/ssh_keys.yml
-```
-
-To also install those keys on already-launched hosts, run the same playbook with `install_per_host_ssh_keys=true`. If the new per-host key is not installed yet, pass the existing bootstrap key:
-
-```sh
-ANSIBLE_HOME=../.ansible ANSIBLE_LOCAL_TEMP=../.ansible/tmp ../.venv/bin/ansible-playbook playbooks/ssh_keys.yml -e install_per_host_ssh_keys=true -e bootstrap_private_key_file=~/.ssh/root@192.168.1.200
-```
-
-Then connect with that host's matching key:
-
-```sh
-ssh -i ~/.ssh/root@edge.lab.adre.me -o IdentitiesOnly=yes root@edge.lab.adre.me
-```
-
-The `ANSIBLE_HOME` and `ANSIBLE_LOCAL_TEMP` values keep generated Ansible files inside this project directory.
 
 ## Jellyfin Storage Model
 
