@@ -97,7 +97,7 @@
         deploy-core = pkgs.writeShellApplication {
           name = "deploy-core";
           runtimeInputs = [ deploy-rs.packages.${system}.deploy-rs ];
-          text = lib.concatMapStringsSep "\n" (host: "deploy \"$@\" ${self.outPath}#${host}") coreHosts;
+          text = lib.concatMapStringsSep "\n" (host: "deploy \"$@\" ${self.outPath}/nix#${host}") coreHosts;
         };
       };
 
