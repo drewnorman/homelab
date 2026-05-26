@@ -61,7 +61,7 @@
       nixosConfigurations = {
         adguard     = mkHost "adguard"     [];
         edge        = mkHost "edge"        [];
-        homepage    = mkHost "homepage"    [];
+        monitoring  = mkHost "monitoring"  [];
         authelia    = mkHost "authelia"    [];
         lldap       = mkHost "lldap"       [];
         jellyfin    = mkHost "jellyfin"    [];
@@ -72,7 +72,7 @@
       deploy.nodes = {
         adguard     = mkNode "adguard";
         edge        = mkNode "edge";
-        homepage    = mkNode "homepage";
+        monitoring  = mkNode "monitoring";
         authelia    = mkNode "authelia";
         lldap       = mkNode "lldap";
         jellyfin    = mkNode "jellyfin";

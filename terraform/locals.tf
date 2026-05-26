@@ -8,9 +8,9 @@ locals {
       ip    = var.service_ips.edge_lxc
       vm_id = var.service_vmids.edge_lxc
     }
-    homepage = {
-      ip    = var.service_ips.homepage_lxc
-      vm_id = var.service_vmids.homepage_lxc
+    monitoring = {
+      ip    = var.service_ips.monitoring_lxc
+      vm_id = var.service_vmids.monitoring_lxc
     }
     authelia = {
       ip    = var.service_ips.authelia_lxc

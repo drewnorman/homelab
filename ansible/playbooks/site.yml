@@ -30,12 +30,6 @@
     - tailscale
     - edge
 
-- name: Configure homepage dashboard
-  hosts: homepage
-  become: true
-  roles:
-    - homepage
-
 - name: Configure LLDAP user directory
   hosts: lldap
   become: true

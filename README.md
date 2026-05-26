@@ -4,7 +4,7 @@ This directory provisions a small Proxmox homelab optimized for a single 16 GB l
 
 - `lab-adguard` as a core-platform LXC for AdGuard Home
 - `lab-edge` as a core-platform LXC for reverse proxy, Tailscale ingress, and browser-trusted local HTTPS
-- `lab-homepage` as a dashboard LXC
+- `lab-monitoring` as a metrics, dashboards, and alerts LXC
 - `lab-authelia` as a core-platform LXC for SSO and forward auth
 - `lab-lldap` as a core-platform LXC for user directory services
 - `lab-jellyfin` as a lean LXC with optional host bind-mounted media storage
@@ -21,7 +21,7 @@ The default control plane is intentionally split by ownership:
 - deploy-rs is the default NixOS deployment path. Host self-upgrade is disabled by default so deploy failures have one primary control loop to inspect.
 - Ansible remains for legacy/bootstrap workflows only; new steady-state service configuration should move into the Nix flake.
 
-The core platform is `lab-adguard`, `lab-edge`, `lab-authelia`, and `lab-lldap`. These services get more memory than the smallest media/dashboard guests because DNS, ingress, auth, and directory lookups should stay healthy before optional apps do.
+The core platform is `lab-adguard`, `lab-edge`, `lab-monitoring`, `lab-authelia`, and `lab-lldap`. These services get more memory than the smallest media guests because DNS, ingress, monitoring, auth, and directory lookups should stay healthy before optional apps do.
 
 ## Prerequisites
 
@@ -65,7 +65,7 @@ For the current `norman` host, the default managed guest addresses are:
 
 - `lab-adguard`: `192.168.1.210`
 - `lab-edge`: `192.168.1.211`
-- `lab-homepage`: `192.168.1.212`
+- `lab-monitoring`: `192.168.1.212`
 - `lab-authelia`: `192.168.1.213`
 - `lab-lldap`: `192.168.1.214`
 - `lab-jellyfin`: `192.168.1.230`
@@ -78,7 +78,7 @@ An existing unmanaged container named `adguard` may coexist with these resources
 
 - `lab-adguard`: AdGuard Home only
 - `lab-edge`: reverse proxy and browser-trusted wildcard HTTPS
-- `lab-homepage`: service dashboard
+- `lab-monitoring`: Grafana, Prometheus, Alertmanager, and the central node dashboard
 - `lab-authelia`: SSO and forward auth
 - `lab-lldap`: LDAP user directory
 - `lab-jellyfin`: Jellyfin and a bind-mounted media path from the Proxmox host
@@ -94,6 +94,9 @@ For local-only HTTPS:
 
 Friendly service names are preferred for day-to-day use:
 
+- `lab.adre.me` or `grafana.lab.adre.me` for Grafana
+- `prometheus.lab.adre.me` for Prometheus
+- `alerts.lab.adre.me` for Alertmanager
 - `watch.lab.adre.me` for Jellyfin
 - `movies.lab.adre.me` for Radarr
 - `tv.lab.adre.me` for Sonarr
@@ -102,6 +105,14 @@ Friendly service names are preferred for day-to-day use:
 - `downloads.lab.adre.me` or `torrents.lab.adre.me` for qBittorrent
 
 The app-native names such as `jellyfin.lab.adre.me`, `radarr.lab.adre.me`, `sonarr.lab.adre.me`, `prowlarr.lab.adre.me`, `bazarr.lab.adre.me`, and `qbittorrent.lab.adre.me` remain valid aliases.
+
+### Monitoring
+
+`lab-monitoring` runs Grafana on port `3000`, Prometheus on port `9090`, and Alertmanager on port `9093`. Every NixOS host enables the Prometheus node exporter on port `9100`, and the monitoring host scrapes the always-on hosts from [nix/lib/hosts.nix](/home/drew/code/personal/homelab/nix/lib/hosts.nix:1). Optional Arr and qBittorrent hosts are excluded from the default scrape set until those LXCs are enabled.
+
+Grafana is the default dashboard at `https://lab.adre.me` and is also available at `https://grafana.lab.adre.me`. Prometheus and Alertmanager are proxied through nginx at `https://prometheus.lab.adre.me` and `https://alerts.lab.adre.me`; these routes use the same Authelia forward-auth guard as the other internal admin tools.
+
+The provisioned dashboard covers host availability, CPU, memory, root filesystem usage, and load average. Prometheus includes initial alerts for node exporter outages, high memory usage, and root filesystem usage over 85%. The default Alertmanager receiver is intentionally a no-op until a notification target is added.
 
 The wildcard certificate is issued with DNS-01 validation through Cloudflare using NixOS `security.acme`. DNS-01 proves ownership by creating temporary `_acme-challenge.lab.adre.me` TXT records, so ports 80 and 443 do not need to be exposed publicly.
 

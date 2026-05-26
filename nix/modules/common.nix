@@ -97,8 +97,14 @@
   networking.firewall = {
     enable               = true;
     trustedInterfaces    = [ "tailscale0" ];
-    allowedTCPPorts      = [ 22 ];
+    allowedTCPPorts      = [ 22 9100 ];
     checkReversePath     = "loose"; # required for Tailscale
+  };
+
+  services.prometheus.exporters.node = {
+    enable = true;
+    enabledCollectors = [ "systemd" ];
+    openFirewall = true;
   };
 
   # Minimal tooling available on every host

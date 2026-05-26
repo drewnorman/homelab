@@ -124,7 +124,7 @@ variable "service_ips" {
   type = object({
     adguard_lxc     = string
     edge_lxc        = string
-    homepage_lxc    = string
+    monitoring_lxc  = string
     authelia_lxc    = string
     lldap_lxc       = string
     jellyfin_lxc    = string
@@ -134,7 +134,7 @@ variable "service_ips" {
   default = {
     adguard_lxc     = "192.168.1.210"
     edge_lxc        = "192.168.1.211"
-    homepage_lxc    = "192.168.1.212"
+    monitoring_lxc  = "192.168.1.212"
     authelia_lxc    = "192.168.1.213"
     lldap_lxc       = "192.168.1.214"
     jellyfin_lxc    = "192.168.1.230"
@@ -148,7 +148,7 @@ variable "service_vmids" {
   type = object({
     adguard_lxc     = number
     edge_lxc        = number
-    homepage_lxc    = number
+    monitoring_lxc  = number
     authelia_lxc    = number
     lldap_lxc       = number
     jellyfin_lxc    = number
@@ -161,7 +161,7 @@ variable "service_vmids" {
     adguard_lxc     = 102
     edge_lxc        = 103
     arr_lxc         = 104
-    homepage_lxc    = 105
+    monitoring_lxc  = 105
     authelia_lxc    = 106
     qbittorrent_lxc = 107
   }
@@ -202,7 +202,7 @@ variable "lxc_resources" {
       swap_mb   = number
       disk_gb   = number
     })
-    homepage = object({
+    monitoring = object({
       cores     = number
       memory_mb = number
       swap_mb   = number
@@ -252,11 +252,11 @@ variable "lxc_resources" {
       swap_mb   = 1024
       disk_gb   = 8
     }
-    homepage = {
-      cores     = 1
-      memory_mb = 768
-      swap_mb   = 512
-      disk_gb   = 4
+    monitoring = {
+      cores     = 2
+      memory_mb = 2048
+      swap_mb   = 1024
+      disk_gb   = 8
     }
     authelia = {
       cores     = 1

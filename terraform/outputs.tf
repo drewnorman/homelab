@@ -3,7 +3,7 @@ output "service_ips" {
   value = {
     adguard     = local.guests.adguard.ip
     edge        = local.guests.edge.ip
-    homepage    = local.guests.homepage.ip
+    monitoring  = local.guests.monitoring.ip
     authelia    = local.guests.authelia.ip
     lldap       = local.guests.lldap.ip
     jellyfin    = local.guests.jellyfin.ip
@@ -22,7 +22,11 @@ output "service_hosts" {
     indexers    = "indexers.${var.search_domain}"
     jellyfin    = "jellyfin.${var.search_domain}"
     lldap       = "users.${var.search_domain}"
+    grafana     = "grafana.${var.search_domain}"
+    monitoring  = var.search_domain
     movies      = "movies.${var.search_domain}"
+    prometheus  = "prometheus.${var.search_domain}"
+    alerts      = "alerts.${var.search_domain}"
     radarr      = "radarr.${var.search_domain}"
     sonarr      = "sonarr.${var.search_domain}"
     subtitles   = "subtitles.${var.search_domain}"
@@ -37,12 +41,12 @@ output "deploy_rs_targets" {
   description = "deploy-rs node targets. Run from the nix/ directory: deploy .#<name>"
   value = merge(
     {
-      adguard  = "root@${local.guests.adguard.ip}"
-      edge     = "root@${local.guests.edge.ip}"
-      homepage = "root@${local.guests.homepage.ip}"
-      authelia = "root@${local.guests.authelia.ip}"
-      lldap    = "root@${local.guests.lldap.ip}"
-      jellyfin = "root@${local.guests.jellyfin.ip}"
+      adguard    = "root@${local.guests.adguard.ip}"
+      edge       = "root@${local.guests.edge.ip}"
+      monitoring = "root@${local.guests.monitoring.ip}"
+      authelia   = "root@${local.guests.authelia.ip}"
+      lldap      = "root@${local.guests.lldap.ip}"
+      jellyfin   = "root@${local.guests.jellyfin.ip}"
     },
     var.enable_arr_stack ? { arr = "root@${local.guests.arr.ip}" } : {},
     var.enable_qbittorrent ? { qbittorrent = "root@${local.guests.qbittorrent.ip}" } : {},

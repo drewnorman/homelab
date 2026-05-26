@@ -163,26 +163,26 @@ resource "proxmox_virtual_environment_container" "edge" {
 }
 
 # ---------------------------------------------------------------------------
-# Homepage — dashboard
+# Monitoring — metrics, dashboards, and alerts
 # ---------------------------------------------------------------------------
 
-resource "proxmox_virtual_environment_container" "homepage" {
-  vm_id         = local.guests.homepage.vm_id
+resource "proxmox_virtual_environment_container" "monitoring" {
+  vm_id         = local.guests.monitoring.vm_id
   node_name     = local.lxc_common.node_name
-  description   = "Homepage dashboard — managed by NixOS flake"
+  description   = "Monitoring stack — managed by NixOS flake"
   start_on_boot = local.lxc_common.start_on_boot
   started       = local.lxc_common.started
   unprivileged  = local.lxc_common.unprivileged
-  tags          = ["homelab", "homepage", "nixos"]
+  tags          = ["grafana", "homelab", "monitoring", "nixos", "prometheus"]
 
-  cpu { cores = var.lxc_resources.homepage.cores }
+  cpu { cores = var.lxc_resources.monitoring.cores }
   memory {
-    dedicated = var.lxc_resources.homepage.memory_mb
-    swap      = var.lxc_resources.homepage.swap_mb
+    dedicated = var.lxc_resources.monitoring.memory_mb
+    swap      = var.lxc_resources.monitoring.swap_mb
   }
   disk {
     datastore_id = var.lxc_storage
-    size         = var.lxc_resources.homepage.disk_gb
+    size         = var.lxc_resources.monitoring.disk_gb
   }
   features { nesting = true }
   device_passthrough {
@@ -192,14 +192,14 @@ resource "proxmox_virtual_environment_container" "homepage" {
   }
 
   initialization {
-    hostname = "${var.homelab_name}-homepage"
+    hostname = "${var.homelab_name}-monitoring"
     dns {
       domain  = local.lxc_dns.domain
       servers = local.lxc_dns.servers
     }
     ip_config {
       ipv4 {
-        address = "${local.guests.homepage.ip}/${var.network_cidr}"
+        address = "${local.guests.monitoring.ip}/${var.network_cidr}"
         gateway = var.network_gateway
       }
     }
@@ -225,6 +225,11 @@ resource "proxmox_virtual_environment_container" "homepage" {
   }
 
   depends_on = [proxmox_download_file.nixos_lxc_template]
+}
+
+moved {
+  from = proxmox_virtual_environment_container.homepage
+  to   = proxmox_virtual_environment_container.monitoring
 }
 
 # ---------------------------------------------------------------------------

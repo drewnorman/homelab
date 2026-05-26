@@ -12,7 +12,7 @@ lxc_storage = "local-lvm"
 service_ips = {
   adguard_lxc     = "192.168.1.210"
   edge_lxc        = "192.168.1.211"
-  homepage_lxc    = "192.168.1.212"
+  monitoring_lxc  = "192.168.1.212"
   authelia_lxc    = "192.168.1.213"
   lldap_lxc       = "192.168.1.214"
   jellyfin_lxc    = "192.168.1.230"
@@ -26,7 +26,7 @@ service_vmids = {
   adguard_lxc     = 102
   edge_lxc        = 103
   arr_lxc         = 104
-  homepage_lxc    = 105
+  monitoring_lxc  = 105
   authelia_lxc    = 106
   qbittorrent_lxc = 107
 }

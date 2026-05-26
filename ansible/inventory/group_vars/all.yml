@@ -22,13 +22,6 @@ edge_lego_version: "4.34.0"
 edge_lego_archive_url: "https://github.com/go-acme/lego/releases/download/v{{ edge_lego_version }}/lego_v{{ edge_lego_version }}_linux_amd64.tar.gz"
 edge_extra_services: []
 
-# Check https://github.com/gethomepage/homepage/releases for the current version.
-homepage_version: "1.13.1"
-homepage_node_version: "22"
-homepage_port: 3000
-homepage_install_dir: /opt/homepage
-homepage_config_dir: /etc/homepage
-
 authelia_version: "4.38.18"
 authelia_port: 9091
 authelia_archive_url: "https://github.com/authelia/authelia/releases/download/v{{ authelia_version }}/authelia-v{{ authelia_version }}-linux-amd64.tar.gz"

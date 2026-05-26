@@ -94,7 +94,10 @@ in
       "auth.${domain}"        = mkVhost { backend = "http://${allHosts.authelia.ip}:9091"; };
       "users.${domain}"       = mkVhost { backend = "http://${allHosts.lldap.ip}:17170";   aliases = [ "lldap.${domain}" ]; };
       "adguard.${domain}"     = mkVhost { backend = "http://${allHosts.adguard.ip}:80";    sso = true; };
-      "${domain}"             = mkVhost { backend = "http://${allHosts.homepage.ip}:8082"; sso = true; };
+      "${domain}"             = mkVhost { backend = "http://${allHosts.monitoring.ip}:3000"; sso = true; };
+      "grafana.${domain}"     = mkVhost { backend = "http://${allHosts.monitoring.ip}:3000"; sso = true; };
+      "prometheus.${domain}"  = mkVhost { backend = "http://${allHosts.monitoring.ip}:9090"; sso = true; };
+      "alerts.${domain}"      = mkVhost { backend = "http://${allHosts.monitoring.ip}:9093"; sso = true; aliases = [ "alertmanager.${domain}" ]; };
       "jellyfin.${domain}"    = mkVhost { backend = "http://${allHosts.jellyfin.ip}:8096"; aliases = [ "watch.${domain}" ]; };
       "radarr.${domain}"      = mkVhost { backend = "http://${allHosts.arr.ip}:7878";      sso = true; aliases = [ "movies.${domain}" ]; };
       "sonarr.${domain}"      = mkVhost { backend = "http://${allHosts.arr.ip}:8989";      sso = true; aliases = [ "tv.${domain}" ]; };

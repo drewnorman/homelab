@@ -8,8 +8,8 @@
     hostname = "lab-edge";
     ip       = "192.168.1.211";
   };
-  homepage = {
-    hostname = "lab-homepage";
+  monitoring = {
+    hostname = "lab-monitoring";
     ip       = "192.168.1.212";
   };
   authelia = {
