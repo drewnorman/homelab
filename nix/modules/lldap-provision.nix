@@ -25,7 +25,7 @@ let
 
   provisionScript = pkgs.writeShellApplication {
     name = "lldap-provision";
-    runtimeInputs = [ pkgs.curl pkgs.jq ];
+    runtimeInputs = [ pkgs.curl pkgs.jq pkgs.lldap ];
     text = ''
       LLDAP_URL="http://127.0.0.1:${toString cfg.settings.http_port}"
       DESIRED=${desiredStateFile}
@@ -102,12 +102,11 @@ let
         if [ -n "$pass_file" ] && [ -f "$pass_file" ]; then
           user_pass=$(cat "$pass_file")
           echo "lldap-provision: setting password for $uid"
-          gql "mutation {
-            changeUserPassword(
-              userId:   $(printf '%s' "$uid"       | jq -Rs .),
-              password: $(printf '%s' "$user_pass" | jq -Rs .)
-            )
-          }" > /dev/null
+          lldap_set_password \
+            --base-url "$LLDAP_URL" \
+            --token "$TOKEN" \
+            --username "$uid" \
+            --password "$user_pass" > /dev/null
         fi
 
         # Reconcile group memberships (add only — removal is manual)
@@ -184,8 +183,6 @@ in {
         Type            = "oneshot";
         RemainAfterExit = true;
         ExecStart       = "${provisionScript}/bin/lldap-provision";
-        User            = "lldap";
-        Group           = "lldap";
         # Inject password file paths as env vars so the script can read them
         # at runtime without any path appearing in the Nix store.
         Environment     = lib.mapAttrsToList (k: v: "${k}=${v}") passwordEnv;

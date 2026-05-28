@@ -4,7 +4,7 @@
     hostname         = "lab-core";
     ip               = "192.168.1.220";
     networkInterface = "ens18";
-    bootDevice       = "/dev/sda";
+    bootDevice       = "/dev/vda";
     rootDevice       = "/dev/disk/by-label/nixos";
     rootFsType       = "ext4";
   };

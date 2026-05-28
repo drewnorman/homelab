@@ -3,6 +3,8 @@
 let
   domain = "lab.adre.me";
   baseDn = "dc=lab,dc=adre,dc=me";
+  enableTls = false;
+  externalScheme = if enableTls then "https" else "http";
 
   local = {
     adguard     = "127.0.0.1:3001";
@@ -50,17 +52,18 @@ let
   };
 
   mkVhost = { backend, sso ? false, aliases ? [] }: {
-    useACMEHost   = domain;
-    forceSSL      = true;
     serverAliases = aliases;
-    extraConfig   = lib.optionalString sso "error_page 401 = @authelia_login;";
-    locations     = lib.optionalAttrs sso autheliaLocations // {
+    extraConfig   = lib.optionalString (sso && enableTls) "error_page 401 = @authelia_login;";
+    locations     = lib.optionalAttrs (sso && enableTls) autheliaLocations // {
       "/" = {
         proxyPass       = "http://${backend}";
         proxyWebsockets = true;
-        extraConfig     = lib.optionalString sso autheliaGuard;
+        extraConfig     = lib.optionalString (sso && enableTls) autheliaGuard;
       };
     };
+  } // lib.optionalAttrs enableTls {
+    useACMEHost = domain;
+    forceSSL = true;
   };
 
   dashboardDir = pkgs.writeTextDir "homelab-node-overview.json" (builtins.toJSON {
@@ -141,7 +144,7 @@ in
     "d /var/log/authelia 0750 authelia-main authelia-main -"
   ];
 
-  sops.secrets.cloudflare-dns-api-token = {
+  sops.secrets.cloudflare-dns-api-token = lib.mkIf enableTls {
     sopsFile = ../../secrets/edge.yaml;
     owner = "acme";
     group = "acme";
@@ -190,10 +193,13 @@ in
     enable = true;
     authKeyFile = config.sops.secrets.tailscale-auth-key.path;
     useRoutingFeatures = "server";
-    extraUpFlags = [ "--advertise-routes=192.168.1.0/24" ];
+    extraUpFlags = [
+      "--accept-dns=false"
+      "--advertise-routes=192.168.1.0/24"
+    ];
   };
 
-  security.acme = {
+  security.acme = lib.mkIf enableTls {
     acceptTerms = true;
     defaults.email = "drewnorman739@gmail.com";
     certs.${domain} = {
@@ -204,6 +210,7 @@ in
       group = "nginx";
     };
   };
+  systemd.services."acme-${domain}".serviceConfig.TimeoutStartSec = lib.mkIf enableTls "10min";
 
   services.nginx = {
     enable = true;
@@ -319,7 +326,6 @@ in
     };
     settings = {
       theme = "dark";
-      default_redirection_url = "https://${domain}";
       server.address = "tcp://127.0.0.1:9091";
       log = {
         level = "info";
@@ -342,6 +348,7 @@ in
           name = "authelia_session";
           domain = domain;
           authelia_url = "https://auth.${domain}";
+          default_redirection_url = "https://${domain}";
           expiration = "12h";
           inactivity = "1h";
           remember_me = "1M";
@@ -353,7 +360,7 @@ in
         ban_time = "15m";
       };
       storage.local.path = "/var/lib/authelia-main/db.sqlite3";
-      notifier.filesystem.filename = "/var/log/authelia/notification.txt";
+      notifier.filesystem.filename = "/var/lib/authelia-main/notification.txt";
     };
   };
 
@@ -369,7 +376,7 @@ in
         http_addr = "127.0.0.1";
         http_port = 3000;
         domain = "grafana.${domain}";
-        root_url = "https://grafana.${domain}";
+        root_url = "${externalScheme}://grafana.${domain}";
       };
       users.allow_sign_up = false;
       analytics.reporting_enabled = false;

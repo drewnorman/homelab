@@ -141,7 +141,7 @@ The migration is a rebuild, not a state migration:
    dig @192.168.1.220 jellyfin.lab.adre.me
    ```
 
-5. Confirm AdGuard's declarative blocklists, custom rules, and wildcard rewrites are present.
+5. Confirm AdGuard's declarative blocklists, custom rules, and wildcard rewrites are present. The temporary VM config serves nginx over HTTP only and leaves SSO enforcement off for proxied apps; set `enableTls = true` in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:6) after the DNS cutover when you are ready for ACME to issue the wildcard certificate and enable Authelia enforcement.
 6. Stop the old AdGuard LXC at `192.168.1.210`.
 7. Change both `terraform.core_vm_ip` and `nix/lib/hosts.nix` for `core.ip` to `192.168.1.210`, and set `allow_core_vm_adguard_ip_cutover = true`.
 8. Apply OpenTofu or update the VM IP, then redeploy/reboot `lab-core`.
@@ -224,7 +224,7 @@ The wildcard certificate is issued with DNS-01 validation through Cloudflare usi
 
 ### Browser-Trusted HTTPS
 
-The domain `adre.me` is hosted on Cloudflare DNS. In the target VM layout, `lab-core` issues and renews the trusted certificate with Cloudflare's API:
+The domain `adre.me` is hosted on Cloudflare DNS. In the target VM layout, `lab-core` can issue and renew the trusted certificate with Cloudflare's API. TLS is disabled in the temporary validation config so first deploys do not block on ACME while the old DNS service is still active; enable it after cutover by changing `enableTls` in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:6).
 
 1. In Cloudflare, create an API token with Zone:Read and DNS:Edit for `adre.me`.
 2. Set `EDGE_ACME_EMAIL`, `CLOUDFLARE_DNS_API_TOKEN`, `CLOUDFLARE_API_TOKEN`, and the matching `TF_VAR_...` export in `.env`, then source `.env` before running OpenTofu or deploying NixOS.

@@ -39,7 +39,6 @@ in
 
     settings = {
       theme                     = "dark";
-      default_redirection_url   = "https://${domain}";
 
       server.address = "tcp://0.0.0.0:9091";
 
@@ -70,6 +69,7 @@ in
           name         = "authelia_session";
           domain       = domain;
           authelia_url = "https://auth.${domain}";
+          default_redirection_url = "https://${domain}";
           expiration   = "12h";
           inactivity   = "1h";
           remember_me  = "1M";
@@ -84,7 +84,7 @@ in
 
       storage.local.path = "/var/lib/authelia-main/db.sqlite3";
 
-      notifier.filesystem.filename = "/var/log/authelia/notification.txt";
+      notifier.filesystem.filename = "/var/lib/authelia-main/notification.txt";
     };
   };
 
