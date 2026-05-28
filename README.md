@@ -120,6 +120,17 @@ The migration is a rebuild, not a state migration:
 
 The external SSD currently used by Jellyfin and the Arr stack should not be copied or reformatted. Mount it into the VM later at `/srv/media` and, if desired, `/srv/downloads`.
 
+### VM Template Assumptions
+
+The `core` NixOS host defaults are recorded in [nix/lib/hosts.nix](/home/drew/code/personal/homelab/nix/lib/hosts.nix:2):
+
+- network interface: `ens18`
+- boot device: `/dev/sda`
+- root filesystem: `/dev/disk/by-label/nixos`
+- root filesystem type: `ext4`
+
+If the Proxmox template uses different names, update those host metadata fields before deploying `.#core`.
+
 ## Target Service Split
 
 `lab-core` runs these roles on one NixOS VM:

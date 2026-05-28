@@ -1,8 +1,12 @@
 # Central host registry. IPs must match terraform/variables.tf service_ips defaults.
 {
   core = {
-    hostname = "lab-core";
-    ip       = "192.168.1.220";
+    hostname         = "lab-core";
+    ip               = "192.168.1.220";
+    networkInterface = "ens18";
+    bootDevice       = "/dev/sda";
+    rootDevice       = "/dev/disk/by-label/nixos";
+    rootFsType       = "ext4";
   };
   adguard = {
     hostname = "lab-adguard";

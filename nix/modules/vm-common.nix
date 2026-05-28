@@ -9,21 +9,23 @@
 
   boot.loader.grub = {
     enable = lib.mkDefault true;
-    device = lib.mkDefault "/dev/sda";
+    device = lib.mkDefault (hostMeta.bootDevice or "/dev/sda");
   };
 
   fileSystems."/" = {
-    device = lib.mkDefault "/dev/disk/by-label/nixos";
-    fsType = lib.mkDefault "ext4";
+    device = lib.mkDefault (hostMeta.rootDevice or "/dev/disk/by-label/nixos");
+    fsType = lib.mkDefault (hostMeta.rootFsType or "ext4");
   };
 
   services.qemuGuest.enable = true;
 
   networking.useDHCP = false;
-  networking.interfaces.ens18.ipv4.addresses = [{
-    address      = hostMeta.ip;
-    prefixLength = 24;
-  }];
+  networking.interfaces.${hostMeta.networkInterface or "ens18"}.ipv4.addresses = [
+    {
+      address      = hostMeta.ip;
+      prefixLength = 24;
+    }
+  ];
   networking.defaultGateway = "192.168.1.1";
   networking.nameservers    = [ "192.168.1.1" "1.1.1.1" ];
 
