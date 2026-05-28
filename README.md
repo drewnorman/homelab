@@ -44,7 +44,21 @@ Provisioned guests are managed over SSH keys only. `TF_VAR_ssh_public_key` is in
 
 ## Usage
 
-Update `terraform/terraform.tfvars` for your node name, storage names, template IDs, and static IPs. To build the new VM without touching router DNS, set:
+Create the NixOS Proxmox cloud-init template on the Proxmox host:
+
+```sh
+scp scripts/proxmox/create-nixos-cloud-template.sh root@192.168.1.200:/root/
+ssh root@192.168.1.200
+./create-nixos-cloud-template.sh
+```
+
+The script defaults to VMID `9000`, storage `local-lvm`, bridge `vmbr0`, and the NixOS 25.05 Proxmox cloud image. Override those with environment variables when needed:
+
+```sh
+TEMPLATE_VMID=9001 STORAGE=local-lvm BRIDGE=vmbr0 ./create-nixos-cloud-template.sh
+```
+
+Update `terraform/terraform.tfvars` for your node name, storage names, template VMID, and static IPs. To build the new VM without touching router DNS, set:
 
 ```hcl
 enable_core_vm         = true
