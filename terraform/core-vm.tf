@@ -82,3 +82,14 @@ resource "proxmox_virtual_environment_vm" "core" {
     ]
   }
 }
+
+check "core_vm_dns_ip_cutover_acknowledged" {
+  assert {
+    condition = (
+      !var.enable_core_vm ||
+      var.core_vm_ip != var.service_ips.adguard_lxc ||
+      var.allow_core_vm_adguard_ip_cutover
+    )
+    error_message = "core_vm_ip matches the current AdGuard LXC/router DNS IP. Stop the old AdGuard LXC first, then set allow_core_vm_adguard_ip_cutover = true for cutover."
+  }
+}

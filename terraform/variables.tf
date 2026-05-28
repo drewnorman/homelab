@@ -108,6 +108,12 @@ variable "core_vm_ip" {
   default     = "192.168.1.220"
 }
 
+variable "allow_core_vm_adguard_ip_cutover" {
+  description = "Set true only during cutover, after the old AdGuard LXC has been stopped, to allow lab-core to take the router DNS IP."
+  type        = bool
+  default     = false
+}
+
 variable "core_vm_storage" {
   description = "Proxmox datastore for the lab-core VM root disk."
   type        = string

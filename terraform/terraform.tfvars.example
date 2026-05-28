@@ -15,6 +15,7 @@ enable_core_vm         = false
 core_vm_template_vm_id = 9000
 core_vm_id             = 120
 core_vm_ip             = "192.168.1.220" # temporary; cut over to 192.168.1.210 later
+allow_core_vm_adguard_ip_cutover = false
 core_vm_storage        = "local-lvm"
 core_vm_disk_gb        = 96
 core_vm_cores          = 4

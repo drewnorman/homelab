@@ -107,7 +107,7 @@ The migration is a rebuild, not a state migration:
 
 4. Confirm AdGuard's declarative blocklists, custom rules, and wildcard rewrites are present.
 5. Stop the old AdGuard LXC at `192.168.1.210`.
-6. Change both `terraform.core_vm_ip` and `nix/lib/hosts.nix` for `core.ip` to `192.168.1.210`.
+6. Change both `terraform.core_vm_ip` and `nix/lib/hosts.nix` for `core.ip` to `192.168.1.210`, and set `allow_core_vm_adguard_ip_cutover = true`.
 7. Apply OpenTofu or update the VM IP, then redeploy/reboot `lab-core`.
 8. Verify DNS at the router's unchanged DNS target:
 
