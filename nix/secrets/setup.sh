@@ -13,6 +13,7 @@ set -euo pipefail
 
 REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 SECRETS_DIR="$REPO_ROOT/nix/secrets"
+SOPS_CONFIG="$REPO_ROOT/nix/.sops.yaml"
 FORCE="${1:-}"
 
 # ---- helpers ----------------------------------------------------------------
@@ -28,7 +29,7 @@ require_cmd sops
 require_cmd openssl
 
 # Check .sops.yaml has been initialised (operator key placeholder replaced)
-if grep -q 'REPLACE_WITH_YOUR_AGE_PUBLIC_KEY' "$SECRETS_DIR/.sops.yaml"; then
+if grep -q 'REPLACE_WITH_YOUR_AGE_PUBLIC_KEY' "$SOPS_CONFIG"; then
   die ".sops.yaml still has placeholder keys. See the setup instructions inside it."
 fi
 

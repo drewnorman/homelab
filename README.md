@@ -110,8 +110,21 @@ An existing unmanaged container named `adguard` may coexist with these resources
 The migration is a rebuild, not a state migration:
 
 1. Provision `lab-core` on `192.168.1.220`.
-2. Deploy `nix#core`.
-3. Test DNS directly against the temporary IP:
+2. Add the `lab-core` host age recipient to the reused sops secrets:
+
+   ```sh
+   cd nix
+   ssh-keyscan -t ed25519 192.168.1.220 | ssh-to-age
+   $EDITOR .sops.yaml
+   sops updatekeys secrets/edge.yaml
+   sops updatekeys secrets/lldap.yaml
+   sops updatekeys secrets/authelia.yaml
+   ```
+
+   Add the new `lab-core` key to the `edge.yaml`, `lldap.yaml`, and `authelia.yaml` creation rules because the consolidated VM reads all three files.
+
+3. Deploy `nix#core`.
+4. Test DNS directly against the temporary IP:
 
    ```sh
    dig @192.168.1.220 google.com
@@ -119,18 +132,18 @@ The migration is a rebuild, not a state migration:
    dig @192.168.1.220 jellyfin.lab.adre.me
    ```
 
-4. Confirm AdGuard's declarative blocklists, custom rules, and wildcard rewrites are present.
-5. Stop the old AdGuard LXC at `192.168.1.210`.
-6. Change both `terraform.core_vm_ip` and `nix/lib/hosts.nix` for `core.ip` to `192.168.1.210`, and set `allow_core_vm_adguard_ip_cutover = true`.
-7. Apply OpenTofu or update the VM IP, then redeploy/reboot `lab-core`.
-8. Verify DNS at the router's unchanged DNS target:
+5. Confirm AdGuard's declarative blocklists, custom rules, and wildcard rewrites are present.
+6. Stop the old AdGuard LXC at `192.168.1.210`.
+7. Change both `terraform.core_vm_ip` and `nix/lib/hosts.nix` for `core.ip` to `192.168.1.210`, and set `allow_core_vm_adguard_ip_cutover = true`.
+8. Apply OpenTofu or update the VM IP, then redeploy/reboot `lab-core`.
+9. Verify DNS at the router's unchanged DNS target:
 
    ```sh
    dig @192.168.1.210 google.com
    dig @192.168.1.210 lab.adre.me
    ```
 
-9. Stop the remaining LXCs after the core VM is working.
+10. Stop the remaining LXCs after the core VM is working.
 
 The external SSD currently used by Jellyfin and the Arr stack should not be copied or reformatted. Mount it into the VM later at `/srv/media` and, if desired, `/srv/downloads`.
 
