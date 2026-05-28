@@ -104,7 +104,7 @@ in
       "grafana.${domain}"     = mkVhost { backend = "http://${allHosts.monitoring.ip}:3000"; sso = true; };
       "prometheus.${domain}"  = mkVhost { backend = "http://${allHosts.monitoring.ip}:9090"; sso = true; };
       "alerts.${domain}"      = mkVhost { backend = "http://${allHosts.monitoring.ip}:9093"; sso = true; aliases = [ "alertmanager.${domain}" ]; };
-      "jellyfin.${domain}"    = mkVhost { backend = "http://${allHosts.jellyfin.ip}:8096"; aliases = [ "watch.${domain}" ]; };
+      "jellyfin.${domain}"    = mkVhost { backend = "http://${allHosts.jellyfin.ip}:8096"; sso = true; aliases = [ "watch.${domain}" ]; };
       "radarr.${domain}"      = mkVhost { backend = "http://${allHosts.arr.ip}:7878";      sso = true; aliases = [ "movies.${domain}" ]; };
       "sonarr.${domain}"      = mkVhost { backend = "http://${allHosts.arr.ip}:8989";      sso = true; aliases = [ "tv.${domain}" ]; };
       "prowlarr.${domain}"    = mkVhost { backend = "http://${allHosts.arr.ip}:9696";      sso = true; aliases = [ "indexers.${domain}" ]; };

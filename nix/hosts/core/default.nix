@@ -233,7 +233,7 @@ in
       "grafana.${domain}" = mkVhost { backend = local.grafana; sso = true; };
       "prometheus.${domain}" = mkVhost { backend = local.prometheus; sso = true; };
       "alerts.${domain}" = mkVhost { backend = local.alertmanager; sso = true; aliases = [ "alertmanager.${domain}" ]; };
-      "jellyfin.${domain}" = mkVhost { backend = local.jellyfin; aliases = [ "watch.${domain}" ]; };
+      "jellyfin.${domain}" = mkVhost { backend = local.jellyfin; sso = true; aliases = [ "watch.${domain}" ]; };
       "radarr.${domain}" = mkVhost { backend = local.radarr; sso = true; aliases = [ "movies.${domain}" ]; };
       "sonarr.${domain}" = mkVhost { backend = local.sonarr; sso = true; aliases = [ "tv.${domain}" ]; };
       "prowlarr.${domain}" = mkVhost { backend = local.prowlarr; sso = true; aliases = [ "indexers.${domain}" ]; };
