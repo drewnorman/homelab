@@ -30,12 +30,19 @@ if qm status "$TEMPLATE_VMID" >/dev/null 2>&1; then
 fi
 
 qmrestore "$VMA_PATH" "$TEMPLATE_VMID" --unique true --storage "$STORAGE"
-qm set "$TEMPLATE_VMID" \
+
+qm_set_args=(
   --name "$TEMPLATE_NAME" \
   --net0 "virtio,bridge=${BRIDGE}" \
-  --ide2 "${STORAGE}:cloudinit" \
   --agent enabled=1 \
   --ipconfig0 ip=dhcp
+)
+
+if ! qm config "$TEMPLATE_VMID" | grep -q '^ide2: .*cloudinit'; then
+  qm_set_args+=(--ide2 "${STORAGE}:cloudinit")
+fi
+
+qm set "$TEMPLATE_VMID" "${qm_set_args[@]}"
 
 qm template "$TEMPLATE_VMID"
 
