@@ -247,7 +247,9 @@ Then enable the tailnet-wide settings:
 enable_tailscale_management = true
 ```
 
-The first OpenTofu apply will generate an auth key, enable MagicDNS, and configure split DNS for `lab.adre.me` to use AdGuard at `192.168.1.210`. Store the generated key in the shared edge/core sops secret before deploying NixOS:
+The first OpenTofu apply will generate an auth key, enable MagicDNS, and configure split DNS for `lab.adre.me`. When `enable_core_vm = true`, split DNS defaults to `core_vm_ip`; before the VM migration it defaults to the legacy AdGuard LXC. Override `tailscale_split_dns_nameserver_ip` if you need to pin it during cutover.
+
+Store the generated key in the shared edge/core sops secret before deploying NixOS:
 
 ```sh
 export TAILSCALE_AUTH_KEY="$(tofu -chdir=terraform output -raw tailscale_core_auth_key)"
