@@ -44,18 +44,27 @@ Provisioned guests are managed over SSH keys only. `TF_VAR_ssh_public_key` is in
 
 ## Usage
 
-Create the NixOS Proxmox cloud-init template on the Proxmox host:
+Build the NixOS Proxmox template image locally with Podman:
 
 ```sh
-scp scripts/proxmox/create-nixos-cloud-template.sh root@192.168.1.200:/root/
-ssh root@192.168.1.200
-./create-nixos-cloud-template.sh
+bash scripts/nix/build-proxmox-template.sh
 ```
 
-The script defaults to VMID `9000`, storage `local-lvm`, bridge `vmbr0`, and the NixOS 25.05 Proxmox cloud image. Override those with environment variables when needed:
+The Proxmox image build uses QEMU and normally needs `/dev/kvm` on the build machine. If that is not available locally, run the build script on a Linux machine with KVM support.
+
+Copy the generated `.vma.zst` image and import script to the Proxmox host:
 
 ```sh
-TEMPLATE_VMID=9001 STORAGE=local-lvm BRIDGE=vmbr0 ./create-nixos-cloud-template.sh
+scp nix/result-proxmox-template/*.vma.zst root@192.168.1.200:/root/
+scp scripts/proxmox/import-nixos-template.sh root@192.168.1.200:/root/
+ssh root@192.168.1.200
+./import-nixos-template.sh /root/*.vma.zst
+```
+
+The import script defaults to VMID `9000`, storage `local-lvm`, and bridge `vmbr0`. Override those with environment variables when needed:
+
+```sh
+TEMPLATE_VMID=9001 STORAGE=local-lvm BRIDGE=vmbr0 ./import-nixos-template.sh /root/*.vma.zst
 ```
 
 Update `terraform/terraform.tfvars` for your node name, storage names, template VMID, and static IPs. To build the new VM without touching router DNS, set:
