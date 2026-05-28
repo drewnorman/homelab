@@ -14,10 +14,15 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    nixos-generators = {
+      url = "github:nix-community/nixos-generators";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     impermanence.url = "github:nix-community/impermanence";
   };
 
-  outputs = { self, nixpkgs, deploy-rs, sops-nix, impermanence, ... }:
+  outputs = { self, nixpkgs, deploy-rs, sops-nix, nixos-generators, impermanence, ... }:
     let
       system = "x86_64-linux";
       lib    = nixpkgs.lib;
@@ -105,6 +110,14 @@
       };
 
       packages.${system} = {
+        proxmox-template = nixos-generators.nixosGenerate {
+          inherit system;
+          format = "proxmox";
+          modules = [
+            ./images/proxmox-template.nix
+          ];
+        };
+
         # Pin deploy-rs to the flake-locked version: nix run .#deploy-rs -- --help
         deploy-rs = deploy-rs.packages.${system}.deploy-rs;
 

@@ -19,3 +19,10 @@ override.tf.json
 
 # sops-nix age key (generated at activation time, not committed)
 nix/secrets/age-key.txt
+
+# Nix build result symlinks
+result
+result-*
+nix/result
+nix/result-*
+nix/artifacts/
