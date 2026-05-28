@@ -25,12 +25,7 @@
       hosts  = import ./lib/hosts.nix;
 
       coreHosts = [
-        "adguard"
-        "edge"
-        "monitoring"
-        "authelia"
-        "lldap"
-        "jellyfin"
+        "core"
       ];
 
       # SSH public key injected into all hosts. Must match terraform ssh_public_key.
@@ -39,7 +34,7 @@
       ];
 
       # Build a NixOS configuration for a named host.
-      mkHost = name: extraModules:
+      mkLxcHost = name: extraModules:
         lib.nixosSystem {
           inherit system;
           specialArgs = {
@@ -57,6 +52,23 @@
           ] ++ extraModules;
         };
 
+      mkVmHost = name: extraModules:
+        lib.nixosSystem {
+          inherit system;
+          specialArgs = {
+            inherit sshAuthorizedKeys;
+            hostMeta  = hosts.${name};
+            allHosts  = hosts;
+            flakeAttr = name;
+          };
+          modules = [
+            sops-nix.nixosModules.sops
+            ./modules/vm-common.nix
+            ./modules/lldap-provision.nix
+            ./hosts/${name}
+          ] ++ extraModules;
+        };
+
       # Build a deploy-rs node for a named host.
       mkNode = name: {
         hostname = hosts.${name}.ip;
@@ -69,17 +81,19 @@
 
     in {
       nixosConfigurations = {
-        adguard     = mkHost "adguard"     [];
-        edge        = mkHost "edge"        [];
-        monitoring  = mkHost "monitoring"  [];
-        authelia    = mkHost "authelia"    [];
-        lldap       = mkHost "lldap"       [];
-        jellyfin    = mkHost "jellyfin"    [];
-        arr         = mkHost "arr"         [];
-        qbittorrent = mkHost "qbittorrent" [];
+        core        = mkVmHost "core"      [];
+        adguard     = mkLxcHost "adguard"     [];
+        edge        = mkLxcHost "edge"        [];
+        monitoring  = mkLxcHost "monitoring"  [];
+        authelia    = mkLxcHost "authelia"    [];
+        lldap       = mkLxcHost "lldap"       [];
+        jellyfin    = mkLxcHost "jellyfin"    [];
+        arr         = mkLxcHost "arr"         [];
+        qbittorrent = mkLxcHost "qbittorrent" [];
       };
 
       deploy.nodes = {
+        core        = mkNode "core";
         adguard     = mkNode "adguard";
         edge        = mkNode "edge";
         monitoring  = mkNode "monitoring";

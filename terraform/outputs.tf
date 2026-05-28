@@ -1,6 +1,7 @@
 output "service_ips" {
-  description = "Static IP addresses for all provisioned NixOS LXC containers."
+  description = "Static IP addresses for the consolidated VM and legacy NixOS LXC containers."
   value = {
+    core        = var.enable_core_vm ? local.core_vm.ip : null
     adguard     = local.guests.adguard.ip
     edge        = local.guests.edge.ip
     monitoring  = local.guests.monitoring.ip
@@ -40,6 +41,7 @@ output "service_hosts" {
 output "deploy_rs_targets" {
   description = "deploy-rs node targets. Run from the nix/ directory: deploy .#<name>"
   value = merge(
+    var.enable_core_vm ? { core = "root@${local.core_vm.ip}" } : {},
     {
       adguard    = "root@${local.guests.adguard.ip}"
       edge       = "root@${local.guests.edge.ip}"
@@ -53,8 +55,14 @@ output "deploy_rs_targets" {
   )
 }
 
+output "tailscale_core_auth_key" {
+  description = "Generated Tailscale auth key for lab-core. Set as the tailscale.authKeyFile sops secret."
+  value       = var.enable_tailscale_management ? tailscale_tailnet_key.edge[0].key : null
+  sensitive   = true
+}
+
 output "tailscale_edge_auth_key" {
-  description = "Generated Tailscale auth key for lab-edge. Set as the tailscale.authKeyFile sops secret."
+  description = "Deprecated alias for tailscale_core_auth_key."
   value       = var.enable_tailscale_management ? tailscale_tailnet_key.edge[0].key : null
   sensitive   = true
 }

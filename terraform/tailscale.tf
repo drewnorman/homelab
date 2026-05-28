@@ -5,7 +5,7 @@ resource "tailscale_tailnet_key" "edge" {
   ephemeral     = false
   preauthorized = var.tailscale_auth_key_preauthorized
   expiry        = var.tailscale_auth_key_expiry_seconds
-  description   = "${var.homelab_name}-edge provisioning key"
+  description   = "${var.homelab_name}-core provisioning key"
 }
 
 resource "tailscale_dns_preferences" "magic_dns" {
@@ -24,7 +24,7 @@ resource "tailscale_dns_split_nameservers" "homelab" {
 data "tailscale_device" "edge" {
   count = var.enable_tailscale_management && var.enable_tailscale_edge_device_management ? 1 : 0
 
-  hostname = "${var.homelab_name}-edge"
+  hostname = local.core_vm.hostname
   wait_for = "120s"
 }
 
@@ -32,14 +32,10 @@ resource "tailscale_device_subnet_routes" "edge" {
   count = var.enable_tailscale_management && var.enable_tailscale_edge_device_management ? 1 : 0
 
   device_id = data.tailscale_device.edge[0].node_id
-  # Expose key services through the edge Tailscale node.
-  # Each NixOS host also runs its own Tailscale daemon (via common.nix),
-  # so hosts are individually reachable; these routes cover services that
-  # don't join the tailnet themselves.
+  # Expose the consolidated VM and current DNS cutover address through Tailscale.
   routes = [
+    "${local.core_vm.ip}/32",
     "${local.guests.adguard.ip}/32",
-    "${local.guests.edge.ip}/32",
-    "${local.guests.jellyfin.ip}/32",
   ]
 }
 

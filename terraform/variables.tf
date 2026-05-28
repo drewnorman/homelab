@@ -76,6 +76,68 @@ variable "ssh_public_key" {
 }
 
 # ---------------------------------------------------------------------------
+# Single NixOS VM target
+# ---------------------------------------------------------------------------
+
+variable "enable_core_vm" {
+  description = "Create the consolidated NixOS VM. Enable during the migration, then cut it over to the AdGuard IP after validation."
+  type        = bool
+  default     = false
+}
+
+variable "core_vm_template_vm_id" {
+  description = "VMID of an existing NixOS cloud-init/template VM to clone for lab-core."
+  type        = number
+  default     = null
+
+  validation {
+    condition     = !var.enable_core_vm || var.core_vm_template_vm_id != null
+    error_message = "enable_core_vm requires core_vm_template_vm_id to point at a NixOS VM template."
+  }
+}
+
+variable "core_vm_id" {
+  description = "Stable Proxmox VMID for the consolidated NixOS VM."
+  type        = number
+  default     = 120
+}
+
+variable "core_vm_ip" {
+  description = "Temporary static IP for lab-core before DNS cutover. Change to the old AdGuard IP after stopping the LXC."
+  type        = string
+  default     = "192.168.1.220"
+}
+
+variable "core_vm_storage" {
+  description = "Proxmox datastore for the lab-core VM root disk."
+  type        = string
+  default     = "local-lvm"
+}
+
+variable "core_vm_disk_gb" {
+  description = "Root disk size for lab-core in GiB. This stores fresh declarative service state, not migrated LXC state."
+  type        = number
+  default     = 96
+
+  validation {
+    condition     = var.core_vm_disk_gb >= 32
+    error_message = "core_vm_disk_gb must be at least 32 GiB."
+  }
+}
+
+variable "core_vm_cores" {
+  description = "vCPU cores assigned to lab-core."
+  type        = number
+  default     = 4
+}
+
+variable "core_vm_memory_mb" {
+  description = "Memory assigned to lab-core in MiB."
+  type        = number
+  default     = 8192
+}
+
+# ---------------------------------------------------------------------------
 # NixOS LXC template
 # ---------------------------------------------------------------------------
 
@@ -344,7 +406,7 @@ variable "enable_tailscale_management" {
 }
 
 variable "enable_tailscale_edge_device_management" {
-  description = "Manage lab-edge device subnet routes and key expiry. Enable after lab-edge has joined the tailnet."
+  description = "Manage the homelab Tailscale device subnet routes and key expiry. Enable after lab-core has joined the tailnet."
   type        = bool
   default     = false
 }

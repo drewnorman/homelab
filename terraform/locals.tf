@@ -1,4 +1,10 @@
 locals {
+  core_vm = {
+    hostname = "${var.homelab_name}-core"
+    ip       = var.core_vm_ip
+    vm_id    = var.core_vm_id
+  }
+
   guests = {
     adguard = {
       ip    = var.service_ips.adguard_lxc
