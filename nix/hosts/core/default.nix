@@ -3,7 +3,7 @@
 let
   domain = "lab.adre.me";
   baseDn = "dc=lab,dc=adre,dc=me";
-  enableTls = false;
+  enableTls = true;
   externalScheme = if enableTls then "https" else "http";
 
   local = {
@@ -38,12 +38,18 @@ let
 
   autheliaLocations = {
     "/authelia" = {
-      proxyPass = "http://${local.authelia}/api/authz/forward-auth";
+      proxyPass = "http://${local.authelia}/api/authz/auth-request";
       extraConfig = ''
         internal;
         proxy_pass_request_body off;
         proxy_set_header Content-Length "";
+        proxy_set_header X-Original-Method $request_method;
         proxy_set_header X-Original-URL $scheme://$http_host$request_uri;
+        proxy_set_header X-Forwarded-Method $request_method;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $http_host;
+        proxy_set_header X-Forwarded-URI $request_uri;
+        proxy_set_header X-Forwarded-For $remote_addr;
       '';
     };
     "@authelia_login" = {
