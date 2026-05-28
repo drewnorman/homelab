@@ -18,6 +18,8 @@ resource "proxmox_virtual_environment_vm" "core" {
   started = true
   on_boot = true
 
+  boot_order = ["virtio0"]
+
   agent {
     enabled = true
   }
@@ -40,10 +42,9 @@ resource "proxmox_virtual_environment_vm" "core" {
 
   disk {
     datastore_id = var.core_vm_storage
-    interface    = "scsi0"
+    interface    = "virtio0"
     size         = var.core_vm_disk_gb
     discard      = "on"
-    ssd          = true
   }
 
   initialization {

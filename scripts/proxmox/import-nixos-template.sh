@@ -33,6 +33,7 @@ qmrestore "$VMA_PATH" "$TEMPLATE_VMID" --unique true --storage "$STORAGE"
 
 qm_set_args=(
   --name "$TEMPLATE_NAME" \
+  --boot order=virtio0 \
   --net0 "virtio,bridge=${BRIDGE}" \
   --agent enabled=1 \
   --ipconfig0 ip=dhcp
