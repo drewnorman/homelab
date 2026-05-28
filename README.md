@@ -239,7 +239,7 @@ The `lab-core` VM runs Tailscale natively, including IP forwarding and the adver
 After the first NixOS deploy, `lab-core` should be joined to the tailnet. Enable device management and apply OpenTofu again:
 
 ```hcl
-enable_tailscale_edge_device_management = true
+enable_tailscale_core_device_management = true
 ```
 
 That second apply approves the advertised subnet route and disables key expiry for the managed Tailscale device.

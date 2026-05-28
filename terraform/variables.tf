@@ -406,9 +406,21 @@ variable "enable_tailscale_management" {
 }
 
 variable "enable_tailscale_edge_device_management" {
-  description = "Manage the homelab Tailscale device subnet routes and key expiry. Enable after lab-core has joined the tailnet."
+  description = "Deprecated. Use enable_tailscale_core_device_management instead."
   type        = bool
   default     = false
+}
+
+variable "enable_tailscale_core_device_management" {
+  description = "Manage the lab-core Tailscale device subnet routes and key expiry. Enable after lab-core has joined the tailnet."
+  type        = bool
+  default     = false
+}
+
+variable "tailscale_split_dns_nameserver_ip" {
+  description = "Optional override for the split-DNS nameserver. Defaults to lab-core when enable_core_vm is true, otherwise legacy lab-adguard."
+  type        = string
+  default     = null
 }
 
 variable "tailscale_api_key" {

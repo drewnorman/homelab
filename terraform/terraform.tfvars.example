@@ -63,10 +63,10 @@ enable_qbittorrent  = false
 # arr_downloads_bind_mount_host_path              = "/mnt/downloads"
 # qbittorrent_downloads_bind_mount_host_path      = "/mnt/downloads"  # same as arr_downloads
 
-# Tailscale — enable edge device management after lab-edge joins the tailnet.
-enable_tailscale_management             = false
-enable_tailscale_edge_device_management = false
-tailscale_tailnet                       = "-"
+# Tailscale — enable core device management after lab-core joins the tailnet.
+enable_tailscale_management            = false
+enable_tailscale_core_device_management = false
+tailscale_tailnet                      = "-"
 
 # Cloudflare DNS — enable after adre.me is on Cloudflare.
 enable_cloudflare_dns = false
