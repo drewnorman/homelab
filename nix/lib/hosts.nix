@@ -2,7 +2,7 @@
 {
   core = {
     hostname         = "lab-core";
-    ip               = "192.168.1.220";
+    ip               = "192.168.1.210";
     networkInterface = "ens18";
     bootDevice       = "/dev/vda";
     rootDevice       = "/dev/disk/by-label/nixos";
