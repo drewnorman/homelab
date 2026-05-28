@@ -55,7 +55,7 @@ The Proxmox image build uses QEMU and normally needs `/dev/kvm` on the build mac
 Copy the generated `.vma.zst` image and import script to the Proxmox host:
 
 ```sh
-scp nix/result-proxmox-template/*.vma.zst root@192.168.1.200:/root/
+scp nix/artifacts/proxmox-template/*.vma.zst root@192.168.1.200:/root/
 scp scripts/proxmox/import-nixos-template.sh root@192.168.1.200:/root/
 ssh root@192.168.1.200
 ./import-nixos-template.sh /root/*.vma.zst
