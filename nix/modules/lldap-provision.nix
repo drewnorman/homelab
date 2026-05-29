@@ -109,7 +109,7 @@ let
 
           groups = {
               group["displayName"]: group["id"]
-              for group in gql(token, "{ listGroups { id displayName } }").get("listGroups", [])
+              for group in gql(token, "{ groups { id displayName } }").get("groups", [])
           }
 
           for group in desired.get("groups", []):
@@ -124,7 +124,7 @@ let
 
           users = {
               user["id"]
-              for user in gql(token, "{ listUsers { id } }").get("listUsers", [])
+              for user in gql(token, "{ users { id } }").get("users", [])
           }
 
           for user in desired.get("users", []):
