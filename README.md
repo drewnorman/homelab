@@ -67,6 +67,29 @@ cd nix
 nix run .#deploy-core
 ```
 
+If Nix is not installed locally, run deploys through Podman with a persistent
+Nix store volume. Create the volume once:
+
+```sh
+podman volume create homelab-nix-store
+```
+
+Then run deploys from the repo root:
+
+```sh
+podman run --rm \
+  -e 'NIX_CONFIG=experimental-features = nix-command flakes' \
+  -v homelab-nix-store:/nix \
+  -v "$PWD":/workspace \
+  -v "$HOME/.ssh":/root/.ssh:ro \
+  -w /workspace/nix \
+  docker.io/nixos/nix:latest \
+  nix run .#deploy-core -- --skip-checks --ssh-opts '-i /root/.ssh/drew@x1c-g9 -F /dev/null'
+```
+
+The named volume keeps downloaded Nix paths between runs, avoiding the cold
+store rebuild behavior of one-shot containers.
+
 For the current `norman` host, the default managed addresses are:
 
 - `lab-core`: `192.168.1.210`
