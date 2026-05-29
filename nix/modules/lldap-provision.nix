@@ -23,104 +23,165 @@ let
     }
   ) prov.users);
 
-  provisionScript = pkgs.writeShellApplication {
+  provisionScript = pkgs.writeTextFile {
     name = "lldap-provision";
-    runtimeInputs = [ pkgs.curl pkgs.jq pkgs.lldap ];
+    executable = true;
+    destination = "/bin/lldap-provision";
     text = ''
-      LLDAP_URL="http://127.0.0.1:${toString cfg.settings.http_port}"
-      DESIRED=${desiredStateFile}
+      #!${pkgs.python3}/bin/python3
+      import json
+      import os
+      import subprocess
+      import sys
+      import time
+      import urllib.error
+      import urllib.request
 
-      # Wait up to 30 s for LLDAP to become ready
-      for i in $(seq 1 30); do
-        curl -sf "$LLDAP_URL/health" > /dev/null 2>&1 && break
-        [ "$i" -eq 30 ] && { echo "lldap-provision: LLDAP not ready after 30 s"; exit 1; }
-        sleep 1
-      done
 
-      ADMIN_PASS=$(cat "${prov.adminPasswordFile}")
+      LLDAP_URL = "http://127.0.0.1:${toString cfg.settings.http_port}"
+      DESIRED = "${desiredStateFile}"
+      ADMIN_PASSWORD_FILE = "${prov.adminPasswordFile}"
+      SET_PASSWORD = "${pkgs.lldap}/bin/lldap_set_password"
 
-      TOKEN=$(curl -sf -X POST "$LLDAP_URL/auth/simple/login" \
-        -H "Content-Type: application/json" \
-        -d "{\"username\":\"admin\",\"password\":\"$ADMIN_PASS\"}" \
-        | jq -r '.token')
-      [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ] && { echo "lldap-provision: auth failed"; exit 1; }
 
-      gql() {
-        curl -sf -X POST "$LLDAP_URL/api/graphql" \
-          -H "Authorization: Bearer $TOKEN" \
-          -H "Content-Type: application/json" \
-          -d "{\"query\": $(printf '%s' "$1" | jq -Rs .)}"
-      }
+      def request(path, payload=None, token=None):
+          data = None
+          headers = {}
+          if payload is not None:
+              data = json.dumps(payload).encode()
+              headers["Content-Type"] = "application/json"
+          if token is not None:
+              headers["Authorization"] = f"Bearer {token}"
 
-      # ---- groups -------------------------------------------------------
-      declare -A GROUP_IDS
-      while IFS=$'\t' read -r gid gname; do
-        GROUP_IDS["$gname"]="$gid"
-      done < <(gql "{ listGroups { id displayName } }" \
-        | jq -r '.data.listGroups[] | [(.id | tostring), .displayName] | @tsv')
+          req = urllib.request.Request(f"{LLDAP_URL}{path}", data=data, headers=headers)
+          with urllib.request.urlopen(req, timeout=10) as response:
+              body = response.read()
+          return json.loads(body.decode()) if body else {}
 
-      while IFS= read -r grp; do
-        name=$(printf '%s' "$grp" | jq -r '.name')
-        if [ -z "''${GROUP_IDS[$name]:-}" ]; then
-          echo "lldap-provision: creating group $name"
-          result=$(gql "mutation { createGroup(name: $(printf '%s' "$name" | jq -Rs .)) { id displayName } }" \
-            | jq -r '.data.createGroup | [(.id | tostring), .displayName] | @tsv')
-          IFS=$'\t' read -r gid _ <<< "$result"
-          GROUP_IDS["$name"]="$gid"
-        fi
-      done < <(jq -c '.groups[]' "$DESIRED")
 
-      # ---- users --------------------------------------------------------
-      declare -A EXISTING_USERS
-      while IFS= read -r uid; do
-        EXISTING_USERS["$uid"]=1
-      done < <(gql "{ listUsers { id } }" | jq -r '.data.listUsers[].id')
+      def wait_for_lldap():
+          for attempt in range(30):
+              try:
+                  urllib.request.urlopen(f"{LLDAP_URL}/health", timeout=2).close()
+                  return
+              except (urllib.error.URLError, TimeoutError):
+                  if attempt == 29:
+                      raise RuntimeError("lldap-provision: LLDAP not ready after 30 s")
+                  time.sleep(1)
 
-      while IFS= read -r usr; do
-        uid=$(printf '%s' "$usr" | jq -r '.username')
-        email=$(printf '%s' "$usr" | jq -r '.email')
-        dn=$(printf '%s' "$usr" | jq -r '.displayName // .username')
 
-        if [ -z "''${EXISTING_USERS[$uid]:-}" ]; then
-          echo "lldap-provision: creating user $uid"
-          gql "mutation {
-            createUser(user: {
-              id:          $(printf '%s' "$uid"   | jq -Rs .),
-              email:       $(printf '%s' "$email" | jq -Rs .),
-              displayName: $(printf '%s' "$dn"    | jq -Rs .)
-            }) { id }
-          }" > /dev/null
-          EXISTING_USERS["$uid"]=1
-        fi
+      def gql(token, query):
+          response = request("/api/graphql", {"query": query}, token=token)
+          errors = response.get("errors")
+          if errors:
+              raise RuntimeError(f"lldap-provision: GraphQL error: {errors}")
+          return response.get("data", {})
 
-        # Set/update password if a password file env var is present for this user.
-        # The env var name is LLDAP_PASS_<USERNAME_UPPERCASED> and is injected by
-        # the systemd service's EnvironmentFiles — the value is the file path.
-        pass_var="LLDAP_PASS_''${uid^^}"
-        pass_var="''${pass_var//-/_}"          # replace hyphens with underscores
-        pass_file="''${!pass_var:-}"
-        if [ -n "$pass_file" ] && [ -f "$pass_file" ]; then
-          user_pass=$(cat "$pass_file")
-          echo "lldap-provision: setting password for $uid"
-          lldap_set_password \
-            --base-url "$LLDAP_URL" \
-            --token "$TOKEN" \
-            --username "$uid" \
-            --password "$user_pass" > /dev/null
-        fi
 
-        # Reconcile group memberships (add only — removal is manual)
-        while IFS= read -r grp; do
-          gid="''${GROUP_IDS[$grp]:-}"
-          [ -z "$gid" ] && { echo "lldap-provision: unknown group $grp for $uid"; continue; }
-          gql "mutation {
-            addUserToGroup(userId: $(printf '%s' "$uid" | jq -Rs .), groupId: $gid)
-          }" > /dev/null || true
-        done < <(printf '%s' "$usr" | jq -r '.groups[]')
+      def quote(value):
+          return json.dumps(value)
 
-      done < <(jq -c '.users[]' "$DESIRED")
 
-      echo "lldap-provision: done"
+      def password_env_name(username):
+          return f"LLDAP_PASS_{username.upper().replace('-', '_')}"
+
+
+      def main():
+          with open(DESIRED) as desired_file:
+              desired = json.load(desired_file)
+
+          wait_for_lldap()
+
+          with open(ADMIN_PASSWORD_FILE) as password_file:
+              admin_password = password_file.read().rstrip("\n")
+
+          login = request(
+              "/auth/simple/login",
+              {"username": "admin", "password": admin_password},
+          )
+          token = login.get("token")
+          if not token:
+              raise RuntimeError("lldap-provision: auth failed")
+
+          groups = {
+              group["displayName"]: group["id"]
+              for group in gql(token, "{ listGroups { id displayName } }").get("listGroups", [])
+          }
+
+          for group in desired.get("groups", []):
+              name = group["name"]
+              if name not in groups:
+                  print(f"lldap-provision: creating group {name}")
+                  created = gql(
+                      token,
+                      f"mutation {{ createGroup(name: {quote(name)}) {{ id displayName }} }}",
+                  )["createGroup"]
+                  groups[created["displayName"]] = created["id"]
+
+          users = {
+              user["id"]
+              for user in gql(token, "{ listUsers { id } }").get("listUsers", [])
+          }
+
+          for user in desired.get("users", []):
+              uid = user["username"]
+              if uid not in users:
+                  email = user["email"]
+                  display_name = user.get("displayName") or uid
+                  print(f"lldap-provision: creating user {uid}")
+                  gql(
+                      token,
+                      "mutation { "
+                      "createUser(user: { "
+                      f"id: {quote(uid)}, "
+                      f"email: {quote(email)}, "
+                      f"displayName: {quote(display_name)} "
+                      "}) { id } "
+                      "}",
+                  )
+                  users.add(uid)
+
+              pass_file = os.environ.get(password_env_name(uid))
+              if pass_file and os.path.isfile(pass_file):
+                  with open(pass_file) as password_file:
+                      user_password = password_file.read().rstrip("\n")
+                  print(f"lldap-provision: setting password for {uid}")
+                  subprocess.run(
+                      [
+                          SET_PASSWORD,
+                          "--base-url",
+                          LLDAP_URL,
+                          "--token",
+                          token,
+                          "--username",
+                          uid,
+                          "--password",
+                          user_password,
+                      ],
+                      check=True,
+                      stdout=subprocess.DEVNULL,
+                  )
+
+              for group_name in user.get("groups", []):
+                  group_id = groups.get(group_name)
+                  if group_id is None:
+                      print(f"lldap-provision: unknown group {group_name} for {uid}", file=sys.stderr)
+                      continue
+                  try:
+                      gql(
+                          token,
+                          "mutation { "
+                          f"addUserToGroup(userId: {quote(uid)}, groupId: {group_id}) "
+                          "}",
+                      )
+                  except RuntimeError as err:
+                      print(err, file=sys.stderr)
+
+          print("lldap-provision: done")
+
+
+      if __name__ == "__main__":
+          main()
     '';
   };
 
