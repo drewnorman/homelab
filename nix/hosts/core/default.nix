@@ -99,6 +99,39 @@ let
     forceSSL = true;
   };
 
+  mkAutheliaVhost =
+    let
+      backgroundPath = "/homelab-authelia-background.jpg";
+      cssPath = "/homelab-authelia.css";
+      base = mkVhost { backend = local.authelia; };
+    in
+      base // {
+        locations = base.locations // {
+          "= ${backgroundPath}" = {
+            extraConfig = ''
+              alias ${../../assets/authelia/background.jpg};
+              default_type image/jpeg;
+              add_header Cache-Control "public, max-age=300";
+            '';
+          };
+          "= ${cssPath}" = {
+            extraConfig = ''
+              alias ${../../assets/authelia/homelab.css};
+              default_type text/css;
+              add_header Cache-Control "public, max-age=300";
+            '';
+          };
+          "/" = base.locations."/" // {
+            extraConfig = ''
+              proxy_set_header Accept-Encoding "";
+              sub_filter_once on;
+              sub_filter_types text/html;
+              sub_filter '</head>' '<link rel="stylesheet" href="${cssPath}"></head>';
+            '';
+          };
+        };
+      };
+
   dashboardDir = pkgs.writeTextDir "homelab-node-overview.json" (builtins.toJSON {
     uid = "homelab-node-overview";
     title = "Homelab Node Overview";
@@ -269,7 +302,7 @@ in
     recommendedGzipSettings = true;
 
     virtualHosts = {
-      "auth.${domain}" = mkVhost { backend = local.authelia; };
+      "auth.${domain}" = mkAutheliaVhost;
       "users.${domain}" = mkVhost { backend = local.lldapHttp; aliases = [ "lldap.${domain}" ]; };
       "adguard.${domain}" = mkVhost { backend = local.adguard; sso = true; };
       "${domain}" = mkVhost { backend = local.grafana; sso = true; };

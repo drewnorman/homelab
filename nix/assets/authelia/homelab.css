@@ -1,0 +1,47 @@
+/* Small Authelia portal overrides injected by nginx for auth.lab.adre.me. */
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  background: #17212b !important;
+  overflow-x: hidden;
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: -16px;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(12, 20, 28, 0.08), rgba(12, 20, 28, 0.28)),
+    url("/homelab-authelia-background.jpg") center bottom / cover no-repeat;
+  filter: blur(4px);
+  transform: scale(1.02);
+}
+
+#root {
+  background: transparent !important;
+  position: relative;
+  z-index: 1;
+}
+
+#first-factor-stage img[alt="Logo"] {
+  width: 320px !important;
+  max-width: 82vw;
+  height: auto !important;
+  border-radius: 10px;
+}
+
+#first-factor-stage h5 {
+  display: none !important;
+}
+
+#language-button,
+a[href*="authelia.com"] {
+  display: none !important;
+}
