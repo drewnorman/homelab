@@ -58,8 +58,10 @@ lxc_template_url           = "https://hydra.nixos.org/job/nixos/release-25.11/ni
 jellyfin_media_bind_mount_host_path = "/mnt/media"
 
 # Set true and supply bind mounts to enable the media automation stack.
-enable_arr_stack    = false
-enable_qbittorrent  = false
+enable_legacy_lxcs  = true
+legacy_lxcs_started = true
+enable_arr_stack     = false
+enable_qbittorrent   = false
 # arr_media_bind_mount_host_path                  = "/mnt/media"
 # arr_downloads_bind_mount_host_path              = "/mnt/downloads"
 # qbittorrent_downloads_bind_mount_host_path      = "/mnt/downloads"  # same as arr_downloads

@@ -37,6 +37,8 @@ locals {
 # ---------------------------------------------------------------------------
 
 resource "proxmox_virtual_environment_container" "adguard" {
+  count = var.enable_legacy_lxcs ? 1 : 0
+
   vm_id         = local.guests.adguard.vm_id
   node_name     = local.lxc_common.node_name
   description   = "AdGuard Home — managed by NixOS flake"
@@ -102,6 +104,8 @@ resource "proxmox_virtual_environment_container" "adguard" {
 # ---------------------------------------------------------------------------
 
 resource "proxmox_virtual_environment_container" "edge" {
+  count = var.enable_legacy_lxcs ? 1 : 0
+
   vm_id         = local.guests.edge.vm_id
   node_name     = local.lxc_common.node_name
   description   = "Edge reverse proxy — managed by NixOS flake"
@@ -167,6 +171,8 @@ resource "proxmox_virtual_environment_container" "edge" {
 # ---------------------------------------------------------------------------
 
 resource "proxmox_virtual_environment_container" "monitoring" {
+  count = var.enable_legacy_lxcs ? 1 : 0
+
   vm_id         = local.guests.monitoring.vm_id
   node_name     = local.lxc_common.node_name
   description   = "Monitoring stack — managed by NixOS flake"
@@ -237,6 +243,8 @@ moved {
 # ---------------------------------------------------------------------------
 
 resource "proxmox_virtual_environment_container" "authelia" {
+  count = var.enable_legacy_lxcs ? 1 : 0
+
   vm_id         = local.guests.authelia.vm_id
   node_name     = local.lxc_common.node_name
   description   = "Authelia SSO — managed by NixOS flake"
@@ -302,6 +310,8 @@ resource "proxmox_virtual_environment_container" "authelia" {
 # ---------------------------------------------------------------------------
 
 resource "proxmox_virtual_environment_container" "lldap" {
+  count = var.enable_legacy_lxcs ? 1 : 0
+
   vm_id         = local.guests.lldap.vm_id
   node_name     = local.lxc_common.node_name
   description   = "LLDAP user directory — managed by NixOS flake"
@@ -367,6 +377,8 @@ resource "proxmox_virtual_environment_container" "lldap" {
 # ---------------------------------------------------------------------------
 
 resource "proxmox_virtual_environment_container" "jellyfin" {
+  count = var.enable_legacy_lxcs ? 1 : 0
+
   vm_id         = local.guests.jellyfin.vm_id
   node_name     = local.lxc_common.node_name
   description   = "Jellyfin media server — managed by NixOS flake"

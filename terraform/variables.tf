@@ -245,6 +245,12 @@ variable "legacy_lxcs_started" {
   default     = true
 }
 
+variable "enable_legacy_lxcs" {
+  description = "Create the legacy per-service NixOS LXCs. Set false after lab-core replaces them."
+  type        = bool
+  default     = true
+}
+
 variable "enable_arr_stack" {
   description = "Create the arr media automation LXC (Radarr, Sonarr, Prowlarr, Bazarr)."
   type        = bool
