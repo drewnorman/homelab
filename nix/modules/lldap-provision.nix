@@ -122,9 +122,11 @@ let
                   )["createGroup"]
                   groups[created["displayName"]] = created["id"]
 
-          users = {
-              user["id"]
-              for user in gql(token, "{ users { id } }").get("users", [])
+          existing_users = gql(token, "{ users { id groups { displayName } } }").get("users", [])
+          users = {user["id"] for user in existing_users}
+          memberships = {
+              user["id"]: {group["displayName"] for group in user.get("groups", [])}
+              for user in existing_users
           }
 
           for user in desired.get("users", []):
@@ -171,6 +173,8 @@ let
                   if group_id is None:
                       print(f"lldap-provision: unknown group {group_name} for {uid}", file=sys.stderr)
                       continue
+                  if group_name in memberships.get(uid, set()):
+                      continue
                   try:
                       gql(
                           token,
@@ -178,6 +182,7 @@ let
                           f"addUserToGroup(userId: {quote(uid)}, groupId: {group_id}) {{ ok }} "
                           "}",
                       )
+                      memberships.setdefault(uid, set()).add(group_name)
                   except Exception as err:
                       print(err, file=sys.stderr)
 
