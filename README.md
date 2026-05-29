@@ -73,7 +73,7 @@ For the current `norman` host, the default managed addresses are:
 
 If stale provider-managed resources from optional Cloudflare or Tailscale management remain in state while those integrations are disabled, remove those stale state entries or re-enable the matching credentials before expecting a full clean plan.
 
-The external SSD currently used by Jellyfin and the Arr stack should not be copied or reformatted. Mount it into the VM later at `/srv/media` and, if desired, `/srv/downloads`.
+The external SSD currently used by Jellyfin and the Arr stack should not be copied or reformatted. Disabled mount scaffolding exists in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:27); enable it only after confirming the drive's stable `/dev/disk/by-label` or `/dev/disk/by-uuid` path inside the VM.
 
 ### VM Template Assumptions
 
@@ -228,5 +228,8 @@ When no external media mount is configured, Jellyfin starts with an empty librar
 Suggested pattern for an external SSD:
 
 1. Attach or pass through the SSD to the VM.
-2. Mount it at `/srv/media`.
-3. Point Jellyfin, Radarr, and Sonarr at `/srv/media/movies` and `/srv/media/tv`.
+2. Confirm the stable device path with `ls -l /dev/disk/by-label /dev/disk/by-uuid`.
+3. Update `externalStorage.media.device` in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:27).
+4. Set `externalStorage.media.enable = true` and deploy `.#core`.
+5. Mount it at `/srv/media`.
+6. Point Jellyfin, Radarr, and Sonarr at `/srv/media/movies` and `/srv/media/tv`.

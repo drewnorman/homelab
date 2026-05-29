@@ -24,6 +24,33 @@ let
 
   mediaGroup = 1000;
 
+  # Disabled until the external SSD is attached to lab-core and its stable
+  # /dev/disk/by-label or /dev/disk/by-uuid path is confirmed.
+  externalStorage = {
+    media = {
+      enable = false;
+      mountPoint = "/srv/media";
+      device = "/dev/disk/by-label/homelab-media";
+      fsType = "ext4";
+      options = [
+        "nofail"
+        "x-systemd.automount"
+        "x-systemd.idle-timeout=5min"
+      ];
+    };
+    downloads = {
+      enable = false;
+      mountPoint = "/srv/downloads";
+      device = "/dev/disk/by-label/homelab-downloads";
+      fsType = "ext4";
+      options = [
+        "nofail"
+        "x-systemd.automount"
+        "x-systemd.idle-timeout=5min"
+      ];
+    };
+  };
+
   autheliaGuard = ''
     auth_request /authelia;
     auth_request_set $user   $upstream_http_remote_user;
@@ -138,6 +165,22 @@ in
 
   users.groups.media = { gid = mediaGroup; };
   users.groups.lldap-secrets = {};
+
+  fileSystems =
+    lib.optionalAttrs externalStorage.media.enable {
+      ${externalStorage.media.mountPoint} = {
+        device = externalStorage.media.device;
+        fsType = externalStorage.media.fsType;
+        options = externalStorage.media.options;
+      };
+    } //
+    lib.optionalAttrs externalStorage.downloads.enable {
+      ${externalStorage.downloads.mountPoint} = {
+        device = externalStorage.downloads.device;
+        fsType = externalStorage.downloads.fsType;
+        options = externalStorage.downloads.options;
+      };
+    };
 
   systemd.tmpfiles.rules = [
     "d /srv/homelab 0755 root root -"
