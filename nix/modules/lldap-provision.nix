@@ -175,7 +175,7 @@ let
                       gql(
                           token,
                           "mutation { "
-                          f"addUserToGroup(userId: {quote(uid)}, groupId: {group_id}) "
+                          f"addUserToGroup(userId: {quote(uid)}, groupId: {group_id}) {{ ok }} "
                           "}",
                       )
                   except Exception as err:
