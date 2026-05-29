@@ -374,8 +374,11 @@ in
       storageEncryptionKeyFile = config.sops.secrets.authelia-storage-encryption-key.path;
     };
     settings = {
-      theme = "dark";
-      server.address = "tcp://127.0.0.1:9091";
+      theme = "auto";
+      server = {
+        address = "tcp://127.0.0.1:9091";
+        asset_path = ../../assets/authelia;
+      };
       log = {
         level = "info";
         keep_stdout = true;
