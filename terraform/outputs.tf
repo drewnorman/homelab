@@ -35,12 +35,6 @@ output "deploy_rs_targets" {
 
 output "tailscale_core_auth_key" {
   description = "Generated Tailscale auth key for lab-core. Set as the tailscale.authKeyFile sops secret."
-  value       = var.enable_tailscale_management ? tailscale_tailnet_key.edge[0].key : null
-  sensitive   = true
-}
-
-output "tailscale_edge_auth_key" {
-  description = "Deprecated alias for tailscale_core_auth_key."
-  value       = var.enable_tailscale_management ? tailscale_tailnet_key.edge[0].key : null
+  value       = var.enable_tailscale_management ? tailscale_tailnet_key.core[0].key : null
   sensitive   = true
 }

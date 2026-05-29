@@ -1,5 +1,5 @@
 {
-  description = "homelab NixOS configurations — multi-host, managed with deploy-rs";
+  description = "homelab NixOS configuration managed with deploy-rs";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
@@ -33,29 +33,10 @@
         "core"
       ];
 
-      # SSH public key injected into all hosts. Must match terraform ssh_public_key.
+      # SSH public key injected into lab-core. Must match terraform ssh_public_key.
       sshAuthorizedKeys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBty1Aq+Be79tfzubhT7B+jlcZ1xWfWLIszbItuWveAf drew@x1c-g9"
       ];
-
-      # Build a NixOS configuration for a named host.
-      mkLxcHost = name: extraModules:
-        lib.nixosSystem {
-          inherit system;
-          specialArgs = {
-            inherit sshAuthorizedKeys;
-            hostMeta  = hosts.${name};
-            allHosts  = hosts;
-            flakeAttr = name; # nixosConfigurations key for optional host self-upgrade
-          };
-          modules = [
-            sops-nix.nixosModules.sops
-            impermanence.nixosModules.impermanence
-            ./modules/common.nix
-            ./modules/lldap-provision.nix
-            ./hosts/${name}
-          ] ++ extraModules;
-        };
 
       mkVmHost = name: extraModules:
         lib.nixosSystem {
@@ -63,7 +44,6 @@
           specialArgs = {
             inherit sshAuthorizedKeys;
             hostMeta  = hosts.${name};
-            allHosts  = hosts;
             flakeAttr = name;
           };
           modules = [
@@ -86,27 +66,11 @@
 
     in {
       nixosConfigurations = {
-        core        = mkVmHost "core"      [];
-        adguard     = mkLxcHost "adguard"     [];
-        edge        = mkLxcHost "edge"        [];
-        monitoring  = mkLxcHost "monitoring"  [];
-        authelia    = mkLxcHost "authelia"    [];
-        lldap       = mkLxcHost "lldap"       [];
-        jellyfin    = mkLxcHost "jellyfin"    [];
-        arr         = mkLxcHost "arr"         [];
-        qbittorrent = mkLxcHost "qbittorrent" [];
+        core = mkVmHost "core" [];
       };
 
       deploy.nodes = {
-        core        = mkNode "core";
-        adguard     = mkNode "adguard";
-        edge        = mkNode "edge";
-        monitoring  = mkNode "monitoring";
-        authelia    = mkNode "authelia";
-        lldap       = mkNode "lldap";
-        jellyfin    = mkNode "jellyfin";
-        arr         = mkNode "arr";
-        qbittorrent = mkNode "qbittorrent";
+        core = mkNode "core";
       };
 
       packages.${system} = {

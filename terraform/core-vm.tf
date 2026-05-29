@@ -1,9 +1,6 @@
 # Consolidated NixOS VM target.
 #
-# Current flow:
-#   1. Keep lab-core on the router DNS IP, default 192.168.1.210.
-#   2. Deploy the NixOS flake target .#core for guest configuration.
-#   3. Keep the legacy LXC resources disabled after cutover.
+# lab-core owns the router DNS IP and runs the consolidated service stack.
 
 resource "proxmox_virtual_environment_vm" "core" {
   count = var.enable_core_vm ? 1 : 0
@@ -80,16 +77,5 @@ resource "proxmox_virtual_environment_vm" "core" {
     ignore_changes = [
       initialization[0].user_account,
     ]
-  }
-}
-
-check "core_vm_dns_ip_cutover_acknowledged" {
-  assert {
-    condition = (
-      !var.enable_core_vm ||
-      var.core_vm_ip != var.service_ips.adguard_lxc ||
-      var.allow_core_vm_adguard_ip_cutover
-    )
-    error_message = "core_vm_ip matches the current AdGuard LXC/router DNS IP. Stop the old AdGuard LXC first, then set allow_core_vm_adguard_ip_cutover = true for cutover."
   }
 }

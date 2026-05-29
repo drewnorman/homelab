@@ -16,7 +16,7 @@ The target control plane is intentionally split by ownership:
 - NixOS owns guest configuration: users, services, secrets, firewall rules, app settings, and package state.
 - deploy-rs is the NixOS deployment path. Host self-upgrade is disabled by default so deploy failures have one primary control loop to inspect.
 
-The legacy LXC definitions remain in the repo only for rollback/reference and should stay disabled in the current layout.
+Legacy LXC definitions were removed after the migration; this branch now models only the single VM layout.
 
 ## Prerequisites
 
@@ -41,7 +41,7 @@ Provisioned guests are managed over SSH keys only. `TF_VAR_ssh_public_key` is in
 
 ## Usage
 
-Update `terraform/terraform.tfvars` for your node name, storage names, template VMID, and static IPs. The current production layout keeps `lab-core` on the router DNS address:
+Update `terraform/terraform.tfvars` for your node name, storage names, template VMID, and static IP. The current production layout keeps `lab-core` on the router DNS address:
 
 ```hcl
 enable_core_vm         = true
@@ -71,16 +71,7 @@ For the current `norman` host, the default managed addresses are:
 
 - `lab-core`: `192.168.1.210`
 
-The previous per-service LXC resources can be removed by setting:
-
-```hcl
-enable_legacy_lxcs  = false
-legacy_lxcs_started = false
-enable_arr_stack    = false
-enable_qbittorrent  = false
-```
-
-Then run an OpenTofu plan and apply. If stale provider-managed resources from optional Cloudflare or Tailscale management remain in state while those integrations are disabled, remove those stale state entries or re-enable the matching credentials before expecting a full clean plan.
+If stale provider-managed resources from optional Cloudflare or Tailscale management remain in state while those integrations are disabled, remove those stale state entries or re-enable the matching credentials before expecting a full clean plan.
 
 The external SSD currently used by Jellyfin and the Arr stack should not be copied or reformatted. Mount it into the VM later at `/srv/media` and, if desired, `/srv/downloads`.
 
@@ -89,7 +80,7 @@ The external SSD currently used by Jellyfin and the Arr stack should not be copi
 The `core` NixOS host defaults are recorded in [nix/lib/hosts.nix](/home/drew/code/personal/homelab/nix/lib/hosts.nix:2):
 
 - network interface: `ens18`
-- boot device: `/dev/sda`
+- boot device: `/dev/vda`
 - root filesystem: `/dev/disk/by-label/nixos`
 - root filesystem type: `ext4`
 
@@ -161,7 +152,7 @@ The certificate state is stored on `lab-core` under `/var/lib/acme/`. nginx read
 
 OpenTofu can manage public Cloudflare DNS records. The checked-in example includes CAA records allowing Let's Encrypt to issue for `adre.me`, `lab.adre.me`, and `*.lab.adre.me`; keep `enable_cloudflare_dns = false` until Cloudflare API credentials are configured. If `cloudflare_zone_id` is left empty, OpenTofu looks up the `adre.me` zone by name.
 
-The NixOS edge module requests a certificate for both `lab.adre.me` and `*.lab.adre.me` and wires that certificate into nginx.
+The NixOS core module requests a certificate for both `lab.adre.me` and `*.lab.adre.me` and wires that certificate into nginx.
 
 Additional app hostnames should be added to the nginx virtual hosts in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:229). The wildcard DNS rewrite means any `*.lab.adre.me` hostname will already resolve to `lab-core`; you only need to tell nginx which upstream each hostname should proxy to.
 
@@ -184,7 +175,7 @@ Then enable the tailnet-wide settings:
 enable_tailscale_management = true
 ```
 
-The first OpenTofu apply will generate an auth key, enable MagicDNS, and configure split DNS for `lab.adre.me`. When `enable_core_vm = true`, split DNS defaults to `core_vm_ip`; before the VM migration it defaults to the legacy AdGuard LXC. Override `tailscale_split_dns_nameserver_ip` if you need to pin it during cutover.
+The first OpenTofu apply will generate an auth key, enable MagicDNS, and configure split DNS for `lab.adre.me`. Split DNS defaults to `core_vm_ip`; override `tailscale_split_dns_nameserver_ip` if you need to pin it to another resolver.
 
 Store the generated key in the shared edge/core sops secret before deploying NixOS:
 

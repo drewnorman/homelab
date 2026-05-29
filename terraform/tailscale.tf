@@ -1,4 +1,4 @@
-resource "tailscale_tailnet_key" "edge" {
+resource "tailscale_tailnet_key" "core" {
   count = var.enable_tailscale_management ? 1 : 0
 
   reusable      = var.tailscale_auth_key_reusable
@@ -21,26 +21,24 @@ resource "tailscale_dns_split_nameservers" "homelab" {
   nameservers = [local.tailscale_split_dns_nameserver_ip]
 }
 
-# Resource names retain "edge" to preserve Terraform state continuity from the
-# old layout. The managed device is lab-core in the single-VM design.
-data "tailscale_device" "edge" {
+data "tailscale_device" "core" {
   count = var.enable_tailscale_management && local.tailscale_core_device_management_enabled ? 1 : 0
 
   hostname = local.core_vm.hostname
   wait_for = "120s"
 }
 
-resource "tailscale_device_subnet_routes" "edge" {
+resource "tailscale_device_subnet_routes" "core" {
   count = var.enable_tailscale_management && local.tailscale_core_device_management_enabled ? 1 : 0
 
-  device_id = data.tailscale_device.edge[0].node_id
-  # Expose the consolidated VM and current DNS cutover address through Tailscale.
+  device_id = data.tailscale_device.core[0].node_id
+  # Expose the consolidated VM through Tailscale.
   routes = local.tailscale_core_routes
 }
 
-resource "tailscale_device_key" "edge" {
+resource "tailscale_device_key" "core" {
   count = var.enable_tailscale_management && local.tailscale_core_device_management_enabled ? 1 : 0
 
-  device_id           = data.tailscale_device.edge[0].node_id
+  device_id           = data.tailscale_device.core[0].node_id
   key_expiry_disabled = true
 }
