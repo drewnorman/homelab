@@ -9,13 +9,12 @@ dns_servers   = ["192.168.1.1", "1.1.1.1"]
 
 lxc_storage = "local-lvm"
 
-# Consolidated NixOS VM. Build or import a NixOS cloud-init template first,
-# then enable this while the old AdGuard LXC remains active.
-enable_core_vm         = false
+# Consolidated NixOS VM. Build or import a NixOS cloud-init template first.
+enable_core_vm         = true
 core_vm_template_vm_id = 9000
 core_vm_id             = 120
-core_vm_ip             = "192.168.1.220" # temporary; cut over to 192.168.1.210 later
-allow_core_vm_adguard_ip_cutover = false
+core_vm_ip             = "192.168.1.210"
+allow_core_vm_adguard_ip_cutover = true
 core_vm_storage        = "local-lvm"
 core_vm_disk_gb        = 96
 core_vm_cores          = 4
@@ -43,8 +42,8 @@ service_vmids = {
   qbittorrent_lxc = 107
 }
 
-# NixOS LXC template — downloaded from Hydra if manage_lxc_template = true
-manage_lxc_template        = true
+# NixOS LXC template — only needed for legacy LXC rollback.
+manage_lxc_template        = false
 lxc_template_datastore_id  = "local"
 lxc_template_file_name     = "nixos-lxc-homelab.tar.xz"
 lxc_template_file_id       = "local:vztmpl/nixos-lxc-homelab.tar.xz"
@@ -57,9 +56,9 @@ lxc_template_url           = "https://hydra.nixos.org/job/nixos/release-25.11/ni
 # Both arr and Jellyfin should share the same host path so hardlinks work.
 jellyfin_media_bind_mount_host_path = "/mnt/media"
 
-# Set true and supply bind mounts to enable the media automation stack.
-enable_legacy_lxcs  = true
-legacy_lxcs_started = true
+# Set true and supply bind mounts only for legacy LXC rollback.
+enable_legacy_lxcs  = false
+legacy_lxcs_started = false
 enable_arr_stack     = false
 enable_qbittorrent   = false
 # arr_media_bind_mount_host_path                  = "/mnt/media"

@@ -1,12 +1,10 @@
 # Homelab OpenTofu
 
-This repo is migrating from many NixOS LXCs to one consolidated NixOS VM:
+This repo manages one consolidated NixOS VM:
 
 - `lab-core` as a NixOS VM for DNS, reverse proxy, TLS, Tailscale, auth, monitoring, media apps, and downloads
 - declarative service configuration only; old service state is intentionally not migrated
 - external SSD media/download content is left untouched and can be mounted into the VM later
-
-The legacy LXC resources are still present so the active AdGuard DNS container can remain online while `lab-core` is built and validated on a temporary IP.
 
 The checked-in defaults target the existing Proxmox node `norman` at `192.168.1.200` on `192.168.1.0/24`. The Proxmox host IP is managed outside this project and is not changed by Terraform.
 
@@ -18,14 +16,13 @@ The target control plane is intentionally split by ownership:
 - NixOS owns guest configuration: users, services, secrets, firewall rules, app settings, and package state.
 - deploy-rs is the NixOS deployment path. Host self-upgrade is disabled by default so deploy failures have one primary control loop to inspect.
 
-The legacy LXC layout remains in the repo for rollback and reference during migration.
+The legacy LXC definitions remain in the repo only for rollback/reference and should stay disabled in the current layout.
 
 ## Prerequisites
 
 - OpenTofu installed locally
-- A Proxmox API token with permissions to create VMs and legacy LXCs
+- A Proxmox API token with permissions to create and manage the `lab-core` VM
 - A NixOS cloud-init VM template in Proxmox for `lab-core`
-- NixOS LXC templates only if continuing to manage the legacy LXC resources
 - A local `.env` file exporting secret `TF_VAR_*` values plus `TF_VAR_ssh_public_key`
 
 ## Secrets
@@ -44,35 +41,12 @@ Provisioned guests are managed over SSH keys only. `TF_VAR_ssh_public_key` is in
 
 ## Usage
 
-Build the NixOS Proxmox template image locally with Podman:
-
-```sh
-bash scripts/nix/build-proxmox-template.sh
-```
-
-The Proxmox image build uses QEMU and normally needs `/dev/kvm` on the build machine. If that is not available locally, run the build script on a Linux machine with KVM support.
-
-Copy the generated `.vma.zst` image and import script to the Proxmox host:
-
-```sh
-scp nix/artifacts/proxmox-template/*.vma.zst root@192.168.1.200:/root/
-scp scripts/proxmox/import-nixos-template.sh root@192.168.1.200:/root/
-ssh root@192.168.1.200
-./import-nixos-template.sh /root/*.vma.zst
-```
-
-The import script defaults to VMID `9000`, storage `local-lvm`, and bridge `vmbr0`. Override those with environment variables when needed:
-
-```sh
-TEMPLATE_VMID=9001 STORAGE=local-lvm BRIDGE=vmbr0 ./import-nixos-template.sh /root/*.vma.zst
-```
-
-Update `terraform/terraform.tfvars` for your node name, storage names, template VMID, and static IPs. To build the new VM without touching router DNS, set:
+Update `terraform/terraform.tfvars` for your node name, storage names, template VMID, and static IPs. The current production layout keeps `lab-core` on the router DNS address:
 
 ```hcl
 enable_core_vm         = true
 core_vm_template_vm_id = 9000
-core_vm_ip             = "192.168.1.220"
+core_vm_ip             = "192.168.1.210"
 ```
 
 Then run:
@@ -93,66 +67,20 @@ cd nix
 nix run .#deploy-core
 ```
 
-Legacy one-off host deploys remain available while the old LXCs exist:
-
-```sh
-nix run .#deploy-rs -- .#arr
-nix run .#deploy-rs -- .#qbittorrent
-```
-
 For the current `norman` host, the default managed addresses are:
 
-- `lab-core`: `192.168.1.220` during validation; cut over to `192.168.1.210` after stopping the old AdGuard LXC
-- `lab-adguard`: `192.168.1.210`
-- `lab-edge`: `192.168.1.211`
-- `lab-monitoring`: `192.168.1.212`
-- `lab-authelia`: `192.168.1.213`
-- `lab-lldap`: `192.168.1.214`
-- `lab-jellyfin`: `192.168.1.230`
-- `lab-arr`: disabled until `enable_arr_stack = true`
-- `lab-qbittorrent`: disabled until `enable_qbittorrent = true`
+- `lab-core`: `192.168.1.210`
 
-An existing unmanaged container named `adguard` may coexist with these resources. Terraform only manages guests present in its state.
+The previous per-service LXC resources can be removed by setting:
 
-## Single-VM Migration
+```hcl
+enable_legacy_lxcs  = false
+legacy_lxcs_started = false
+enable_arr_stack    = false
+enable_qbittorrent  = false
+```
 
-The migration is a rebuild, not a state migration:
-
-1. Provision `lab-core` on `192.168.1.220`.
-2. Add the `lab-core` host age recipient to the reused sops secrets:
-
-   ```sh
-   cd nix
-   ssh-keyscan -t ed25519 192.168.1.220 | ssh-to-age
-   $EDITOR .sops.yaml
-   sops updatekeys secrets/edge.yaml
-   sops updatekeys secrets/lldap.yaml
-   sops updatekeys secrets/authelia.yaml
-   ```
-
-   Add the new `lab-core` key to the `edge.yaml`, `lldap.yaml`, and `authelia.yaml` creation rules because the consolidated VM reads all three files.
-
-3. Deploy `nix#core`.
-4. Test DNS directly against the temporary IP:
-
-   ```sh
-   dig @192.168.1.220 google.com
-   dig @192.168.1.220 lab.adre.me
-   dig @192.168.1.220 jellyfin.lab.adre.me
-   ```
-
-5. Confirm AdGuard's declarative blocklists, custom rules, and wildcard rewrites are present. The temporary VM config serves nginx over HTTP only and leaves SSO enforcement off for proxied apps; set `enableTls = true` in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:6) after the DNS cutover when you are ready for ACME to issue the wildcard certificate and enable Authelia enforcement.
-6. Stop the old AdGuard LXC at `192.168.1.210`.
-7. Change both `terraform.core_vm_ip` and `nix/lib/hosts.nix` for `core.ip` to `192.168.1.210`, and set `allow_core_vm_adguard_ip_cutover = true`.
-8. Apply OpenTofu or update the VM IP, then redeploy/reboot `lab-core`.
-9. Verify DNS at the router's unchanged DNS target:
-
-   ```sh
-   dig @192.168.1.210 google.com
-   dig @192.168.1.210 lab.adre.me
-   ```
-
-10. Stop the remaining LXCs after the core VM is working.
+Then run an OpenTofu plan and apply. If stale provider-managed resources from optional Cloudflare or Tailscale management remain in state while those integrations are disabled, remove those stale state entries or re-enable the matching credentials before expecting a full clean plan.
 
 The external SSD currently used by Jellyfin and the Arr stack should not be copied or reformatted. Mount it into the VM later at `/srv/media` and, if desired, `/srv/downloads`.
 
@@ -178,17 +106,6 @@ If the Proxmox template uses different names, update those host metadata fields 
 - Grafana, Prometheus, Alertmanager, and node exporter for monitoring
 - Jellyfin, Radarr, Sonarr, Prowlarr, Bazarr, and qBittorrent
 
-The old per-service LXC split remains below as legacy reference during cutover:
-
-- `lab-adguard`: AdGuard Home only
-- `lab-edge`: reverse proxy and browser-trusted wildcard HTTPS
-- `lab-monitoring`: Grafana, Prometheus, Alertmanager, and the central node dashboard
-- `lab-authelia`: SSO and forward auth
-- `lab-lldap`: LDAP user directory
-- `lab-jellyfin`: Jellyfin and a bind-mounted media path from the Proxmox host
-- `lab-arr`: Radarr, Sonarr, Prowlarr, Bazarr, and Byparr
-- `lab-qbittorrent`: qBittorrent
-
 For local-only HTTPS:
 
 - AdGuard rewrites `*.lab.adre.me` to `lab-core`
@@ -212,9 +129,7 @@ The app-native names such as `jellyfin.lab.adre.me`, `radarr.lab.adre.me`, `sona
 
 ### Monitoring
 
-In the target VM layout, `lab-core` runs Grafana, Prometheus, Alertmanager, and node exporter locally. The old `lab-monitoring` notes below apply only to the legacy LXC layout.
-
-`lab-monitoring` runs Grafana on port `3000`, Prometheus on port `9090`, and Alertmanager on port `9093`. Every NixOS host enables the Prometheus node exporter on port `9100`, and the monitoring host scrapes the always-on hosts from [nix/lib/hosts.nix](/home/drew/code/personal/homelab/nix/lib/hosts.nix:1). Optional Arr and qBittorrent hosts are excluded from the default scrape set until those LXCs are enabled.
+In the target VM layout, `lab-core` runs Grafana, Prometheus, Alertmanager, and node exporter locally.
 
 Grafana is the default dashboard at `https://lab.adre.me` and is also available at `https://grafana.lab.adre.me`. Prometheus and Alertmanager are proxied through nginx at `https://prometheus.lab.adre.me` and `https://alerts.lab.adre.me`; these routes use the same Authelia forward-auth guard as the other internal admin tools.
 
@@ -224,7 +139,7 @@ The wildcard certificate is issued with DNS-01 validation through Cloudflare usi
 
 ### Browser-Trusted HTTPS
 
-The domain `adre.me` is hosted on Cloudflare DNS. In the target VM layout, `lab-core` can issue and renew the trusted certificate with Cloudflare's API. TLS is disabled in the temporary validation config so first deploys do not block on ACME while the old DNS service is still active; enable it after cutover by changing `enableTls` in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:6).
+The domain `adre.me` is hosted on Cloudflare DNS. In the target VM layout, `lab-core` issues and renews the trusted certificate with Cloudflare's API.
 
 1. In Cloudflare, create an API token with Zone:Read and DNS:Edit for `adre.me`.
 2. Set `EDGE_ACME_EMAIL`, `CLOUDFLARE_DNS_API_TOKEN`, `CLOUDFLARE_API_TOKEN`, and the matching `TF_VAR_...` export in `.env`, then source `.env` before running OpenTofu or deploying NixOS.

@@ -1,10 +1,9 @@
 # Consolidated NixOS VM target.
 #
-# Migration flow:
-#   1. Enable this VM on a temporary IP, default 192.168.1.220.
-#   2. Deploy the NixOS flake target .#core and validate DNS directly.
-#   3. Stop the old AdGuard LXC.
-#   4. Change core_vm_ip to the old router DNS IP, default 192.168.1.210.
+# Current flow:
+#   1. Keep lab-core on the router DNS IP, default 192.168.1.210.
+#   2. Deploy the NixOS flake target .#core for guest configuration.
+#   3. Keep the legacy LXC resources disabled after cutover.
 
 resource "proxmox_virtual_environment_vm" "core" {
   count = var.enable_core_vm ? 1 : 0

@@ -103,13 +103,13 @@ variable "core_vm_id" {
 }
 
 variable "core_vm_ip" {
-  description = "Temporary static IP for lab-core before DNS cutover. Change to the old AdGuard IP after stopping the LXC."
+  description = "Static IP for lab-core. The current layout uses the router DNS IP previously held by the old AdGuard LXC."
   type        = string
-  default     = "192.168.1.220"
+  default     = "192.168.1.210"
 }
 
 variable "allow_core_vm_adguard_ip_cutover" {
-  description = "Set true only during cutover, after the old AdGuard LXC has been stopped, to allow lab-core to take the router DNS IP."
+  description = "Set true after the old AdGuard LXC is stopped or destroyed, allowing lab-core to use the router DNS IP."
   type        = bool
   default     = false
 }
