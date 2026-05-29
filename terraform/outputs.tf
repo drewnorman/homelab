@@ -1,16 +1,6 @@
 output "service_ips" {
-  description = "Static IP addresses for the consolidated VM and legacy NixOS LXC containers."
-  value = {
-    core        = var.enable_core_vm ? local.core_vm.ip : null
-    adguard     = local.guests.adguard.ip
-    edge        = local.guests.edge.ip
-    monitoring  = local.guests.monitoring.ip
-    authelia    = local.guests.authelia.ip
-    lldap       = local.guests.lldap.ip
-    jellyfin    = local.guests.jellyfin.ip
-    arr         = var.enable_arr_stack ? local.guests.arr.ip : null
-    qbittorrent = var.enable_qbittorrent ? local.guests.qbittorrent.ip : null
-  }
+  description = "Static IP address for the consolidated core VM."
+  value       = var.enable_core_vm ? { core = local.core_vm.ip } : {}
 }
 
 output "service_hosts" {
@@ -40,19 +30,7 @@ output "service_hosts" {
 
 output "deploy_rs_targets" {
   description = "deploy-rs node targets. Run from the nix/ directory: deploy .#<name>"
-  value = merge(
-    var.enable_core_vm ? { core = "root@${local.core_vm.ip}" } : {},
-    {
-      adguard    = "root@${local.guests.adguard.ip}"
-      edge       = "root@${local.guests.edge.ip}"
-      monitoring = "root@${local.guests.monitoring.ip}"
-      authelia   = "root@${local.guests.authelia.ip}"
-      lldap      = "root@${local.guests.lldap.ip}"
-      jellyfin   = "root@${local.guests.jellyfin.ip}"
-    },
-    var.enable_arr_stack ? { arr = "root@${local.guests.arr.ip}" } : {},
-    var.enable_qbittorrent ? { qbittorrent = "root@${local.guests.qbittorrent.ip}" } : {},
-  )
+  value       = var.enable_core_vm ? { core = "root@${local.core_vm.ip}" } : {}
 }
 
 output "tailscale_core_auth_key" {
