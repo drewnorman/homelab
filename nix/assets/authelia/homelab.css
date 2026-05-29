@@ -1,8 +1,23 @@
 /* Small Authelia portal overrides injected by nginx for auth.lab.adre.me. */
+:root {
+  --homelab-primary: #2f855a;
+  --homelab-primary-hover: #276749;
+  --homelab-primary-ring: rgba(47, 133, 90, 0.28);
+  --homelab-control-border: rgba(23, 33, 43, 0.36);
+  --homelab-placeholder: rgba(23, 33, 43, 0.62);
+}
+
 html,
 body,
 #root {
+  box-sizing: border-box;
   min-height: 100%;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
 }
 
 body {
@@ -26,13 +41,159 @@ body::before {
 
 #root {
   background: transparent !important;
+  color: #f4f7fb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
   position: relative;
   z-index: 1;
 }
 
+#root:not(:has(#first-factor-stage)) {
+  color: #f4f7fb !important;
+}
+
+#root:not(:has(#first-factor-stage)) .MuiCircularProgress-root,
+#root:not(:has(#first-factor-stage)) svg {
+  color: #f4f7fb !important;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.56));
+}
+
+#root:not(:has(#first-factor-stage)) .MuiCircularProgress-circle,
+#root:not(:has(#first-factor-stage)) svg,
+#root:not(:has(#first-factor-stage)) svg * {
+  fill: currentColor !important;
+  stroke: currentColor !important;
+}
+
+.MuiCircularProgress-root {
+  color: #f4f7fb !important;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.56));
+}
+
+.MuiCircularProgress-svg,
+.MuiCircularProgress-circle {
+  color: #f4f7fb !important;
+  stroke: #f4f7fb !important;
+}
+
+#root span[style*="react-spinners-ScaleLoader"] {
+  background-color: #f4f7fb !important;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.56));
+}
+
+#root header {
+  display: none !important;
+}
+
+#first-factor-stage {
+  display: flex !important;
+  flex: 0 0 auto !important;
+  flex-direction: column;
+  align-items: center;
+  width: 384px !important;
+  max-width: calc(100vw - 48px);
+  min-height: auto !important;
+  color: #17212b;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(12, 20, 28, 0.24);
+  padding: 36px clamp(1rem, 5vw, 2rem) 32px;
+}
+
+#first-factor-stage .MuiContainer-root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100% !important;
+  max-width: 100% !important;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+#first-factor-stage p,
+#first-factor-stage label,
+#first-factor-stage .MuiTypography-root {
+  color: inherit;
+}
+
+#first-factor-stage input::placeholder,
+#first-factor-stage .MuiFormControlLabel-label {
+  color: var(--homelab-placeholder);
+  filter: none;
+  text-shadow: none;
+}
+
+#first-factor-stage .MuiOutlinedInput-notchedOutline {
+  border-color: var(--homelab-control-border);
+}
+
+#first-factor-stage .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: var(--homelab-primary);
+  box-shadow: 0 0 0 3px var(--homelab-primary-ring);
+}
+
+#first-factor-stage .MuiInputLabel-root.Mui-focused,
+#first-factor-stage .MuiCheckbox-root.Mui-checked {
+  color: var(--homelab-primary);
+}
+
+#first-factor-stage .MuiButton-containedPrimary {
+  background-color: var(--homelab-primary);
+  box-shadow: none;
+}
+
+#first-factor-stage .MuiButton-containedPrimary:hover {
+  background-color: var(--homelab-primary-hover);
+  box-shadow: none;
+}
+
+#first-factor-stage .MuiButton-containedPrimary:focus-visible {
+  box-shadow: 0 0 0 3px var(--homelab-primary-ring);
+}
+
+#first-factor-stage .MuiCheckbox-root:not(.Mui-checked),
+#first-factor-stage .MuiCheckbox-root:not(.Mui-checked) .MuiSvgIcon-root,
+#first-factor-stage .MuiInputAdornment-root .MuiIconButton-root,
+#first-factor-stage .MuiInputAdornment-root .MuiIconButton-root .MuiSvgIcon-root {
+  color: var(--homelab-placeholder) !important;
+  filter: none !important;
+  text-shadow: none !important;
+}
+
+#first-factor-stage .MuiCheckbox-root:not(.Mui-checked) svg,
+#first-factor-stage .MuiCheckbox-root:not(.Mui-checked) svg *,
+#first-factor-stage .MuiInputAdornment-root .MuiIconButton-root svg,
+#first-factor-stage .MuiInputAdornment-root .MuiIconButton-root svg * {
+  fill: currentColor !important;
+  stroke: currentColor !important;
+  filter: none !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --homelab-control-border: rgba(244, 247, 251, 0.36);
+    --homelab-placeholder: rgba(244, 247, 251, 0.68);
+  }
+
+  #first-factor-stage {
+    color: #f4f7fb;
+    background: rgba(20, 26, 34, 0.88);
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.42);
+  }
+
+  #first-factor-stage .MuiOutlinedInput-notchedOutline {
+    border-color: var(--homelab-control-border);
+  }
+}
+
 #first-factor-stage img[alt="Logo"] {
   width: 320px !important;
-  max-width: 82vw;
+  max-width: 100%;
   height: auto !important;
   border-radius: 10px;
 }
