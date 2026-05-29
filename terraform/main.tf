@@ -11,8 +11,8 @@ locals {
 
   lxc_common = {
     node_name     = var.proxmox_node_name
-    start_on_boot = true
-    started       = true
+    start_on_boot = var.legacy_lxcs_started
+    started       = var.legacy_lxcs_started
     unprivileged  = true
   }
 

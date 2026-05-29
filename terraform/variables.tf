@@ -239,6 +239,12 @@ variable "service_vmids" {
 # Optional service toggles
 # ---------------------------------------------------------------------------
 
+variable "legacy_lxcs_started" {
+  description = "Keep legacy NixOS LXCs started. Set false after lab-core owns the consolidated services."
+  type        = bool
+  default     = true
+}
+
 variable "enable_arr_stack" {
   description = "Create the arr media automation LXC (Radarr, Sonarr, Prowlarr, Bazarr)."
   type        = bool
