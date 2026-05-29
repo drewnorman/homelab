@@ -3,20 +3,20 @@
 This repo manages one consolidated NixOS VM:
 
 - `lab-core` as a NixOS VM for DNS, reverse proxy, TLS, Tailscale, auth, monitoring, media apps, and downloads
-- declarative service configuration only; old service state was intentionally not carried forward
-- external SSD media/download content is left untouched and can be mounted into the VM later
+- reproducible service configuration through OpenTofu, NixOS, deploy-rs, and sops-nix
+- external SSD media/download content is managed outside the VM root disk and can be mounted at `/srv/media`
 
-The checked-in defaults target the existing Proxmox node `norman` at `192.168.1.200` on `192.168.1.0/24`. The Proxmox host IP is managed outside this project and is not changed by Terraform.
+The checked-in defaults are for the Proxmox node `norman` at `192.168.1.200` on `192.168.1.0/24`. The Proxmox host IP is managed outside this project and is not changed by Terraform.
 
 ## Architecture
 
-The target control plane is intentionally split by ownership:
+The control plane is intentionally split by ownership:
 
 - OpenTofu owns Proxmox resources: the `lab-core` VM, VMID, CPU, memory, disk, network address, and provider-managed DNS or tailnet settings.
 - NixOS owns guest configuration: users, services, secrets, firewall rules, app settings, and package state.
 - deploy-rs is the NixOS deployment path. Host self-upgrade is disabled by default so deploy failures have one primary control loop to inspect.
 
-Legacy LXC definitions have been removed; this repo now models only the single VM layout.
+Reproducibility comes from the checked-in Terraform, Nix flake, host metadata, service modules, and encrypted sops files. Runtime content such as media files and application databases is intentionally outside the declarative source of truth unless a service module explicitly manages it.
 
 ## Prerequisites
 
@@ -41,7 +41,7 @@ Provisioned guests are managed over SSH keys only. `TF_VAR_ssh_public_key` is in
 
 ## Usage
 
-Update `terraform/terraform.tfvars` for your node name, storage names, template VMID, and static IP. The current production layout keeps `lab-core` on the router DNS address:
+Update `terraform/terraform.tfvars` for your node name, storage names, template VMID, and static IP. The default layout keeps `lab-core` on the router DNS address:
 
 ```hcl
 enable_core_vm         = true
@@ -90,13 +90,13 @@ podman run --rm \
 The named volume keeps downloaded Nix paths between runs, avoiding the cold
 store rebuild behavior of one-shot containers.
 
-For the current `norman` host, the default managed addresses are:
+For the default `norman` host, the managed address is:
 
 - `lab-core`: `192.168.1.210`
 
 If stale provider-managed resources from optional Cloudflare or Tailscale management remain in state while those integrations are disabled, remove those stale state entries or re-enable the matching credentials before expecting a full clean plan.
 
-The external SSD currently used by Jellyfin and the Arr stack should not be copied or reformatted. Disabled mount scaffolding exists in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:27); enable it only after confirming the drive's stable `/dev/disk/by-label` or `/dev/disk/by-uuid` path inside the VM.
+External SSD media for Jellyfin and the Arr stack is kept outside the VM root disk. Disabled mount scaffolding exists in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:27); enable it after confirming the drive's stable `/dev/disk/by-label` or `/dev/disk/by-uuid` path inside the VM.
 
 ### VM Template Assumptions
 
@@ -109,7 +109,7 @@ The `core` NixOS host defaults are recorded in [nix/lib/hosts.nix](/home/drew/co
 
 If the Proxmox template uses different names, update those host metadata fields before deploying `.#core`.
 
-## Target Service Split
+## Service Layout
 
 `lab-core` runs these roles on one NixOS VM:
 
@@ -143,7 +143,7 @@ The app-native names such as `jellyfin.lab.adre.me`, `radarr.lab.adre.me`, `sona
 
 ### Monitoring
 
-In the target VM layout, `lab-core` runs Grafana, Prometheus, Alertmanager, and node exporter locally.
+In the single VM layout, `lab-core` runs Grafana, Prometheus, Alertmanager, and node exporter locally.
 
 Grafana is the default dashboard at `https://lab.adre.me` and is also available at `https://grafana.lab.adre.me`. Prometheus and Alertmanager are proxied through nginx at `https://prometheus.lab.adre.me` and `https://alerts.lab.adre.me`; these routes use the same Authelia forward-auth guard as the other internal admin tools.
 
@@ -153,7 +153,7 @@ The wildcard certificate is issued with DNS-01 validation through Cloudflare usi
 
 ### Browser-Trusted HTTPS
 
-The domain `adre.me` is hosted on Cloudflare DNS. In the target VM layout, `lab-core` issues and renews the trusted certificate with Cloudflare's API.
+The domain `adre.me` is hosted on Cloudflare DNS. In the single VM layout, `lab-core` issues and renews the trusted certificate with Cloudflare's API.
 
 1. In Cloudflare, create an API token with Zone:Read and DNS:Edit for `adre.me`.
 2. Set `EDGE_ACME_EMAIL`, `CLOUDFLARE_DNS_API_TOKEN`, `CLOUDFLARE_API_TOKEN`, and the matching `TF_VAR_...` export in `.env`, then source `.env` before running OpenTofu or deploying NixOS.
@@ -226,9 +226,9 @@ Once approved, remote clients connected to your tailnet should resolve `jellyfin
 
 ### qBittorrent
 
-qBittorrent now runs on `lab-core` with a fresh declarative config. When the Arr stack is used, Radarr and Sonarr should point at `127.0.0.1:8080` or `downloads.lab.adre.me`.
+qBittorrent runs on `lab-core` with declarative service config. When the Arr stack is used, Radarr and Sonarr should point at `127.0.0.1:8080` or `downloads.lab.adre.me`.
 
-The qBittorrent NixOS module currently runs `qbittorrent-nox` on port `8080` with persisted config under `/var/lib/qbittorrent`. VPN isolation is not currently implemented in the NixOS module; add WireGuard and firewall policy there before relying on this host for VPN-bound downloads.
+The qBittorrent NixOS module runs `qbittorrent-nox` on port `8080` with persisted config under `/var/lib/qbittorrent`. VPN isolation is not implemented in the NixOS module; add WireGuard and firewall policy there before relying on this host for VPN-bound downloads.
 
 Remote access flows through Tailscale on `lab-core`:
 
@@ -240,11 +240,11 @@ The default design keeps one Tailscale ingress point and uses nginx for `downloa
 
 ## Jellyfin Storage Model
 
-Jellyfin now runs on `lab-core`. Its service state starts fresh; the existing external SSD media should be mounted into the VM later.
+Jellyfin runs on `lab-core`. Its service data lives under the VM root disk, while media content is supplied by the external SSD mount when enabled.
 
 - Root filesystem is sized by `core_vm_disk_gb` on `core_vm_storage`; the default value is 96 GiB
-- Media stays on the external SSD and was not copied into the VM
-- Mount the media path into the VM at `/srv/media` later
+- Media stays on the external SSD
+- Mount the media path into the VM at `/srv/media`
 
 When no external media mount is configured, Jellyfin starts with an empty library.
 
