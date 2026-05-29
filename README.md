@@ -3,7 +3,7 @@
 This repo manages one consolidated NixOS VM:
 
 - `lab-core` as a NixOS VM for DNS, reverse proxy, TLS, Tailscale, auth, monitoring, media apps, and downloads
-- declarative service configuration only; old service state is intentionally not migrated
+- declarative service configuration only; old service state was intentionally not carried forward
 - external SSD media/download content is left untouched and can be mounted into the VM later
 
 The checked-in defaults target the existing Proxmox node `norman` at `192.168.1.200` on `192.168.1.0/24`. The Proxmox host IP is managed outside this project and is not changed by Terraform.
@@ -16,7 +16,7 @@ The target control plane is intentionally split by ownership:
 - NixOS owns guest configuration: users, services, secrets, firewall rules, app settings, and package state.
 - deploy-rs is the NixOS deployment path. Host self-upgrade is disabled by default so deploy failures have one primary control loop to inspect.
 
-Legacy LXC definitions were removed after the migration; this branch now models only the single VM layout.
+Legacy LXC definitions have been removed; this repo now models only the single VM layout.
 
 ## Prerequisites
 
@@ -243,7 +243,7 @@ The default design keeps one Tailscale ingress point and uses nginx for `downloa
 Jellyfin now runs on `lab-core`. Its service state starts fresh; the existing external SSD media should be mounted into the VM later.
 
 - Root filesystem is sized by `core_vm_disk_gb` on `core_vm_storage`; the default value is 96 GiB
-- Media stays on the external SSD and is not copied during migration
+- Media stays on the external SSD and was not copied into the VM
 - Mount the media path into the VM at `/srv/media` later
 
 When no external media mount is configured, Jellyfin starts with an empty library.

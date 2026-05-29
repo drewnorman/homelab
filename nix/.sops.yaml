@@ -22,8 +22,7 @@ keys:
 
   # Host keys — obtained after first `tofu apply`:
   #   ssh-keyscan -t ed25519 <IP> | ssh-to-age
-  # During the single-VM migration, add lab-core here and include it in
-  # edge.yaml, lldap.yaml, and authelia.yaml key groups before deploy-core.
+  # lab-core is included in the active secret groups used by the consolidated VM.
   - &lab-edge        age1gynkf7was2ggtyhg5st7rc46qwuj96dtf2gw3zhlv3rwhg32r5uqvjar46
   - &lab-lldap       age1pt5wqp8wh8j8uunhzxkpjahd2q84a26smfv8lynd332cg3vq4qrslddvjt
   - &lab-authelia    age1w27h6fdjlmavelzun0yq4hfle3qdkeahmyr044wl6v84fhagguwqj3lg4c
