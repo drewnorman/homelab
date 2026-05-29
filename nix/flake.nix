@@ -1,5 +1,5 @@
 {
-  description = "homelab NixOS configurations — multi-host, managed with deploy-rs";
+  description = "homelab NixOS configuration managed with deploy-rs";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
@@ -14,10 +14,15 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    nixos-generators = {
+      url = "github:nix-community/nixos-generators";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     impermanence.url = "github:nix-community/impermanence";
   };
 
-  outputs = { self, nixpkgs, deploy-rs, sops-nix, impermanence, ... }:
+  outputs = { self, nixpkgs, deploy-rs, sops-nix, nixos-generators, impermanence, ... }:
     let
       system = "x86_64-linux";
       lib    = nixpkgs.lib;
@@ -25,33 +30,25 @@
       hosts  = import ./lib/hosts.nix;
 
       coreHosts = [
-        "adguard"
-        "edge"
-        "monitoring"
-        "authelia"
-        "lldap"
-        "jellyfin"
+        "core"
       ];
 
-      # SSH public key injected into all hosts. Must match terraform ssh_public_key.
+      # SSH public key injected into lab-core. Must match terraform ssh_public_key.
       sshAuthorizedKeys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBty1Aq+Be79tfzubhT7B+jlcZ1xWfWLIszbItuWveAf drew@x1c-g9"
       ];
 
-      # Build a NixOS configuration for a named host.
-      mkHost = name: extraModules:
+      mkVmHost = name: extraModules:
         lib.nixosSystem {
           inherit system;
           specialArgs = {
             inherit sshAuthorizedKeys;
             hostMeta  = hosts.${name};
-            allHosts  = hosts;
-            flakeAttr = name; # nixosConfigurations key for optional host self-upgrade
+            flakeAttr = name;
           };
           modules = [
             sops-nix.nixosModules.sops
-            impermanence.nixosModules.impermanence
-            ./modules/common.nix
+            ./modules/vm-common.nix
             ./modules/lldap-provision.nix
             ./hosts/${name}
           ] ++ extraModules;
@@ -69,28 +66,22 @@
 
     in {
       nixosConfigurations = {
-        adguard     = mkHost "adguard"     [];
-        edge        = mkHost "edge"        [];
-        monitoring  = mkHost "monitoring"  [];
-        authelia    = mkHost "authelia"    [];
-        lldap       = mkHost "lldap"       [];
-        jellyfin    = mkHost "jellyfin"    [];
-        arr         = mkHost "arr"         [];
-        qbittorrent = mkHost "qbittorrent" [];
+        core = mkVmHost "core" [];
       };
 
       deploy.nodes = {
-        adguard     = mkNode "adguard";
-        edge        = mkNode "edge";
-        monitoring  = mkNode "monitoring";
-        authelia    = mkNode "authelia";
-        lldap       = mkNode "lldap";
-        jellyfin    = mkNode "jellyfin";
-        arr         = mkNode "arr";
-        qbittorrent = mkNode "qbittorrent";
+        core = mkNode "core";
       };
 
       packages.${system} = {
+        proxmox-template = nixos-generators.nixosGenerate {
+          inherit system;
+          format = "proxmox";
+          modules = [
+            ./images/proxmox-template.nix
+          ];
+        };
+
         # Pin deploy-rs to the flake-locked version: nix run .#deploy-rs -- --help
         deploy-rs = deploy-rs.packages.${system}.deploy-rs;
 

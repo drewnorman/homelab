@@ -1,32 +1,28 @@
 # Homelab OpenTofu
 
-This directory provisions a small Proxmox homelab optimized for a single 16 GB laptop host:
+This repo manages one consolidated NixOS VM:
 
-- `lab-adguard` as a core-platform LXC for AdGuard Home
-- `lab-edge` as a core-platform LXC for reverse proxy, Tailscale ingress, and browser-trusted local HTTPS
-- `lab-monitoring` as a metrics, dashboards, and alerts LXC
-- `lab-authelia` as a core-platform LXC for SSO and forward auth
-- `lab-lldap` as a core-platform LXC for user directory services
-- `lab-jellyfin` as a lean LXC with optional host bind-mounted media storage
-- optional media automation LXCs for Arr services and qBittorrent
+- `lab-core` as a NixOS VM for DNS, reverse proxy, TLS, Tailscale, auth, monitoring, media apps, and downloads
+- declarative service configuration only; old service state was intentionally not carried forward
+- external SSD media/download content is left untouched and can be mounted into the VM later
 
 The checked-in defaults target the existing Proxmox node `norman` at `192.168.1.200` on `192.168.1.0/24`. The Proxmox host IP is managed outside this project and is not changed by Terraform.
 
 ## Architecture
 
-The default control plane is intentionally split by ownership:
+The target control plane is intentionally split by ownership:
 
-- OpenTofu owns Proxmox resources: containers, VMIDs, CPU, memory, disks, network addresses, bind mounts, and provider-managed DNS or tailnet settings.
-- NixOS owns guest configuration: users, services, secrets, firewall rules, persistence, and package state.
+- OpenTofu owns Proxmox resources: the `lab-core` VM, VMID, CPU, memory, disk, network address, and provider-managed DNS or tailnet settings.
+- NixOS owns guest configuration: users, services, secrets, firewall rules, app settings, and package state.
 - deploy-rs is the NixOS deployment path. Host self-upgrade is disabled by default so deploy failures have one primary control loop to inspect.
 
-The core platform is `lab-adguard`, `lab-edge`, `lab-monitoring`, `lab-authelia`, and `lab-lldap`. These services get more memory than the smallest media guests because DNS, ingress, monitoring, auth, and directory lookups should stay healthy before optional apps do.
+Legacy LXC definitions have been removed; this repo now models only the single VM layout.
 
 ## Prerequisites
 
 - OpenTofu installed locally
-- A Proxmox API token with permissions to create LXCs and, if enabled, VMs
-- Debian and NixOS LXC templates already available in Proxmox storage
+- A Proxmox API token with permissions to create and manage the `lab-core` VM
+- A NixOS cloud-init VM template in Proxmox for `lab-core`
 - A local `.env` file exporting secret `TF_VAR_*` values plus `TF_VAR_ssh_public_key`
 
 ## Secrets
@@ -45,7 +41,15 @@ Provisioned guests are managed over SSH keys only. `TF_VAR_ssh_public_key` is in
 
 ## Usage
 
-Update `terraform/terraform.tfvars` for your node name, storage names, template IDs, and static IPs, then run:
+Update `terraform/terraform.tfvars` for your node name, storage names, template VMID, and static IP. The current production layout keeps `lab-core` on the router DNS address:
+
+```hcl
+enable_core_vm         = true
+core_vm_template_vm_id = 9000
+core_vm_ip             = "192.168.1.210"
+```
+
+Then run:
 
 ```sh
 cd terraform
@@ -56,54 +60,70 @@ tofu plan
 tofu apply
 ```
 
-After OpenTofu provisions the guests, deploy the always-on NixOS hosts:
+After OpenTofu provisions `lab-core`, deploy the consolidated NixOS host:
 
 ```sh
 cd nix
 nix run .#deploy-core
 ```
 
-Deploy optional hosts only after their corresponding OpenTofu toggles are enabled:
+If Nix is not installed locally, run deploys through Podman with a persistent
+Nix store volume. Create the volume once:
 
 ```sh
-nix run .#deploy-rs -- .#arr
-nix run .#deploy-rs -- .#qbittorrent
+podman volume create homelab-nix-store
 ```
 
-For one-off host deploys, use the pinned deploy-rs package exposed by the flake:
+Then run deploys from the repo root:
 
 ```sh
-nix run .#deploy-rs -- .#monitoring
+podman run --rm \
+  -e 'NIX_CONFIG=experimental-features = nix-command flakes' \
+  -v homelab-nix-store:/nix \
+  -v "$PWD":/workspace \
+  -v "$HOME/.ssh":/root/.ssh:ro \
+  -w /workspace/nix \
+  docker.io/nixos/nix:latest \
+  nix run .#deploy-core -- --skip-checks --ssh-opts '-i /root/.ssh/drew@x1c-g9 -F /dev/null'
 ```
 
-For the current `norman` host, the default managed guest addresses are:
+The named volume keeps downloaded Nix paths between runs, avoiding the cold
+store rebuild behavior of one-shot containers.
 
-- `lab-adguard`: `192.168.1.210`
-- `lab-edge`: `192.168.1.211`
-- `lab-monitoring`: `192.168.1.212`
-- `lab-authelia`: `192.168.1.213`
-- `lab-lldap`: `192.168.1.214`
-- `lab-jellyfin`: `192.168.1.230`
-- `lab-arr`: disabled until `enable_arr_stack = true`
-- `lab-qbittorrent`: disabled until `enable_qbittorrent = true`
+For the current `norman` host, the default managed addresses are:
 
-An existing unmanaged container named `adguard` may coexist with these resources. Terraform only manages guests present in its state.
+- `lab-core`: `192.168.1.210`
 
-## Service split
+If stale provider-managed resources from optional Cloudflare or Tailscale management remain in state while those integrations are disabled, remove those stale state entries or re-enable the matching credentials before expecting a full clean plan.
 
-- `lab-adguard`: AdGuard Home only
-- `lab-edge`: reverse proxy and browser-trusted wildcard HTTPS
-- `lab-monitoring`: Grafana, Prometheus, Alertmanager, and the central node dashboard
-- `lab-authelia`: SSO and forward auth
-- `lab-lldap`: LDAP user directory
-- `lab-jellyfin`: Jellyfin and a bind-mounted media path from the Proxmox host
-- `lab-arr`: Radarr, Sonarr, Prowlarr, Bazarr, and Byparr
-- `lab-qbittorrent`: qBittorrent
+The external SSD currently used by Jellyfin and the Arr stack should not be copied or reformatted. Disabled mount scaffolding exists in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:27); enable it only after confirming the drive's stable `/dev/disk/by-label` or `/dev/disk/by-uuid` path inside the VM.
+
+### VM Template Assumptions
+
+The `core` NixOS host defaults are recorded in [nix/lib/hosts.nix](/home/drew/code/personal/homelab/nix/lib/hosts.nix:2):
+
+- network interface: `ens18`
+- boot device: `/dev/vda`
+- root filesystem: `/dev/disk/by-label/nixos`
+- root filesystem type: `ext4`
+
+If the Proxmox template uses different names, update those host metadata fields before deploying `.#core`.
+
+## Target Service Split
+
+`lab-core` runs these roles on one NixOS VM:
+
+- AdGuard Home for router-facing DNS on port 53
+- nginx and ACME for local HTTPS
+- Tailscale for remote private access
+- Authelia and LLDAP for auth
+- Grafana, Prometheus, Alertmanager, and node exporter for monitoring
+- Jellyfin, Radarr, Sonarr, Prowlarr, Bazarr, and qBittorrent
 
 For local-only HTTPS:
 
-- AdGuard rewrites `*.lab.adre.me` to `lab-edge`
-- nginx in `lab-edge` serves `*.lab.adre.me` with a public Let's Encrypt wildcard certificate
+- AdGuard rewrites `*.lab.adre.me` to `lab-core`
+- nginx in `lab-core` serves `*.lab.adre.me` with a public Let's Encrypt wildcard certificate
 - only hosts explicitly listed in the nginx virtual host config are proxied
 - nothing needs to be exposed on your router
 
@@ -123,7 +143,7 @@ The app-native names such as `jellyfin.lab.adre.me`, `radarr.lab.adre.me`, `sona
 
 ### Monitoring
 
-`lab-monitoring` runs Grafana on port `3000`, Prometheus on port `9090`, and Alertmanager on port `9093`. Every NixOS host enables the Prometheus node exporter on port `9100`, and the monitoring host scrapes the always-on hosts from [nix/lib/hosts.nix](/home/drew/code/personal/homelab/nix/lib/hosts.nix:1). Optional Arr and qBittorrent hosts are excluded from the default scrape set until those LXCs are enabled.
+In the target VM layout, `lab-core` runs Grafana, Prometheus, Alertmanager, and node exporter locally.
 
 Grafana is the default dashboard at `https://lab.adre.me` and is also available at `https://grafana.lab.adre.me`. Prometheus and Alertmanager are proxied through nginx at `https://prometheus.lab.adre.me` and `https://alerts.lab.adre.me`; these routes use the same Authelia forward-auth guard as the other internal admin tools.
 
@@ -133,7 +153,7 @@ The wildcard certificate is issued with DNS-01 validation through Cloudflare usi
 
 ### Browser-Trusted HTTPS
 
-The domain `adre.me` is hosted on Cloudflare DNS. Let `lab-edge` issue and renew the trusted certificate with Cloudflare's API:
+The domain `adre.me` is hosted on Cloudflare DNS. In the target VM layout, `lab-core` issues and renews the trusted certificate with Cloudflare's API.
 
 1. In Cloudflare, create an API token with Zone:Read and DNS:Edit for `adre.me`.
 2. Set `EDGE_ACME_EMAIL`, `CLOUDFLARE_DNS_API_TOKEN`, `CLOUDFLARE_API_TOKEN`, and the matching `TF_VAR_...` export in `.env`, then source `.env` before running OpenTofu or deploying NixOS.
@@ -145,23 +165,23 @@ export CLOUDFLARE_API_TOKEN="${CLOUDFLARE_DNS_API_TOKEN}"
 export TF_VAR_cloudflare_api_token="${CLOUDFLARE_DNS_API_TOKEN}"
 ```
 
-No permanent public `A`, `AAAA`, or `CNAME` record is required for `*.lab.adre.me` as long as access stays LAN-only. AdGuard keeps resolving `*.lab.adre.me` to `lab-edge` internally. The ACME DNS provider will create and remove temporary TXT records under:
+No permanent public `A`, `AAAA`, or `CNAME` record is required for `*.lab.adre.me` as long as access stays LAN-only. AdGuard keeps resolving `*.lab.adre.me` to `lab-core` internally. The ACME DNS provider will create and remove temporary TXT records under:
 
 ```text
 _acme-challenge.lab.adre.me
 ```
 
-The certificate state is stored on `lab-edge` under `/var/lib/acme/` and is persisted across container restarts. nginx reads the certificate through the NixOS virtual host configuration and reloads after ACME renewal.
+The certificate state is stored on `lab-core` under `/var/lib/acme/`. nginx reads the certificate through the NixOS virtual host configuration and reloads after ACME renewal.
 
 OpenTofu can manage public Cloudflare DNS records. The checked-in example includes CAA records allowing Let's Encrypt to issue for `adre.me`, `lab.adre.me`, and `*.lab.adre.me`; keep `enable_cloudflare_dns = false` until Cloudflare API credentials are configured. If `cloudflare_zone_id` is left empty, OpenTofu looks up the `adre.me` zone by name.
 
-The NixOS edge module requests a certificate for both `lab.adre.me` and `*.lab.adre.me` and wires that certificate into nginx.
+The NixOS core module requests a certificate for both `lab.adre.me` and `*.lab.adre.me` and wires that certificate into nginx.
 
-Additional app hostnames should be added to the nginx virtual hosts in [nix/hosts/edge/default.nix](/home/drew/code/personal/homelab/nix/hosts/edge/default.nix:93). The wildcard DNS rewrite means any `*.lab.adre.me` hostname will already resolve to `lab-edge`; you only need to tell nginx which upstream each hostname should proxy to.
+Additional app hostnames should be added to the nginx virtual hosts in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:229). The wildcard DNS rewrite means any `*.lab.adre.me` hostname will already resolve to `lab-core`; you only need to tell nginx which upstream each hostname should proxy to.
 
 ### Remote Access with Tailscale
 
-This lab uses Tailscale on `lab-edge` for private remote access without router port forwards or a static ISP IP. `lab-edge` advertises the lab subnet route by default:
+This lab uses Tailscale on `lab-core` for private remote access without router port forwards or a static ISP IP. `lab-core` advertises the lab subnet route by default:
 
 - `192.168.1.0/24` for lab services behind AdGuard and nginx
 
@@ -178,10 +198,12 @@ Then enable the tailnet-wide settings:
 enable_tailscale_management = true
 ```
 
-The first OpenTofu apply will generate an auth key, enable MagicDNS, and configure split DNS for `lab.adre.me` to use AdGuard at `192.168.1.210`. Store the generated key in the `lab-edge` sops secret before deploying NixOS:
+The first OpenTofu apply will generate an auth key, enable MagicDNS, and configure split DNS for `lab.adre.me`. Split DNS defaults to `core_vm_ip`; override `tailscale_split_dns_nameserver_ip` if you need to pin it to another resolver.
+
+Store the generated key in the shared edge/core sops secret before deploying NixOS:
 
 ```sh
-export TAILSCALE_AUTH_KEY="$(tofu -chdir=terraform output -raw tailscale_edge_auth_key)"
+export TAILSCALE_AUTH_KEY="$(tofu -chdir=terraform output -raw tailscale_core_auth_key)"
 ```
 
 If you prefer not to let OpenTofu generate the auth key, create one in the Tailscale admin console and export it manually:
@@ -190,46 +212,47 @@ If you prefer not to let OpenTofu generate the auth key, create one in the Tails
 export TAILSCALE_AUTH_KEY="tskey-auth-..."
 ```
 
-The `lab-edge` LXC is provisioned with `/dev/net/tun`, and its NixOS module enables Tailscale, IP forwarding, and the advertised route.
+The `lab-core` VM runs Tailscale natively, including IP forwarding and the advertised route.
 
-After the first NixOS deploy, `lab-edge` should be joined to the tailnet. Enable device management and apply OpenTofu again:
+After the first NixOS deploy, `lab-core` should be joined to the tailnet. Enable device management and apply OpenTofu again:
 
 ```hcl
-enable_tailscale_edge_device_management = true
+enable_tailscale_core_device_management = true
 ```
 
-That second apply approves the advertised subnet route and disables key expiry for `lab-edge`.
+That second apply approves the advertised subnet route and disables key expiry for the managed Tailscale device.
 
-Once approved, remote clients connected to your tailnet should resolve `jellyfin.lab.adre.me`, `movies.lab.adre.me`, `downloads.lab.adre.me`, and other configured lab hosts through AdGuard, then reach nginx on `lab-edge` over the Tailscale route.
+Once approved, remote clients connected to your tailnet should resolve `jellyfin.lab.adre.me`, `movies.lab.adre.me`, `downloads.lab.adre.me`, and other configured lab hosts through AdGuard, then reach nginx on `lab-core` over Tailscale.
 
 ### qBittorrent
 
-Set `enable_qbittorrent = true` to create `lab-qbittorrent`. When the Arr stack is enabled, Radarr and Sonarr use that LXC as their qBittorrent download client instead of running qBittorrent locally.
+qBittorrent now runs on `lab-core` with a fresh declarative config. When the Arr stack is used, Radarr and Sonarr should point at `127.0.0.1:8080` or `downloads.lab.adre.me`.
 
 The qBittorrent NixOS module currently runs `qbittorrent-nox` on port `8080` with persisted config under `/var/lib/qbittorrent`. VPN isolation is not currently implemented in the NixOS module; add WireGuard and firewall policy there before relying on this host for VPN-bound downloads.
 
-Remote access still flows through Tailscale on `lab-edge`:
+Remote access flows through Tailscale on `lab-core`:
 
 ```text
-remote client -> Tailscale -> lab-edge nginx -> lab-qbittorrent:8080
+remote client -> Tailscale -> lab-core nginx -> qBittorrent:8080
 ```
 
-Do not install Tailscale on `lab-qbittorrent` unless you want direct tailnet access to that host. The default design keeps one Tailscale ingress point and uses nginx for `downloads.lab.adre.me`.
+The default design keeps one Tailscale ingress point and uses nginx for `downloads.lab.adre.me`.
 
 ## Jellyfin Storage Model
 
-Jellyfin now runs as an unprivileged LXC sized for mostly direct-play streaming rather than a larger VM.
+Jellyfin now runs on `lab-core`. Its service state starts fresh; the existing external SSD media should be mounted into the VM later.
 
-- Root filesystem is sized by `lxc_resources.jellyfin.disk_gb` on `lxc_storage`; the default value is 16 GiB
-- Media stays on the Proxmox host, optionally on an external SSD
-- Set `jellyfin_media_bind_mount_host_path` to bind-mount that host path into the container at `/mnt/media`
+- Root filesystem is sized by `core_vm_disk_gb` on `core_vm_storage`; the default value is 96 GiB
+- Media stays on the external SSD and was not copied into the VM
+- Mount the media path into the VM at `/srv/media` later
 
-When no bind mount is configured, Jellyfin stores media on the container root filesystem. Increase `lxc_resources.jellyfin.disk_gb` to grow that filesystem in place; do not decrease it unless you have migrated the data elsewhere.
+When no external media mount is configured, Jellyfin starts with an empty library.
 
 Suggested pattern for an external SSD:
 
-1. Mount the SSD on the Proxmox host with a stable path such as `/mnt/media`.
-2. Set `jellyfin_media_bind_mount_host_path = "/mnt/media"` in `terraform/terraform.tfvars`.
-3. Keep Jellyfin metadata and config inside the container, while treating the mounted media path as the library source.
-
-Because the container is unprivileged, make sure the mounted media path is readable by the container. World-readable media files are the simplest option for a read-mostly library.
+1. Attach or pass through the SSD to the VM.
+2. Confirm the stable device path with `ls -l /dev/disk/by-label /dev/disk/by-uuid`.
+3. Update `externalStorage.media.device` in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:27).
+4. Set `externalStorage.media.enable = true` and deploy `.#core`.
+5. Mount it at `/srv/media`.
+6. Point Jellyfin, Radarr, and Sonarr at `/srv/media/movies` and `/srv/media/tv`.

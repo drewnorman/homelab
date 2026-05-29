@@ -22,23 +22,25 @@ keys:
 
   # Host keys — obtained after first `tofu apply`:
   #   ssh-keyscan -t ed25519 <IP> | ssh-to-age
+  # lab-core is included in the active secret groups used by the consolidated VM.
   - &lab-edge        age1gynkf7was2ggtyhg5st7rc46qwuj96dtf2gw3zhlv3rwhg32r5uqvjar46
   - &lab-lldap       age1pt5wqp8wh8j8uunhzxkpjahd2q84a26smfv8lynd332cg3vq4qrslddvjt
   - &lab-authelia    age1w27h6fdjlmavelzun0yq4hfle3qdkeahmyr044wl6v84fhagguwqj3lg4c
   - &lab-qbittorrent   age1fujhzkqfh3xdh3yln72q0prsrhped6lw3qu0qr4snwa5fmyq4c0sqh5pzk
+  - &lab-core        age1aaa4zalk4j8emsg2gyhm8jc4x9stv7rz3va99lfnvaf25y0x8p3swrj3mv
 
 creation_rules:
   - path_regex: secrets/edge\.yaml$
     key_groups:
-      - age: [*operator, *lab-edge]
+      - age: [*operator, *lab-edge, *lab-core]
 
   - path_regex: secrets/lldap\.yaml$
     key_groups:
-      - age: [*operator, *lab-lldap]
+      - age: [*operator, *lab-lldap, *lab-core]
 
   - path_regex: secrets/authelia\.yaml$
     key_groups:
-      - age: [*operator, *lab-authelia]
+      - age: [*operator, *lab-authelia, *lab-core]
 
   - path_regex: secrets/qbittorrent\.yaml$
     key_groups:

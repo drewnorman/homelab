@@ -35,7 +35,7 @@ variable "homelab_name" {
 }
 
 variable "network_bridge" {
-  description = "Proxmox bridge used by LXC containers."
+  description = "Proxmox bridge used by lab-core."
   type        = string
   default     = "vmbr0"
 }
@@ -53,7 +53,7 @@ variable "network_cidr" {
 }
 
 variable "dns_servers" {
-  description = "DNS servers used during initial LXC provisioning."
+  description = "DNS servers used during initial VM provisioning."
   type        = list(string)
   default     = ["192.168.1.1", "1.1.1.1"]
 }
@@ -64,273 +64,71 @@ variable "search_domain" {
   default     = "lab.adre.me"
 }
 
-variable "lxc_storage" {
-  description = "Proxmox storage pool for LXC root filesystems."
-  type        = string
-  default     = "local-lvm"
-}
-
 variable "ssh_public_key" {
-  description = "SSH public key injected into all NixOS LXC containers at first boot."
+  description = "SSH public key injected into lab-core at first boot."
   type        = string
 }
 
 # ---------------------------------------------------------------------------
-# NixOS LXC template
+# Single NixOS VM target
 # ---------------------------------------------------------------------------
 
-variable "lxc_template_file_id" {
-  description = "NixOS LXC template file ID as seen by Proxmox, e.g. local:vztmpl/nixos-lxc-homelab.tar.xz."
-  type        = string
-  default     = "local:vztmpl/nixos-lxc-homelab.tar.xz"
-}
-
-variable "manage_lxc_template" {
-  description = "Download the NixOS LXC template into Proxmox storage via OpenTofu."
+variable "enable_core_vm" {
+  description = "Create the consolidated NixOS VM."
   type        = bool
   default     = true
 }
 
-variable "lxc_template_datastore_id" {
-  description = "Proxmox datastore to download the NixOS LXC template into."
-  type        = string
-  default     = "local"
-}
-
-variable "lxc_template_file_name" {
-  description = "File name for the downloaded NixOS LXC template."
-  type        = string
-  default     = "nixos-lxc-homelab.tar.xz"
-}
-
-variable "lxc_template_url" {
-  description = "Download URL for the NixOS Proxmox LXC tarball."
-  type        = string
-  default     = "https://hydra.nixos.org/job/nixos/release-25.11/nixos.proxmoxLXC.x86_64-linux/latest/download-by-type/file/system-tarball"
-}
-
-variable "lxc_template_download_timeout_seconds" {
-  description = "Timeout for downloading the NixOS LXC template through the Proxmox API."
+variable "core_vm_template_vm_id" {
+  description = "VMID of an existing NixOS cloud-init/template VM to clone for lab-core."
   type        = number
-  default     = 1800
-}
-
-# ---------------------------------------------------------------------------
-# Service IPs
-# ---------------------------------------------------------------------------
-
-variable "service_ips" {
-  description = "Static IP addresses for each NixOS LXC container."
-  type = object({
-    adguard_lxc     = string
-    edge_lxc        = string
-    monitoring_lxc  = string
-    authelia_lxc    = string
-    lldap_lxc       = string
-    jellyfin_lxc    = string
-    arr_lxc         = string
-    qbittorrent_lxc = string
-  })
-  default = {
-    adguard_lxc     = "192.168.1.210"
-    edge_lxc        = "192.168.1.211"
-    monitoring_lxc  = "192.168.1.212"
-    authelia_lxc    = "192.168.1.213"
-    lldap_lxc       = "192.168.1.214"
-    jellyfin_lxc    = "192.168.1.230"
-    arr_lxc         = "192.168.1.232"
-    qbittorrent_lxc = "192.168.1.233"
-  }
-}
-
-variable "service_vmids" {
-  description = "Stable Proxmox VMIDs for each NixOS LXC container."
-  type = object({
-    adguard_lxc     = number
-    edge_lxc        = number
-    monitoring_lxc  = number
-    authelia_lxc    = number
-    lldap_lxc       = number
-    jellyfin_lxc    = number
-    arr_lxc         = number
-    qbittorrent_lxc = number
-  })
-  default = {
-    lldap_lxc       = 100
-    jellyfin_lxc    = 101
-    adguard_lxc     = 102
-    edge_lxc        = 103
-    arr_lxc         = 104
-    monitoring_lxc  = 105
-    authelia_lxc    = 106
-    qbittorrent_lxc = 107
-  }
-}
-
-# ---------------------------------------------------------------------------
-# Optional service toggles
-# ---------------------------------------------------------------------------
-
-variable "enable_arr_stack" {
-  description = "Create the arr media automation LXC (Radarr, Sonarr, Prowlarr, Bazarr)."
-  type        = bool
-  default     = false
-}
-
-variable "enable_qbittorrent" {
-  description = "Create the qBittorrent download client LXC."
-  type        = bool
-  default     = false
-}
-
-# ---------------------------------------------------------------------------
-# Per-service sizing
-# ---------------------------------------------------------------------------
-
-variable "lxc_resources" {
-  description = "CPU, memory, swap, and root disk sizing for each LXC. Memory and swap are MiB; disk is GiB."
-  type = object({
-    adguard = object({
-      cores     = number
-      memory_mb = number
-      swap_mb   = number
-      disk_gb   = number
-    })
-    edge = object({
-      cores     = number
-      memory_mb = number
-      swap_mb   = number
-      disk_gb   = number
-    })
-    monitoring = object({
-      cores     = number
-      memory_mb = number
-      swap_mb   = number
-      disk_gb   = number
-    })
-    authelia = object({
-      cores     = number
-      memory_mb = number
-      swap_mb   = number
-      disk_gb   = number
-    })
-    lldap = object({
-      cores     = number
-      memory_mb = number
-      swap_mb   = number
-      disk_gb   = number
-    })
-    jellyfin = object({
-      cores     = number
-      memory_mb = number
-      swap_mb   = number
-      disk_gb   = number
-    })
-    arr = object({
-      cores     = number
-      memory_mb = number
-      swap_mb   = number
-      disk_gb   = number
-    })
-    qbittorrent = object({
-      cores     = number
-      memory_mb = number
-      swap_mb   = number
-      disk_gb   = number
-    })
-  })
-  default = {
-    adguard = {
-      cores     = 1
-      memory_mb = 768
-      swap_mb   = 512
-      disk_gb   = 8
-    }
-    edge = {
-      cores     = 2
-      memory_mb = 1536
-      swap_mb   = 1024
-      disk_gb   = 8
-    }
-    monitoring = {
-      cores     = 2
-      memory_mb = 2048
-      swap_mb   = 1024
-      disk_gb   = 8
-    }
-    authelia = {
-      cores     = 1
-      memory_mb = 1024
-      swap_mb   = 1024
-      disk_gb   = 4
-    }
-    lldap = {
-      cores     = 1
-      memory_mb = 1024
-      swap_mb   = 1024
-      disk_gb   = 4
-    }
-    jellyfin = {
-      cores     = 2
-      memory_mb = 2048
-      swap_mb   = 512
-      disk_gb   = 16
-    }
-    arr = {
-      cores     = 2
-      memory_mb = 2048
-      swap_mb   = 512
-      disk_gb   = 8
-    }
-    qbittorrent = {
-      cores     = 1
-      memory_mb = 1024
-      swap_mb   = 512
-      disk_gb   = 8
-    }
-  }
+  default     = null
 
   validation {
-    condition = alltrue(flatten([
-      for resource in values(var.lxc_resources) : [
-        resource.cores >= 1,
-        resource.memory_mb >= 256,
-        resource.swap_mb >= 0,
-        resource.disk_gb >= 4,
-      ]
-    ]))
-    error_message = "Each LXC resource profile must have at least 1 core, 256 MiB memory, non-negative swap, and a 4 GiB root disk."
+    condition     = !var.enable_core_vm || var.core_vm_template_vm_id != null
+    error_message = "enable_core_vm requires core_vm_template_vm_id to point at a NixOS VM template."
   }
 }
 
-variable "jellyfin_lxc_disk_size_gb" {
-  description = "Deprecated. Use lxc_resources.jellyfin.disk_gb instead."
+variable "core_vm_id" {
+  description = "Stable Proxmox VMID for the consolidated NixOS VM."
   type        = number
-  default     = null
+  default     = 120
 }
 
-variable "jellyfin_media_bind_mount_host_path" {
-  description = "Optional Proxmox host path bind-mounted into the Jellyfin container at /mnt/media."
+variable "core_vm_ip" {
+  description = "Static IP for lab-core. This is the router DNS IP."
   type        = string
-  default     = null
+  default     = "192.168.1.210"
 }
 
-variable "arr_downloads_bind_mount_host_path" {
-  description = "Optional Proxmox host path bind-mounted into the arr container at /srv/downloads."
+variable "core_vm_storage" {
+  description = "Proxmox datastore for the lab-core VM root disk."
   type        = string
-  default     = null
+  default     = "local-lvm"
 }
 
-variable "qbittorrent_downloads_bind_mount_host_path" {
-  description = "Optional Proxmox host path bind-mounted into the qBittorrent container at /srv/downloads. Should match arr_downloads_bind_mount_host_path so arr can import completed downloads."
-  type        = string
-  default     = null
+variable "core_vm_disk_gb" {
+  description = "Root disk size for lab-core in GiB. This stores fresh declarative service state."
+  type        = number
+  default     = 96
+
+  validation {
+    condition     = var.core_vm_disk_gb >= 32
+    error_message = "core_vm_disk_gb must be at least 32 GiB."
+  }
 }
 
-variable "arr_media_bind_mount_host_path" {
-  description = "Optional Proxmox host path bind-mounted into the arr container at /mnt/media. Should match jellyfin_media_bind_mount_host_path so hardlinks work."
-  type        = string
-  default     = null
+variable "core_vm_cores" {
+  description = "vCPU cores assigned to lab-core."
+  type        = number
+  default     = 4
+}
+
+variable "core_vm_memory_mb" {
+  description = "Memory assigned to lab-core in MiB."
+  type        = number
+  default     = 8192
 }
 
 # ---------------------------------------------------------------------------
@@ -343,10 +141,16 @@ variable "enable_tailscale_management" {
   default     = false
 }
 
-variable "enable_tailscale_edge_device_management" {
-  description = "Manage lab-edge device subnet routes and key expiry. Enable after lab-edge has joined the tailnet."
+variable "enable_tailscale_core_device_management" {
+  description = "Manage the lab-core Tailscale device subnet routes and key expiry. Enable after lab-core has joined the tailnet."
   type        = bool
   default     = false
+}
+
+variable "tailscale_split_dns_nameserver_ip" {
+  description = "Optional override for the split-DNS nameserver. Defaults to lab-core."
+  type        = string
+  default     = null
 }
 
 variable "tailscale_api_key" {
