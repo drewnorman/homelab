@@ -54,8 +54,12 @@ let
               headers["Authorization"] = f"Bearer {token}"
 
           req = urllib.request.Request(f"{LLDAP_URL}{path}", data=data, headers=headers)
-          with urllib.request.urlopen(req, timeout=10) as response:
-              body = response.read()
+          try:
+              with urllib.request.urlopen(req, timeout=10) as response:
+                  body = response.read()
+          except urllib.error.HTTPError as err:
+              body = err.read().decode(errors="replace")
+              raise RuntimeError(f"lldap-provision: HTTP {err.code} from {path}: {body}") from err
           return json.loads(body.decode()) if body else {}
 
 
@@ -174,7 +178,7 @@ let
                           f"addUserToGroup(userId: {quote(uid)}, groupId: {group_id}) "
                           "}",
                       )
-                  except RuntimeError as err:
+                  except Exception as err:
                       print(err, file=sys.stderr)
 
           print("lldap-provision: done")
