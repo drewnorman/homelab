@@ -1,4 +1,4 @@
-{ config, lib, pkgs, hostMeta, ... }:
+{ config, lib, pkgs, pkgsJellyfin, hostMeta, ... }:
 
 let
   domain = "lab.adre.me";
@@ -6,10 +6,10 @@ let
   enableTls = true;
   customAutheliaLogin = true;
   externalScheme = if enableTls then "https" else "http";
-  jellyfinLdapPluginVersion = "22.0.0.0";
+  jellyfinLdapPluginVersion = "23.0.0.0";
   jellyfinLdapPluginZip = pkgs.fetchurl {
     url = "https://repo.jellyfin.org/files/plugin/ldap-authentication/ldap-authentication_${jellyfinLdapPluginVersion}.zip";
-    hash = "sha256-wjhsABvkOcmUYoCgLWJhDynjJdQJToO9MSId4/eqIK4=";
+    hash = "sha256-lS4z+o06xRLMtcHi4cZVy7GVfkH6HwC9bM8wduBGdEY=";
   };
 
   local = {
@@ -725,6 +725,7 @@ in
 
   services.jellyfin = {
     enable = true;
+    package = pkgsJellyfin.jellyfin;
     openFirewall = false;
     group = "media";
   };

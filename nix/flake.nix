@@ -3,6 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    nixpkgs-jellyfin.url = "github:NixOS/nixpkgs/nixos-25.11";
 
     deploy-rs = {
       url = "github:serokell/deploy-rs";
@@ -22,11 +23,12 @@
     impermanence.url = "github:nix-community/impermanence";
   };
 
-  outputs = { self, nixpkgs, deploy-rs, sops-nix, nixos-generators, impermanence, ... }:
+  outputs = { self, nixpkgs, nixpkgs-jellyfin, deploy-rs, sops-nix, nixos-generators, impermanence, ... }:
     let
       system = "x86_64-linux";
       lib    = nixpkgs.lib;
       pkgs   = import nixpkgs { inherit system; };
+      pkgsJellyfin = import nixpkgs-jellyfin { inherit system; };
       hosts  = import ./lib/hosts.nix;
 
       coreHosts = [
@@ -43,6 +45,7 @@
           inherit system;
           specialArgs = {
             inherit sshAuthorizedKeys;
+            inherit pkgsJellyfin;
             hostMeta  = hosts.${name};
             flakeAttr = name;
           };
