@@ -20,7 +20,7 @@ output "service_hosts" {
     prometheus  = "prometheus.${var.search_domain}"
     alerts      = "alerts.${var.search_domain}"
     radarr      = "radarr.${var.search_domain}"
-    requests    = "requests.${var.search_domain}"
+    catalog     = "catalog.${var.search_domain}"
     sonarr      = "sonarr.${var.search_domain}"
     subtitles   = "subtitles.${var.search_domain}"
     tv          = "tv.${var.search_domain}"

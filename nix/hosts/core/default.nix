@@ -374,7 +374,7 @@ let
           "JellyseerrExcludeLibraryItems": "true",
           "JellyseerrExcludeBlocklistedItems": "false",
           "JellyseerrUseMoreInfoModal": "false",
-          "JellyseerrUrls": "https://requests.${domain}",
+          "JellyseerrUrls": "https://catalog.${domain}",
           "JellyseerrApiKey": os.environ.get("JELLYSEERR_API_KEY", ""),
           "JellyseerrUrlMappings": "",
           "JellyseerrAutoImportUsers": "true",
@@ -633,7 +633,7 @@ in
       "prometheus.${domain}" = mkVhost { backend = local.prometheus; sso = true; aliases = [ "metrics.${domain}" ]; };
       "alerts.${domain}" = mkVhost { backend = local.alertmanager; sso = true; };
       "jellyfin.${domain}" = mkJellyfinVhost { backend = local.jellyfin; aliases = [ "watch.${domain}" ]; };
-      "jellyseerr.${domain}" = mkVhost { backend = local.jellyseerr; aliases = [ "requests.${domain}" ]; };
+      "jellyseerr.${domain}" = mkVhost { backend = local.jellyseerr; aliases = [ "catalog.${domain}" ]; };
       "radarr.${domain}" = mkVhost { backend = local.radarr; sso = true; aliases = [ "movies.${domain}" ]; };
       "sonarr.${domain}" = mkVhost { backend = local.sonarr; sso = true; aliases = [ "tv.${domain}" ]; };
       "prowlarr.${domain}" = mkVhost { backend = local.prowlarr; sso = true; aliases = [ "indexers.${domain}" ]; };
