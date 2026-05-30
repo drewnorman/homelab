@@ -30,29 +30,34 @@ let
 
   mediaGroup = 1000;
 
-  # Disabled until the external SSD is attached to lab-core and its stable
-  # /dev/disk/by-label or /dev/disk/by-uuid path is confirmed.
   externalStorage = {
+    enable = true;
+    device = "/dev/disk/by-uuid/06d2efe6-c0b5-411c-8747-3a4ff0242979";
+    mountPoint = "/srv/storage/external";
+    fsType = "ext4";
+    options = [
+      "nofail"
+      "x-systemd.automount"
+      "x-systemd.idle-timeout=5min"
+    ];
     media = {
-      enable = false;
       mountPoint = "/srv/media";
-      device = "/dev/disk/by-label/homelab-media";
+      source = "/srv/storage/external/media";
       fsType = "ext4";
       options = [
+        "bind"
         "nofail"
-        "x-systemd.automount"
-        "x-systemd.idle-timeout=5min"
+        "x-systemd.requires-mounts-for=/srv/storage/external"
       ];
     };
     downloads = {
-      enable = false;
       mountPoint = "/srv/downloads";
-      device = "/dev/disk/by-label/homelab-downloads";
+      source = "/srv/storage/external/downloads";
       fsType = "ext4";
       options = [
+        "bind"
         "nofail"
-        "x-systemd.automount"
-        "x-systemd.idle-timeout=5min"
+        "x-systemd.requires-mounts-for=/srv/storage/external"
       ];
     };
   };
@@ -306,27 +311,31 @@ in
   users.groups.media = { gid = mediaGroup; };
   users.groups.lldap-secrets = {};
 
-  fileSystems =
-    lib.optionalAttrs externalStorage.media.enable {
-      ${externalStorage.media.mountPoint} = {
-        device = externalStorage.media.device;
-        fsType = externalStorage.media.fsType;
-        options = externalStorage.media.options;
-      };
-    } //
-    lib.optionalAttrs externalStorage.downloads.enable {
-      ${externalStorage.downloads.mountPoint} = {
-        device = externalStorage.downloads.device;
-        fsType = externalStorage.downloads.fsType;
-        options = externalStorage.downloads.options;
-      };
+  fileSystems = lib.optionalAttrs externalStorage.enable {
+    ${externalStorage.mountPoint} = {
+      device = externalStorage.device;
+      fsType = externalStorage.fsType;
+      options = externalStorage.options;
     };
+    ${externalStorage.media.mountPoint} = {
+      device = externalStorage.media.source;
+      fsType = "none";
+      options = externalStorage.media.options;
+    };
+    ${externalStorage.downloads.mountPoint} = {
+      device = externalStorage.downloads.source;
+      fsType = "none";
+      options = externalStorage.downloads.options;
+    };
+  };
 
   systemd.tmpfiles.rules = [
     "d /srv/homelab 0755 root root -"
     "d /srv/media 2775 root media -"
     "d /srv/media/movies 2775 root media -"
     "d /srv/media/tv 2775 root media -"
+    "d /srv/storage 0755 root root -"
+    "d /srv/storage/external 0755 root root -"
     "d /srv/downloads 2775 root media -"
     "d /srv/downloads/complete 2775 root media -"
     "d /srv/downloads/incomplete 2775 root media -"

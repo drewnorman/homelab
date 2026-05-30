@@ -96,7 +96,7 @@ For the default `norman` host, the managed address is:
 
 If stale provider-managed resources from optional Cloudflare or Tailscale management remain in state while those integrations are disabled, remove those stale state entries or re-enable the matching credentials before expecting a full clean plan.
 
-External SSD media for Jellyfin and the Arr stack is kept outside the VM root disk. Disabled mount scaffolding exists in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:27); enable it after confirming the drive's stable `/dev/disk/by-label` or `/dev/disk/by-uuid` path inside the VM.
+External SSD media for Jellyfin and the Arr stack is kept outside the VM root disk. The Samsung T7 is attached to VM 120 from Proxmox with `qm set` and mounted in NixOS by filesystem UUID; see [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:27).
 
 ### VM Template Assumptions
 
@@ -240,19 +240,30 @@ The default design keeps one Tailscale ingress point and uses nginx for `downloa
 
 ## Jellyfin Storage Model
 
-Jellyfin runs on `lab-core`. Its service data lives under the VM root disk, while media content is supplied by the external SSD mount when enabled.
+Jellyfin runs on `lab-core`. Its service data lives under the VM root disk, while media content is supplied by the external SSD mount.
 
 - Root filesystem is sized by `core_vm_disk_gb` on `core_vm_storage`; the default value is 96 GiB
 - Media stays on the external SSD
-- Mount the media path into the VM at `/srv/media`
+- The SSD filesystem is mounted at `/srv/storage/external`
+- `/srv/storage/external/media` is bind-mounted to `/srv/media`
+- `/srv/storage/external/downloads` is bind-mounted to `/srv/downloads`
 
-When no external media mount is configured, Jellyfin starts with an empty library.
+Current Proxmox attachment:
 
-Suggested pattern for an external SSD:
+```sh
+qm set 120 --scsi1 /dev/disk/by-id/usb-Samsung_PSSD_T7_S6X9NS0T907129W-0:0,backup=0,discard=on,ssd=1
+```
+
+Current NixOS mount source:
+
+```sh
+/dev/disk/by-uuid/06d2efe6-c0b5-411c-8747-3a4ff0242979
+```
+
+If the SSD is replaced:
 
 1. Attach or pass through the SSD to the VM.
 2. Confirm the stable device path with `ls -l /dev/disk/by-label /dev/disk/by-uuid`.
-3. Update `externalStorage.media.device` in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:27).
-4. Set `externalStorage.media.enable = true` and deploy `.#core`.
-5. Mount it at `/srv/media`.
-6. Point Jellyfin, Radarr, and Sonarr at `/srv/media/movies` and `/srv/media/tv`.
+3. Update `externalStorage.device` in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:27).
+4. Deploy `.#core`.
+5. Point Jellyfin, Radarr, and Sonarr at `/srv/media/movies` and `/srv/media/tv`.
