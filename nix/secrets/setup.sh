@@ -61,53 +61,76 @@ cd "$SECRETS_DIR"
 # Cloudflare DNS API token for nginx/security.acme DNS-01 challenges.
 # Value must be in KEY=VALUE format (systemd EnvironmentFile).
 
-: "${CLOUDFLARE_DNS_API_TOKEN:?CLOUDFLARE_DNS_API_TOKEN not set in .env}"
-: "${TAILSCALE_AUTH_KEY:?TAILSCALE_AUTH_KEY not set in .env}"
+if [[ -f edge.yaml && "$FORCE" != "--force" ]]; then
+  info "skipping edge.yaml (already exists; pass --force to overwrite)"
+else
+  : "${CLOUDFLARE_DNS_API_TOKEN:?CLOUDFLARE_DNS_API_TOKEN not set in .env}"
+  : "${TAILSCALE_AUTH_KEY:?TAILSCALE_AUTH_KEY not set in .env}"
 
-encrypt_secret edge.yaml "$(cat <<EOF
+  encrypt_secret edge.yaml "$(cat <<EOF
 cloudflare-dns-api-token: "CLOUDFLARE_DNS_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN}"
 tailscale-auth-key: "${TAILSCALE_AUTH_KEY}"
 EOF
 )"
+fi
 
 # ---- lldap ------------------------------------------------------------------
 
-if [[ -z "${LLDAP_ADMIN_PASSWORD:-}" ]]; then
-  read -rsp "LLDAP admin password (will also be used as Authelia bind password): " LLDAP_ADMIN_PASSWORD
-  echo
-fi
-[[ -n "$LLDAP_ADMIN_PASSWORD" ]] || die "LLDAP_ADMIN_PASSWORD must not be empty"
+if [[ -f lldap.yaml && "$FORCE" != "--force" ]]; then
+  info "skipping lldap.yaml (already exists; pass --force to overwrite)"
+else
+  if [[ -z "${LLDAP_ADMIN_PASSWORD:-}" ]]; then
+    read -rsp "LLDAP admin password (will also be used as Authelia bind password): " LLDAP_ADMIN_PASSWORD
+    echo
+  fi
+  [[ -n "$LLDAP_ADMIN_PASSWORD" ]] || die "LLDAP_ADMIN_PASSWORD must not be empty"
 
-if [[ -z "${LLDAP_USER_DREW_PASSWORD:-}" ]]; then
-  read -rsp "Password for LLDAP user 'drew': " LLDAP_USER_DREW_PASSWORD
-  echo
-fi
-[[ -n "$LLDAP_USER_DREW_PASSWORD" ]] || die "LLDAP_USER_DREW_PASSWORD must not be empty"
+  if [[ -z "${LLDAP_USER_DREW_PASSWORD:-}" ]]; then
+    read -rsp "Password for LLDAP user 'drew': " LLDAP_USER_DREW_PASSWORD
+    echo
+  fi
+  [[ -n "$LLDAP_USER_DREW_PASSWORD" ]] || die "LLDAP_USER_DREW_PASSWORD must not be empty"
 
-LLDAP_JWT_SECRET=$(openssl rand -hex 32)
+  if [[ -z "${LLDAP_USER_ANGELA_PASSWORD:-}" ]]; then
+    read -rsp "Password for LLDAP user 'angela': " LLDAP_USER_ANGELA_PASSWORD
+    echo
+  fi
+  [[ -n "$LLDAP_USER_ANGELA_PASSWORD" ]] || die "LLDAP_USER_ANGELA_PASSWORD must not be empty"
 
-encrypt_secret lldap.yaml "$(cat <<EOF
+  LLDAP_JWT_SECRET=$(openssl rand -hex 32)
+
+  encrypt_secret lldap.yaml "$(cat <<EOF
 lldap-jwt-secret: "${LLDAP_JWT_SECRET}"
 lldap-admin-password: "${LLDAP_ADMIN_PASSWORD}"
 lldap-user-drew-password: "${LLDAP_USER_DREW_PASSWORD}"
-tailscale-auth-key: "${TAILSCALE_AUTH_KEY}"
+lldap-user-angela-password: "${LLDAP_USER_ANGELA_PASSWORD}"
 EOF
 )"
+fi
 
 # ---- authelia ---------------------------------------------------------------
 
-AUTHELIA_JWT_SECRET=$(openssl rand -hex 32)
-AUTHELIA_SESSION_SECRET=$(openssl rand -hex 32)
-AUTHELIA_STORAGE_ENCRYPTION_KEY=$(openssl rand -hex 32)
+if [[ -f authelia.yaml && "$FORCE" != "--force" ]]; then
+  info "skipping authelia.yaml (already exists; pass --force to overwrite)"
+else
+  if [[ -z "${LLDAP_ADMIN_PASSWORD:-}" ]]; then
+    read -rsp "LLDAP admin password (will also be used as Authelia bind password): " LLDAP_ADMIN_PASSWORD
+    echo
+  fi
+  [[ -n "$LLDAP_ADMIN_PASSWORD" ]] || die "LLDAP_ADMIN_PASSWORD must not be empty"
 
-encrypt_secret authelia.yaml "$(cat <<EOF
+  AUTHELIA_JWT_SECRET=$(openssl rand -hex 32)
+  AUTHELIA_SESSION_SECRET=$(openssl rand -hex 32)
+  AUTHELIA_STORAGE_ENCRYPTION_KEY=$(openssl rand -hex 32)
+
+  encrypt_secret authelia.yaml "$(cat <<EOF
 authelia-jwt-secret: "${AUTHELIA_JWT_SECRET}"
 authelia-session-secret: "${AUTHELIA_SESSION_SECRET}"
 authelia-storage-encryption-key: "${AUTHELIA_STORAGE_ENCRYPTION_KEY}"
 authelia-lldap-password: "${LLDAP_ADMIN_PASSWORD}"
-tailscale-auth-key: "${TAILSCALE_AUTH_KEY}"
 EOF
 )"
+fi
 
 # ---- qbittorrent ------------------------------------------------------------
 # Paste your Proton VPN WireGuard config when prompted (the full [Interface]/

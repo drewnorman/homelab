@@ -4,6 +4,7 @@ let
   domain = "lab.adre.me";
   baseDn = "dc=lab,dc=adre,dc=me";
   enableTls = true;
+  customAutheliaLogin = true;
   externalScheme = if enableTls then "https" else "http";
 
   local = {
@@ -105,7 +106,7 @@ let
       cssPath = "/homelab-authelia.css";
       base = mkVhost { backend = local.authelia; };
     in
-      base // {
+      if !customAutheliaLogin then base else base // {
         locations = base.locations // {
           "= ${backgroundPath}" = {
             extraConfig = ''
@@ -254,6 +255,12 @@ in
     group = "lldap-secrets";
     mode = "0440";
   };
+  sops.secrets."lldap-user-angela-password" = {
+    sopsFile = ../../secrets/lldap.yaml;
+    owner = "root";
+    group = "lldap-secrets";
+    mode = "0440";
+  };
   sops.secrets.authelia-jwt-secret = {
     sopsFile = ../../secrets/authelia.yaml;
     owner = "authelia-main";
@@ -302,19 +309,19 @@ in
     recommendedGzipSettings = true;
 
     virtualHosts = {
-      "auth.${domain}" = mkAutheliaVhost;
-      "users.${domain}" = mkVhost { backend = local.lldapHttp; aliases = [ "lldap.${domain}" ]; };
-      "adguard.${domain}" = mkVhost { backend = local.adguard; sso = true; };
+      "auth.${domain}" = mkAutheliaVhost // { serverAliases = [ "sso.${domain}" ]; };
+      "users.${domain}" = mkVhost { backend = local.lldapHttp; };
+      "adguard.${domain}" = mkVhost { backend = local.adguard; sso = true; aliases = [ "dns.${domain}" ]; };
       "${domain}" = mkVhost { backend = local.grafana; sso = true; };
-      "grafana.${domain}" = mkVhost { backend = local.grafana; sso = true; };
-      "prometheus.${domain}" = mkVhost { backend = local.prometheus; sso = true; };
-      "alerts.${domain}" = mkVhost { backend = local.alertmanager; sso = true; aliases = [ "alertmanager.${domain}" ]; };
+      "grafana.${domain}" = mkVhost { backend = local.grafana; sso = true; aliases = [ "status.${domain}" ]; };
+      "prometheus.${domain}" = mkVhost { backend = local.prometheus; sso = true; aliases = [ "metrics.${domain}" ]; };
+      "alerts.${domain}" = mkVhost { backend = local.alertmanager; sso = true; };
       "jellyfin.${domain}" = mkVhost { backend = local.jellyfin; sso = true; aliases = [ "watch.${domain}" ]; };
       "radarr.${domain}" = mkVhost { backend = local.radarr; sso = true; aliases = [ "movies.${domain}" ]; };
       "sonarr.${domain}" = mkVhost { backend = local.sonarr; sso = true; aliases = [ "tv.${domain}" ]; };
       "prowlarr.${domain}" = mkVhost { backend = local.prowlarr; sso = true; aliases = [ "indexers.${domain}" ]; };
       "bazarr.${domain}" = mkVhost { backend = local.bazarr; sso = true; aliases = [ "subtitles.${domain}" ]; };
-      "qbittorrent.${domain}" = mkVhost { backend = local.qbittorrent; sso = true; aliases = [ "downloads.${domain}" ]; };
+      "qbittorrent.${domain}" = mkVhost { backend = local.qbittorrent; sso = true; aliases = [ "torrents.${domain}" ]; };
     };
   };
 
@@ -385,6 +392,7 @@ in
       adminPasswordFile = config.sops.secrets.lldap-admin-password.path;
       groups = [
         { name = "lldap_strict_readonly"; displayName = "LLDAP Read-Only"; }
+        { name = "homelab_admins"; displayName = "Homelab Admins"; }
         { name = "media"; displayName = "Media Users"; }
       ];
       users = [
@@ -392,8 +400,15 @@ in
           username = "drew";
           email = "drewnorman739@gmail.com";
           displayName = "Drew Norman";
-          groups = [ "lldap_strict_readonly" "media" ];
+          groups = [ "lldap_strict_readonly" "homelab_admins" "media" ];
           passwordFile = config.sops.secrets."lldap-user-drew-password".path;
+        }
+        {
+          username = "angela";
+          email = "angela@${domain}";
+          displayName = "Angela";
+          groups = [ "media" ];
+          passwordFile = config.sops.secrets."lldap-user-angela-password".path;
         }
       ];
     };
@@ -410,6 +425,7 @@ in
       theme = "auto";
       server = {
         address = "tcp://127.0.0.1:9091";
+      } // lib.optionalAttrs customAutheliaLogin {
         asset_path = ../../assets/authelia;
       };
       log = {
@@ -427,7 +443,44 @@ in
         base_dn = baseDn;
         user = "uid=admin,ou=people,${baseDn}";
       };
-      access_control.default_policy = "one_factor";
+      access_control = {
+        default_policy = "deny";
+        rules = [
+          {
+            domain = [
+              "users.${domain}"
+              "adguard.${domain}"
+              "dns.${domain}"
+              domain
+              "grafana.${domain}"
+              "status.${domain}"
+              "prometheus.${domain}"
+              "metrics.${domain}"
+              "alerts.${domain}"
+              "prowlarr.${domain}"
+              "indexers.${domain}"
+            ];
+            policy = "one_factor";
+            subject = [ "group:homelab_admins" ];
+          }
+          {
+            domain = [
+              "jellyfin.${domain}"
+              "watch.${domain}"
+              "radarr.${domain}"
+              "movies.${domain}"
+              "sonarr.${domain}"
+              "tv.${domain}"
+              "bazarr.${domain}"
+              "subtitles.${domain}"
+              "qbittorrent.${domain}"
+              "torrents.${domain}"
+            ];
+            policy = "one_factor";
+            subject = [ "group:media" ];
+          }
+        ];
+      };
       session.cookies = [
         {
           name = "authelia_session";
@@ -463,7 +516,22 @@ in
         domain = "grafana.${domain}";
         root_url = "${externalScheme}://grafana.${domain}";
       };
-      users.allow_sign_up = false;
+      auth = {
+        disable_login_form = true;
+        disable_signout_menu = true;
+      };
+      "auth.proxy" = {
+        enabled = true;
+        header_name = "Remote-User";
+        header_property = "username";
+        auto_sign_up = true;
+        whitelist = "127.0.0.1";
+        headers = "Name:Remote-Name Email:Remote-Email Groups:Remote-Groups";
+      };
+      users = {
+        allow_sign_up = false;
+        auto_assign_org_role = "Admin";
+      };
       analytics.reporting_enabled = false;
     };
     provision = {
@@ -562,6 +630,29 @@ in
     group = "media";
   };
 
+  systemd.services.radarr.preStart = ''
+    cfg=/var/lib/radarr/.config/Radarr/config.xml
+    if [ -f "$cfg" ]; then
+      ${pkgs.xmlstarlet}/bin/xmlstarlet ed -L \
+        -u "/Config/AuthenticationMethod[1]" -v "External" \
+        -d "/Config/AuthenticationMethod[position()>1]" \
+        -u "/Config/AuthenticationRequired[1]" -v "DisabledForLocalAddresses" \
+        -d "/Config/AuthenticationRequired[position()>1]" \
+        "$cfg"
+    fi
+  '';
+  systemd.services.sonarr.preStart = ''
+    cfg=/var/lib/sonarr/.config/NzbDrone/config.xml
+    if [ -f "$cfg" ]; then
+      ${pkgs.xmlstarlet}/bin/xmlstarlet ed -L \
+        -u "/Config/AuthenticationMethod[1]" -v "External" \
+        -d "/Config/AuthenticationMethod[position()>1]" \
+        -u "/Config/AuthenticationRequired[1]" -v "DisabledForLocalAddresses" \
+        -d "/Config/AuthenticationRequired[position()>1]" \
+        "$cfg"
+    fi
+  '';
+
   services.radarr = { enable = true; group = "media"; openFirewall = false; };
   services.sonarr = { enable = true; group = "media"; openFirewall = false; };
   services.prowlarr = { enable = true; openFirewall = false; };
@@ -581,6 +672,31 @@ in
     wantedBy = [ "multi-user.target" ];
     preStart = ''
       cfg=/var/lib/qbittorrent/qBittorrent/qBittorrent.conf
+      set_pref() {
+        key="$1"
+        value="$2"
+        tmp="$(mktemp)"
+        found=0
+        while IFS= read -r line; do
+          case "''${line%%=*}" in
+            WebUILocalHostAuth|WebUIAuthSubnetWhitelist|WebUIAuthSubnetWhitelistEnabled|WebUIUseUPnP)
+              continue
+              ;;
+          esac
+          if [ "''${line%%=*}" = "$key" ]; then
+            printf '%s=%s\n' "$key" "$value"
+            found=1
+          else
+            printf '%s\n' "$line"
+          fi
+        done < "$cfg" > "$tmp"
+        if [ "$found" -eq 0 ]; then
+          printf '%s=%s\n' "$key" "$value" >> "$tmp"
+        fi
+        cat "$tmp" > "$cfg"
+        rm -f "$tmp"
+      }
+
       if [ ! -f "$cfg" ]; then
         mkdir -p "$(dirname "$cfg")"
         cat > "$cfg" <<'EOF'
@@ -588,9 +704,12 @@ in
 Session\DefaultSavePath=/srv/downloads/
 Session\TempPath=/srv/downloads/incomplete/
 [Preferences]
-WebUI\LocalHostAuth=false
 EOF
       fi
+      set_pref 'WebUI\LocalHostAuth' 'false'
+      set_pref 'WebUI\AuthSubnetWhitelist' '127.0.0.1/32,192.168.1.0/24'
+      set_pref 'WebUI\AuthSubnetWhitelistEnabled' 'true'
+      set_pref 'WebUI\UseUPnP' 'false'
     '';
     serviceConfig = {
       User = "qbittorrent";
