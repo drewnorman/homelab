@@ -73,8 +73,8 @@ OpenTofu configuration without touching remote state. Deploys stay manual from
 a trusted machine over SSH/Tailscale with deploy-rs.
 
 Recommended GitHub protection for this homelab is intentionally small: protect
-`master`, require pull requests before merging, require the `ci / nix` and
-`ci / opentofu` checks, require branches to be up to date before merge, and
+`master`, require pull requests before merging, require the `nix` and
+`opentofu` checks, require branches to be up to date before merge, and
 allow administrators to bypass only for emergency break-glass fixes.
 
 If Nix is not installed locally, run deploys through Podman with a persistent
