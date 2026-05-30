@@ -1,12 +1,12 @@
-# Homelab OpenTofu
+# Homelab
 
 This repo manages one consolidated NixOS VM:
 
 - `lab-core` as a NixOS VM for DNS, reverse proxy, TLS, Tailscale, auth, monitoring, media apps, and downloads
 - reproducible service configuration through OpenTofu, NixOS, deploy-rs, and sops-nix
-- external SSD media/download content is managed outside the VM root disk and can be mounted at `/srv/media`
+- external SSD media/download content is managed outside the VM root disk and mounted at `/srv/media` and `/srv/downloads`
 
-The checked-in defaults are for the Proxmox node `norman` at `192.168.1.200` on `192.168.1.0/24`. The Proxmox host IP is managed outside this project and is not changed by Terraform.
+The checked-in defaults are for the Proxmox node `norman` at `192.168.1.200` on `192.168.1.0/24`. The Proxmox host IP is managed outside this project and is not changed by OpenTofu.
 
 ## Architecture
 
@@ -16,7 +16,7 @@ The control plane is intentionally split by ownership:
 - NixOS owns guest configuration: users, services, secrets, firewall rules, app settings, and package state.
 - deploy-rs is the NixOS deployment path. Host self-upgrade is disabled by default so deploy failures have one primary control loop to inspect.
 
-Reproducibility comes from the checked-in Terraform, Nix flake, host metadata, service modules, and encrypted sops files. Runtime content such as media files and application databases is intentionally outside the declarative source of truth unless a service module explicitly manages it.
+Reproducibility comes from the checked-in OpenTofu configuration, Nix flake, host metadata, service modules, and encrypted sops files. Runtime content such as media files and application databases is intentionally outside the declarative source of truth unless a service module explicitly manages it.
 
 ## Prerequisites
 
@@ -24,10 +24,11 @@ Reproducibility comes from the checked-in Terraform, Nix flake, host metadata, s
 - A Proxmox API token with permissions to create and manage the `lab-core` VM
 - A NixOS cloud-init VM template in Proxmox for `lab-core`
 - A local `.env` file exporting secret `TF_VAR_*` values plus `TF_VAR_ssh_public_key`
+- A `terraform/terraform.tfvars` file based on `terraform/terraform.tfvars.example`
 
 ## Secrets
 
-Create a local `.env` and load it before running OpenTofu:
+Create `terraform/terraform.tfvars`, then create and load a local `.env` before running OpenTofu:
 
 ```sh
 cp terraform/terraform.tfvars.example terraform/terraform.tfvars
@@ -106,7 +107,7 @@ For the default `norman` host, the managed address is:
 
 If stale provider-managed resources from optional Cloudflare or Tailscale management remain in state while those integrations are disabled, remove those stale state entries or re-enable the matching credentials before expecting a full clean plan.
 
-External SSD media for Jellyfin and the Arr stack is kept outside the VM root disk. OpenTofu attaches the Samsung T7 partition to VM 120 with a root-only Proxmox `qm set` provisioner, and NixOS mounts it by filesystem UUID; see [terraform/core-vm.tf](/home/drew/code/personal/homelab/terraform/core-vm.tf:1) and [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:27).
+External SSD media for Jellyfin and the Arr stack is kept outside the VM root disk. OpenTofu attaches the Samsung T7 partition to `core_vm_id` with a root-only Proxmox `qm set` provisioner, and NixOS mounts it by filesystem UUID; see [terraform/core-vm.tf](/home/drew/code/personal/homelab/terraform/core-vm.tf:1) and [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:422).
 
 ### VM Template Assumptions
 
@@ -129,7 +130,7 @@ If the Proxmox template uses different names, update those host metadata fields 
 - Authelia and LLDAP for auth
 - Dashy for the LAN service portal
 - Grafana, Prometheus, Alertmanager, blackbox exporter, and node exporter for monitoring
-- Jellyfin, Radarr, Sonarr, Prowlarr, Bazarr, and qBittorrent
+- Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, Bazarr, and qBittorrent
 
 For local-only HTTPS:
 
@@ -141,18 +142,20 @@ For local-only HTTPS:
 Friendly service names are preferred for day-to-day use:
 
 - `lab.adre.me` for the service portal
+- `dns.lab.adre.me` for AdGuard Home
 - `grafana.lab.adre.me` or `status.lab.adre.me` for Grafana
 - `logs.lab.adre.me` for live service logs in Grafana Explore
 - `prometheus.lab.adre.me` for Prometheus
 - `alerts.lab.adre.me` for Alertmanager
 - `watch.lab.adre.me` for Jellyfin
+- `catalog.lab.adre.me` for Jellyseerr
 - `movies.lab.adre.me` for Radarr
 - `tv.lab.adre.me` for Sonarr
 - `indexers.lab.adre.me` for Prowlarr
 - `subtitles.lab.adre.me` for Bazarr
 - `torrents.lab.adre.me` for qBittorrent
 
-The app-native names such as `jellyfin.lab.adre.me`, `radarr.lab.adre.me`, `sonarr.lab.adre.me`, `prowlarr.lab.adre.me`, `bazarr.lab.adre.me`, and `qbittorrent.lab.adre.me` remain valid aliases.
+The app-native names such as `adguard.lab.adre.me`, `jellyfin.lab.adre.me`, `jellyseerr.lab.adre.me`, `radarr.lab.adre.me`, `sonarr.lab.adre.me`, `prowlarr.lab.adre.me`, `bazarr.lab.adre.me`, and `qbittorrent.lab.adre.me` remain valid aliases.
 
 ### Monitoring
 
@@ -200,7 +203,7 @@ OpenTofu can manage public Cloudflare DNS records. The checked-in example includ
 
 The NixOS core module requests a certificate for both `lab.adre.me` and `*.lab.adre.me` and wires that certificate into nginx.
 
-Additional app hostnames should be added to the nginx virtual hosts in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:229). The wildcard DNS rewrite means any `*.lab.adre.me` hostname will already resolve to `lab-core`; you only need to tell nginx which upstream each hostname should proxy to.
+Additional app hostnames should be added to the nginx virtual hosts in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:1021). The wildcard DNS rewrite means any `*.lab.adre.me` hostname will already resolve to `lab-core`; you only need to tell nginx which upstream each hostname should proxy to.
 
 ### Remote Access with Tailscale
 
@@ -291,6 +294,6 @@ If the SSD is replaced:
 
 1. Attach or pass through the SSD to the VM.
 2. Confirm the stable device path with `ls -l /dev/disk/by-label /dev/disk/by-uuid`.
-3. Update `externalStorage.device` in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:27).
+3. Update `externalStorage.device` in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:422).
 4. Deploy `.#core`.
 5. Point Jellyfin, Radarr, and Sonarr at `/srv/media/movies` and `/srv/media/tv`.
