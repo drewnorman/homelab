@@ -25,8 +25,8 @@ output "service_hosts" {
     subtitles   = "subtitles.${var.search_domain}"
     tv          = "tv.${var.search_domain}"
     watch       = "watch.${var.search_domain}"
-    downloads   = "downloads.${var.search_domain}"
     qbittorrent = "qbittorrent.${var.search_domain}"
+    torrents    = "torrents.${var.search_domain}"
   }
 }
 

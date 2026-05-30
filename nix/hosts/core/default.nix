@@ -928,9 +928,9 @@ in
           { targets = [ "https://watch.${domain}" ]; labels = { service = "jellyfin"; tier = "media"; }; }
           { targets = [ "https://movies.${domain}" ]; labels = { service = "radarr"; tier = "media"; }; }
           { targets = [ "https://tv.${domain}" ]; labels = { service = "sonarr"; tier = "media"; }; }
-          { targets = [ "https://search.${domain}" ]; labels = { service = "prowlarr"; tier = "media"; }; }
+          { targets = [ "https://indexers.${domain}" ]; labels = { service = "prowlarr"; tier = "media"; }; }
           { targets = [ "https://subtitles.${domain}" ]; labels = { service = "bazarr"; tier = "media"; }; }
-          { targets = [ "https://downloads.${domain}" ]; labels = { service = "qbittorrent"; tier = "downloads"; }; }
+          { targets = [ "https://torrents.${domain}" ]; labels = { service = "qbittorrent"; tier = "downloads"; }; }
         ];
         relabel_configs = [
           {

@@ -135,9 +135,9 @@ Friendly service names are preferred for day-to-day use:
 - `watch.lab.adre.me` for Jellyfin
 - `movies.lab.adre.me` for Radarr
 - `tv.lab.adre.me` for Sonarr
-- `search.lab.adre.me` or `indexers.lab.adre.me` for Prowlarr
+- `indexers.lab.adre.me` for Prowlarr
 - `subtitles.lab.adre.me` for Bazarr
-- `downloads.lab.adre.me` or `torrents.lab.adre.me` for qBittorrent
+- `torrents.lab.adre.me` for qBittorrent
 
 The app-native names such as `jellyfin.lab.adre.me`, `radarr.lab.adre.me`, `sonarr.lab.adre.me`, `prowlarr.lab.adre.me`, `bazarr.lab.adre.me`, and `qbittorrent.lab.adre.me` remain valid aliases.
 
@@ -230,11 +230,11 @@ enable_tailscale_core_device_management = true
 
 That second apply approves the advertised subnet route and disables key expiry for the managed Tailscale device.
 
-Once approved, remote clients connected to your tailnet should resolve `jellyfin.lab.adre.me`, `movies.lab.adre.me`, `downloads.lab.adre.me`, and other configured lab hosts through AdGuard, then reach nginx on `lab-core` over Tailscale.
+Once approved, remote clients connected to your tailnet should resolve `jellyfin.lab.adre.me`, `movies.lab.adre.me`, `torrents.lab.adre.me`, and other configured lab hosts through AdGuard, then reach nginx on `lab-core` over Tailscale.
 
 ### qBittorrent
 
-qBittorrent runs on `lab-core` with declarative service config. When the Arr stack is used, Radarr and Sonarr should point at `127.0.0.1:8080` or `downloads.lab.adre.me`.
+qBittorrent runs on `lab-core` with declarative service config. When the Arr stack is used, Radarr and Sonarr should point at `127.0.0.1:8080` or `torrents.lab.adre.me`.
 
 The qBittorrent NixOS module runs `qbittorrent-nox` on port `8080` with persisted config under `/var/lib/qbittorrent`. VPN isolation is not implemented in the NixOS module; add WireGuard and firewall policy there before relying on this host for VPN-bound downloads.
 
@@ -244,7 +244,7 @@ Remote access flows through Tailscale on `lab-core`:
 remote client -> Tailscale -> lab-core nginx -> qBittorrent:8080
 ```
 
-The default design keeps one Tailscale ingress point and uses nginx for `downloads.lab.adre.me`.
+The default design keeps one Tailscale ingress point and uses nginx for `torrents.lab.adre.me`.
 
 ## Jellyfin Storage Model
 
