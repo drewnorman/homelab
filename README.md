@@ -117,7 +117,8 @@ If the Proxmox template uses different names, update those host metadata fields 
 - nginx and ACME for local HTTPS
 - Tailscale for remote private access
 - Authelia and LLDAP for auth
-- Grafana, Prometheus, Alertmanager, and node exporter for monitoring
+- Dashy for the LAN service portal
+- Grafana, Prometheus, Alertmanager, blackbox exporter, and node exporter for monitoring
 - Jellyfin, Radarr, Sonarr, Prowlarr, Bazarr, and qBittorrent
 
 For local-only HTTPS:
@@ -129,25 +130,34 @@ For local-only HTTPS:
 
 Friendly service names are preferred for day-to-day use:
 
-- `lab.adre.me` or `grafana.lab.adre.me` for Grafana
+- `lab.adre.me` for the service portal
+- `grafana.lab.adre.me` or `status.lab.adre.me` for Grafana
 - `prometheus.lab.adre.me` for Prometheus
 - `alerts.lab.adre.me` for Alertmanager
 - `watch.lab.adre.me` for Jellyfin
 - `movies.lab.adre.me` for Radarr
 - `tv.lab.adre.me` for Sonarr
-- `search.lab.adre.me` or `indexers.lab.adre.me` for Prowlarr
+- `indexers.lab.adre.me` for Prowlarr
 - `subtitles.lab.adre.me` for Bazarr
-- `downloads.lab.adre.me` or `torrents.lab.adre.me` for qBittorrent
+- `torrents.lab.adre.me` for qBittorrent
 
 The app-native names such as `jellyfin.lab.adre.me`, `radarr.lab.adre.me`, `sonarr.lab.adre.me`, `prowlarr.lab.adre.me`, `bazarr.lab.adre.me`, and `qbittorrent.lab.adre.me` remain valid aliases.
 
 ### Monitoring
 
-In the single VM layout, `lab-core` runs Grafana, Prometheus, Alertmanager, and node exporter locally.
+In the single VM layout, `lab-core` runs Grafana, Prometheus, Alertmanager, blackbox exporter, and node exporter locally.
 
-Grafana is the default dashboard at `https://lab.adre.me` and is also available at `https://grafana.lab.adre.me`. Prometheus and Alertmanager are proxied through nginx at `https://prometheus.lab.adre.me` and `https://alerts.lab.adre.me`; these routes use the same Authelia forward-auth guard as the other internal admin tools.
+Dashy is the default portal at `https://lab.adre.me`. nginx guards the portal with Authelia and forwards the authenticated user to Dashy so the dashboard can hide sections by user. Grafana remains available at `https://grafana.lab.adre.me` and `https://status.lab.adre.me`. Prometheus and Alertmanager are proxied through nginx at `https://prometheus.lab.adre.me` and `https://alerts.lab.adre.me`; these routes use the same Authelia forward-auth guard as the other internal admin tools.
 
-The provisioned dashboard covers host availability, CPU, memory, root filesystem usage, and load average. Prometheus includes initial alerts for node exporter outages, high memory usage, and root filesystem usage over 85%. The default Alertmanager receiver is intentionally a no-op until a notification target is added.
+The provisioned Grafana dashboards cover homelab overview, host health, service health, and storage/media state. Prometheus checks node exporter, failed systemd units, key filesystem usage, read-only filesystems, public service endpoints, response latency, and TLS expiry.
+
+Alertmanager sends warning and critical alerts to Slack through an incoming webhook. Create a dedicated free Slack workspace and a `#homelab-alerts` channel, then set the webhook URL in `.env` before running `nix/secrets/setup.sh`:
+
+```sh
+export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+```
+
+The webhook is stored as the `slack-webhook-url` key in `nix/secrets/edge.yaml`; do not commit the raw URL. Informational alerts remain visible in Prometheus/Alertmanager/Grafana without Slack notifications.
 
 The wildcard certificate is issued with DNS-01 validation through Cloudflare using NixOS `security.acme`. DNS-01 proves ownership by creating temporary `_acme-challenge.lab.adre.me` TXT records, so ports 80 and 443 do not need to be exposed publicly.
 
@@ -222,11 +232,11 @@ enable_tailscale_core_device_management = true
 
 That second apply approves the advertised subnet route and disables key expiry for the managed Tailscale device.
 
-Once approved, remote clients connected to your tailnet should resolve `jellyfin.lab.adre.me`, `movies.lab.adre.me`, `downloads.lab.adre.me`, and other configured lab hosts through AdGuard, then reach nginx on `lab-core` over Tailscale.
+Once approved, remote clients connected to your tailnet should resolve `jellyfin.lab.adre.me`, `movies.lab.adre.me`, `torrents.lab.adre.me`, and other configured lab hosts through AdGuard, then reach nginx on `lab-core` over Tailscale.
 
 ### qBittorrent
 
-qBittorrent runs on `lab-core` with declarative service config. When the Arr stack is used, Radarr and Sonarr should point at `127.0.0.1:8080` or `downloads.lab.adre.me`.
+qBittorrent runs on `lab-core` with declarative service config. When the Arr stack is used, Radarr and Sonarr should point at `127.0.0.1:8080` or `torrents.lab.adre.me`.
 
 The qBittorrent NixOS module runs `qbittorrent-nox` on port `8080` with persisted config under `/var/lib/qbittorrent`. VPN isolation is not implemented in the NixOS module; add WireGuard and firewall policy there before relying on this host for VPN-bound downloads.
 
@@ -236,7 +246,7 @@ Remote access flows through Tailscale on `lab-core`:
 remote client -> Tailscale -> lab-core nginx -> qBittorrent:8080
 ```
 
-The default design keeps one Tailscale ingress point and uses nginx for `downloads.lab.adre.me`.
+The default design keeps one Tailscale ingress point and uses nginx for `torrents.lab.adre.me`.
 
 ## Jellyfin Storage Model
 

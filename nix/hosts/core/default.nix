@@ -32,6 +32,350 @@ let
     prowlarr    = "127.0.0.1:9696";
     bazarr      = "127.0.0.1:6767";
     qbittorrent = "127.0.0.1:8080";
+    blackbox    = "127.0.0.1:9115";
+    dashy       = "127.0.0.1:8082";
+  };
+
+  yaml = pkgs.formats.yaml { };
+  dashyCustomCss = ''
+    :root {
+      --primary: #2f855a;
+      --success: #2f855a;
+      --warning: #d69e2e;
+      --danger: #c53030;
+      --info: #3182ce;
+      --neutral: #334155;
+      --medium-grey: #334155;
+      --dimming-factor: 0.9;
+      --background: #f4f7fb;
+      --background-darker: rgba(255, 255, 255, 0.92);
+      --foreground: #17212b;
+      --item-group-background: rgba(255, 255, 255, 0.88);
+      --item-background: rgba(255, 255, 255, 0.94);
+      --item-background-hover: #ffffff;
+      --item-text-color: #17212b;
+      --item-text-color-hover: #17212b;
+      --item-group-heading-text-color: #17212b;
+      --heading-text-color: #17212b;
+      --nav-link-text-color: #17212b;
+      --nav-link-background-color: rgba(255, 255, 255, 0.88);
+      --nav-link-background-color-hover: #ffffff;
+      --nav-link-border-color: rgba(23, 33, 43, 0.16);
+      --nav-link-border-color-hover: rgba(47, 133, 90, 0.42);
+      --widget-text-color: #17212b;
+      --widget-background-color: rgba(255, 255, 255, 0.94);
+      --widget-accent-color: #2f855a;
+      --status-check-tooltip-background: #ffffff;
+      --status-check-tooltip-color: #17212b;
+      --curve-factor: 8px;
+    }
+
+    html {
+      background: #f4f7fb !important;
+    }
+
+    html body {
+      min-height: 100vh;
+      background: transparent !important;
+      color: #17212b;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: -16px;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(244, 247, 251, 0.56), rgba(244, 247, 251, 0.76)),
+        url("/homelab-background.jpg") center bottom / cover no-repeat;
+      filter: blur(6px);
+      transform: scale(1.02);
+    }
+
+    #app {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+    }
+
+    #dashy,
+    .home {
+      background: transparent !important;
+    }
+
+    header {
+      background: rgba(255, 255, 255, 0.76) !important;
+      backdrop-filter: blur(8px);
+      color: #17212b !important;
+    }
+
+    button.options-trigger {
+      background: rgba(255, 255, 255, 0.88) !important;
+      border: 1px solid rgba(23, 33, 43, 0.16) !important;
+      color: #17212b !important;
+    }
+
+    .options-outer {
+      border-radius: 0 !important;
+    }
+
+    .search-wrap .web-search-note {
+      display: none !important;
+    }
+
+    .status-pill {
+      border-radius: 999px !important;
+      padding: 0.16rem 0.55rem !important;
+      letter-spacing: 0 !important;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.86), 0 4px 12px rgba(12, 20, 28, 0.24);
+    }
+
+    .status-pill.status-valid {
+      background: #2f855a !important;
+      color: #ffffff !important;
+    }
+
+    .status-pill.status-error {
+      background: #c53030 !important;
+      color: #ffffff !important;
+    }
+
+    .status-pill.status-loading,
+    .status-pill.status-unknown {
+      background: #edf2f7 !important;
+      color: #17212b !important;
+    }
+  '';
+  dashyConfig = yaml.generate "dashy-conf.yml" {
+    pageInfo = {
+      title = "Lab";
+      description = "Service health, metrics, and local tools";
+      logo = "/homelab-logo.png";
+      favicon = "/homelab-logo.png";
+      color = "#2f855a";
+      navLinks = [
+        {
+          title = "Status";
+          path = "https://grafana.${domain}/d/homelab-overview/homelab-overview";
+          target = "newtab";
+        }
+        {
+          title = "Alerts";
+          path = "https://alerts.${domain}/";
+          target = "newtab";
+        }
+        {
+          title = "Metrics";
+          path = "https://prometheus.${domain}/";
+          target = "newtab";
+        }
+      ];
+    };
+    appConfig = {
+      theme = "minimal-light";
+      layout = "auto";
+      iconSize = "medium";
+      contentMaxWidth = "1480px";
+      defaultOpeningMethod = "newtab";
+      language = "en";
+      statusCheck = true;
+      statusCheckInterval = 60;
+      statusCheckAccessibility = true;
+      enableFontAwesome = true;
+      faviconApi = "local";
+      preventWriteToDisk = true;
+      preventLocalSave = true;
+      disableConfiguration = true;
+      disableUpdateChecks = true;
+      customCss = dashyCustomCss;
+      hideComponents = {
+        hideFooter = true;
+        hideSettings = true;
+      };
+    };
+    sections = [
+      {
+        name = "Watch";
+        icon = "fas fa-play";
+        displayData = {
+          cols = 2;
+          itemSize = "medium";
+          color = "rgba(255, 255, 255, 0.88)";
+          customStyles = "border: 1px solid rgba(23, 33, 43, 0.12); box-shadow: 0 18px 48px rgba(23, 33, 43, 0.14); color: #17212b; backdrop-filter: blur(6px);";
+        };
+        items = [
+          {
+            title = "Jellyfin";
+            description = "Movies, shows, and music";
+            icon = "fas fa-tv";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://watch.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.jellyfin}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "Jellyseerr";
+            description = "Media requests";
+            icon = "fas fa-ticket-alt";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://catalog.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.jellyseerr}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+        ];
+      }
+      {
+        name = "Manage";
+        icon = "fas fa-sliders";
+        displayData = {
+          cols = 5;
+          itemSize = "medium";
+          color = "rgba(255, 255, 255, 0.88)";
+          customStyles = "border: 1px solid rgba(23, 33, 43, 0.12); box-shadow: 0 18px 48px rgba(23, 33, 43, 0.14); color: #17212b; backdrop-filter: blur(6px);";
+        };
+        items = [
+          {
+            title = "Radarr";
+            description = "Movie automation";
+            icon = "fas fa-film";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://movies.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.radarr}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "Sonarr";
+            description = "TV automation";
+            icon = "fas fa-video";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://tv.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.sonarr}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "Prowlarr";
+            description = "Indexer management";
+            icon = "fas fa-search";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://indexers.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.prowlarr}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "Bazarr";
+            description = "Subtitle automation";
+            icon = "fas fa-closed-captioning";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://subtitles.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.bazarr}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "qBittorrent";
+            description = "Download client";
+            icon = "fas fa-download";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://torrents.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.qbittorrent}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+        ];
+      }
+      {
+        name = "Admin";
+        icon = "fas fa-lock";
+        displayData = {
+          cols = 5;
+          itemSize = "medium";
+          color = "rgba(255, 255, 255, 0.88)";
+          customStyles = "border: 1px solid rgba(23, 33, 43, 0.12); box-shadow: 0 18px 48px rgba(23, 33, 43, 0.14); color: #17212b; backdrop-filter: blur(6px);";
+        };
+        items = [
+          {
+            title = "Grafana";
+            description = "Dashboards and service status";
+            icon = "fas fa-chart-line";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://grafana.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.grafana}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "Prometheus";
+            description = "Metrics and alerts";
+            icon = "fas fa-database";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://prometheus.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.prometheus}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "Alertmanager";
+            description = "Alert routing";
+            icon = "fas fa-bell";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://alerts.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.alertmanager}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "AdGuard";
+            description = "DNS filtering";
+            icon = "fas fa-shield-alt";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://dns.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.adguard}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "LLDAP";
+            description = "Users and groups";
+            icon = "fas fa-users";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://users.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.lldapHttp}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+        ];
+      }
+    ];
   };
 
   mediaGroup = 1000;
@@ -107,14 +451,15 @@ let
 
   autheliaGuard = ''
     auth_request /authelia;
-    auth_request_set $user   $upstream_http_remote_user;
-    auth_request_set $groups $upstream_http_remote_groups;
-    auth_request_set $name   $upstream_http_remote_name;
-    auth_request_set $email  $upstream_http_remote_email;
-    proxy_set_header Remote-User   $user;
-    proxy_set_header Remote-Groups $groups;
-    proxy_set_header Remote-Name   $name;
-    proxy_set_header Remote-Email  $email;
+    auth_request_set $auth_user   $upstream_http_remote_user;
+    auth_request_set $auth_groups $upstream_http_remote_groups;
+    auth_request_set $auth_name   $upstream_http_remote_name;
+    auth_request_set $auth_email  $upstream_http_remote_email;
+    proxy_set_header Remote-User      $auth_user;
+    proxy_set_header Remote-Groups    $auth_groups;
+    proxy_set_header Remote-Name      $auth_name;
+    proxy_set_header Remote-Email     $auth_email;
+    proxy_set_header X-Forwarded-User $auth_user;
   '';
 
   autheliaLocations = {
@@ -131,6 +476,7 @@ let
         proxy_set_header X-Forwarded-Host $http_host;
         proxy_set_header X-Forwarded-URI $request_uri;
         proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header Authorization "";
       '';
     };
     "@authelia_login" = {
@@ -413,10 +759,16 @@ let
     '';
   };
 
-  dashboardDir = pkgs.writeTextDir "homelab-node-overview.json" (builtins.toJSON {
-    uid = "homelab-node-overview";
-    title = "Homelab Node Overview";
-    tags = [ "homelab" "nodes" ];
+  prometheusDatasource = { type = "prometheus"; uid = "prometheus"; };
+  mkTarget = expr: { inherit expr; refId = "A"; };
+  mkPanel = id: type: title: gridPos: expr: extra: {
+    inherit id type title gridPos;
+    datasource = prometheusDatasource;
+    targets = [ (mkTarget expr) ];
+  } // extra;
+  mkDashboard = uid: title: panels: pkgs.writeText "${uid}.json" (builtins.toJSON {
+    inherit uid title panels;
+    tags = [ "homelab" "monitoring" ];
     timezone = "browser";
     refresh = "30s";
     schemaVersion = 39;
@@ -425,56 +777,54 @@ let
       from = "now-6h";
       to = "now";
     };
-    panels = [
-      {
-        id = 1;
-        type = "stat";
-        title = "Core Up";
-        datasource = { type = "prometheus"; uid = "prometheus"; };
-        gridPos = { h = 4; w = 6; x = 0; y = 0; };
-        targets = [{ expr = "up{job=\"node\",host=\"core\"}"; refId = "A"; }];
-      }
-      {
-        id = 2;
-        type = "timeseries";
-        title = "CPU Busy";
-        datasource = { type = "prometheus"; uid = "prometheus"; };
-        gridPos = { h = 8; w = 12; x = 0; y = 4; };
-        targets = [{
-          expr = "100 * (1 - avg(rate(node_cpu_seconds_total{job=\"node\",mode=\"idle\",host=\"core\"}[5m])))";
-          refId = "A";
-        }];
-        fieldConfig.defaults.unit = "percent";
-      }
-      {
-        id = 3;
-        type = "timeseries";
-        title = "Memory Used";
-        datasource = { type = "prometheus"; uid = "prometheus"; };
-        gridPos = { h = 8; w = 12; x = 12; y = 4; };
-        targets = [{
-          expr = "100 * (1 - (node_memory_MemAvailable_bytes{job=\"node\",host=\"core\"} / node_memory_MemTotal_bytes{job=\"node\",host=\"core\"}))";
-          refId = "A";
-        }];
-        fieldConfig.defaults.unit = "percent";
-      }
-      {
-        id = 4;
-        type = "timeseries";
-        title = "Root Filesystem Used";
-        datasource = { type = "prometheus"; uid = "prometheus"; };
-        gridPos = { h = 8; w = 12; x = 0; y = 12; };
-        targets = [{
-          expr = "100 * (1 - (node_filesystem_avail_bytes{job=\"node\",mountpoint=\"/\",fstype!=\"rootfs\",host=\"core\"} / node_filesystem_size_bytes{job=\"node\",mountpoint=\"/\",fstype!=\"rootfs\",host=\"core\"}))";
-          refId = "A";
-        }];
-        fieldConfig.defaults.unit = "percent";
-      }
-    ];
   });
+  dashboardDir = pkgs.linkFarm "homelab-grafana-dashboards" [
+    {
+      name = "homelab-overview.json";
+      path = mkDashboard "homelab-overview" "Homelab Overview" [
+        (mkPanel 1 "stat" "Critical Alerts" { h = 4; w = 6; x = 0; y = 0; } "count(ALERTS{alertstate=\"firing\",severity=\"critical\"})" {})
+        (mkPanel 2 "stat" "Warning Alerts" { h = 4; w = 6; x = 6; y = 0; } "count(ALERTS{alertstate=\"firing\",severity=\"warning\"})" {})
+        (mkPanel 3 "stat" "Services Down" { h = 4; w = 6; x = 12; y = 0; } "count(probe_success{job=\"blackbox\"} == 0)" {})
+        (mkPanel 4 "stat" "TLS Days Remaining" { h = 4; w = 6; x = 18; y = 0; } "(min(probe_ssl_earliest_cert_expiry{job=\"blackbox\"}) - time()) / 86400" { fieldConfig.defaults.unit = "d"; })
+        (mkPanel 5 "table" "Service Status" { h = 8; w = 12; x = 0; y = 4; } "probe_success{job=\"blackbox\"}" {})
+        (mkPanel 6 "timeseries" "HTTP Latency" { h = 8; w = 12; x = 12; y = 4; } "probe_duration_seconds{job=\"blackbox\"}" { fieldConfig.defaults.unit = "s"; })
+        (mkPanel 7 "timeseries" "Key Filesystem Usage" { h = 8; w = 12; x = 0; y = 12; } "100 * (1 - (node_filesystem_avail_bytes{job=\"node\",mountpoint=~\"/|/srv/media|/srv/downloads|/srv/storage/external\",fstype!=\"rootfs\"} / node_filesystem_size_bytes{job=\"node\",mountpoint=~\"/|/srv/media|/srv/downloads|/srv/storage/external\",fstype!=\"rootfs\"}))" { fieldConfig.defaults.unit = "percent"; })
+        (mkPanel 8 "table" "Failed Systemd Units" { h = 8; w = 12; x = 12; y = 12; } "node_systemd_unit_state{job=\"node\",host=\"core\",state=\"failed\"}" {})
+      ];
+    }
+    {
+      name = "homelab-host-health.json";
+      path = mkDashboard "homelab-host-health" "Host Health" [
+        (mkPanel 1 "timeseries" "CPU Busy" { h = 8; w = 12; x = 0; y = 0; } "100 * (1 - avg(rate(node_cpu_seconds_total{job=\"node\",mode=\"idle\",host=\"core\"}[5m])))" { fieldConfig.defaults.unit = "percent"; })
+        (mkPanel 2 "timeseries" "Memory Used" { h = 8; w = 12; x = 12; y = 0; } "100 * (1 - (node_memory_MemAvailable_bytes{job=\"node\",host=\"core\"} / node_memory_MemTotal_bytes{job=\"node\",host=\"core\"}))" { fieldConfig.defaults.unit = "percent"; })
+        (mkPanel 3 "timeseries" "Load Average" { h = 8; w = 12; x = 0; y = 8; } "node_load1{job=\"node\",host=\"core\"}" {})
+        (mkPanel 4 "timeseries" "Swap Used" { h = 8; w = 12; x = 12; y = 8; } "100 * (1 - (node_memory_SwapFree_bytes{job=\"node\",host=\"core\"} / node_memory_SwapTotal_bytes{job=\"node\",host=\"core\"}))" { fieldConfig.defaults.unit = "percent"; })
+        (mkPanel 5 "timeseries" "Disk IO Time" { h = 8; w = 12; x = 0; y = 16; } "rate(node_disk_io_time_seconds_total{job=\"node\",host=\"core\"}[5m])" { fieldConfig.defaults.unit = "percentunit"; })
+        (mkPanel 6 "timeseries" "Network Throughput" { h = 8; w = 12; x = 12; y = 16; } "rate(node_network_receive_bytes_total{job=\"node\",host=\"core\",device!~\"lo|veth.*|docker.*|br-.*\"}[5m]) + rate(node_network_transmit_bytes_total{job=\"node\",host=\"core\",device!~\"lo|veth.*|docker.*|br-.*\"}[5m])" { fieldConfig.defaults.unit = "Bps"; })
+      ];
+    }
+    {
+      name = "homelab-service-health.json";
+      path = mkDashboard "homelab-service-health" "Service Health" [
+        (mkPanel 1 "table" "Endpoint Status" { h = 8; w = 24; x = 0; y = 0; } "probe_success{job=\"blackbox\"}" {})
+        (mkPanel 2 "timeseries" "Endpoint Latency" { h = 8; w = 12; x = 0; y = 8; } "probe_duration_seconds{job=\"blackbox\"}" { fieldConfig.defaults.unit = "s"; })
+        (mkPanel 3 "timeseries" "HTTP Status Codes" { h = 8; w = 12; x = 12; y = 8; } "probe_http_status_code{job=\"blackbox\"}" {})
+        (mkPanel 4 "timeseries" "TLS Expiry Days" { h = 8; w = 24; x = 0; y = 16; } "(probe_ssl_earliest_cert_expiry{job=\"blackbox\"} - time()) / 86400" { fieldConfig.defaults.unit = "d"; })
+      ];
+    }
+    {
+      name = "homelab-storage-media.json";
+      path = mkDashboard "homelab-storage-media" "Storage & Media" [
+        (mkPanel 1 "timeseries" "Filesystem Usage" { h = 8; w = 12; x = 0; y = 0; } "100 * (1 - (node_filesystem_avail_bytes{job=\"node\",mountpoint=~\"/|/srv/media|/srv/downloads|/srv/storage/external\",fstype!=\"rootfs\"} / node_filesystem_size_bytes{job=\"node\",mountpoint=~\"/|/srv/media|/srv/downloads|/srv/storage/external\",fstype!=\"rootfs\"}))" { fieldConfig.defaults.unit = "percent"; })
+        (mkPanel 2 "timeseries" "Inode Usage" { h = 8; w = 12; x = 12; y = 0; } "100 * (1 - (node_filesystem_files_free{job=\"node\",mountpoint=~\"/|/srv/media|/srv/downloads|/srv/storage/external\"} / node_filesystem_files{job=\"node\",mountpoint=~\"/|/srv/media|/srv/downloads|/srv/storage/external\"}))" { fieldConfig.defaults.unit = "percent"; })
+        (mkPanel 3 "table" "Read-only Mounts" { h = 8; w = 12; x = 0; y = 8; } "node_filesystem_readonly{job=\"node\",host=\"core\",mountpoint=~\"/|/srv/media|/srv/downloads|/srv/storage/external\"}" {})
+        (mkPanel 4 "timeseries" "Disk Read/Write" { h = 8; w = 12; x = 12; y = 8; } "rate(node_disk_read_bytes_total{job=\"node\",host=\"core\"}[5m]) + rate(node_disk_written_bytes_total{job=\"node\",host=\"core\"}[5m])" { fieldConfig.defaults.unit = "Bps"; })
+      ];
+    }
+  ];
 in
 {
-  networking.firewall.allowedTCPPorts = [ 53 80 443 9100 ];
+  networking.firewall.allowedTCPPorts = [ 53 80 443 ];
   networking.firewall.allowedUDPPorts = [ 53 ];
 
   users.groups.media = { gid = mediaGroup; };
@@ -538,6 +888,13 @@ in
   sops.secrets.tailscale-auth-key = {
     sopsFile = ../../secrets/edge.yaml;
     owner = "root";
+  };
+  sops.secrets.slack-webhook-url = {
+    sopsFile = ../../secrets/edge.yaml;
+    owner = "prometheus";
+    group = "prometheus";
+    mode = "0440";
+    restartUnits = [ "alertmanager.service" ];
   };
   sops.secrets.lldap-jwt-secret = {
     sopsFile = ../../secrets/lldap.yaml;
@@ -617,6 +974,26 @@ in
   };
   systemd.services."acme-${domain}".serviceConfig.TimeoutStartSec = lib.mkIf enableTls "10min";
 
+  virtualisation.podman.enable = true;
+  virtualisation.oci-containers.backend = "podman";
+  virtualisation.oci-containers.containers.dashy = {
+    image = "docker.io/lissy93/dashy:4.0.0";
+    cmd = [
+      "sh"
+      "-lc"
+      ''
+        node -e 'const fs = require("fs"); const path = "/app/services/status-check.js"; const oldText = "module.exports = (paramStr, render) => {\n"; const newText = "module.exports = (paramStr, render) => {\n  paramStr = paramStr && paramStr.replace(/^\\/\\?/, \"?\");\n"; const content = fs.readFileSync(path, "utf8"); fs.writeFileSync(path, content.includes(newText) ? content : content.replace(oldText, newText));'
+        exec node server.js
+      ''
+    ];
+    extraOptions = [ "--network=host" ];
+    volumes = [ "${dashyConfig}:/app/user-data/conf.yml:ro" ];
+    environment = {
+      NODE_ENV = "production";
+      PORT = "8082";
+    };
+  };
+
   services.nginx = {
     enable = true;
     recommendedProxySettings = true;
@@ -628,7 +1005,31 @@ in
       "auth.${domain}" = mkAutheliaVhost // { serverAliases = [ "sso.${domain}" ]; };
       "users.${domain}" = mkVhost { backend = local.lldapHttp; };
       "adguard.${domain}" = mkVhost { backend = local.adguard; sso = true; aliases = [ "dns.${domain}" ]; };
-      "${domain}" = mkVhost { backend = local.grafana; sso = true; };
+      "${domain}" = (mkVhost { backend = local.dashy; sso = true; }) // {
+        locations = (mkVhost { backend = local.dashy; sso = true; }).locations // {
+          "= /conf.yml" = {
+            extraConfig = ''
+              alias ${dashyConfig};
+              default_type text/yaml;
+              add_header Cache-Control "no-store";
+            '';
+          };
+          "= /homelab-background.jpg" = {
+            extraConfig = ''
+              alias ${../../assets/authelia/background.jpg};
+              default_type image/jpeg;
+              add_header Cache-Control "public, max-age=300";
+            '';
+          };
+          "= /homelab-logo.png" = {
+            extraConfig = ''
+              alias ${../../assets/authelia/logo.png};
+              default_type image/png;
+              add_header Cache-Control "public, max-age=300";
+            '';
+          };
+        };
+      };
       "grafana.${domain}" = mkVhost { backend = local.grafana; sso = true; aliases = [ "status.${domain}" ]; };
       "prometheus.${domain}" = mkVhost { backend = local.prometheus; sso = true; aliases = [ "metrics.${domain}" ]; };
       "alerts.${domain}" = mkVhost { backend = local.alertmanager; sso = true; };
@@ -764,11 +1165,15 @@ in
         default_policy = "deny";
         rules = [
           {
+            domain = domain;
+            policy = "one_factor";
+            subject = [ "group:homelab_admins" "group:media" ];
+          }
+          {
             domain = [
               "users.${domain}"
               "adguard.${domain}"
               "dns.${domain}"
-              domain
               "grafana.${domain}"
               "status.${domain}"
               "prometheus.${domain}"
@@ -877,6 +1282,21 @@ in
     enable = true;
     listenAddress = "127.0.0.1";
     port = 9090;
+    exporters.blackbox = {
+      enable = true;
+      listenAddress = "127.0.0.1";
+      port = 9115;
+      openFirewall = false;
+      configFile = pkgs.writeText "blackbox.yml" ''
+        modules:
+          http_2xx:
+            prober: http
+            timeout: 5s
+            http:
+              preferred_ip_protocol: ip4
+              follow_redirects: true
+      '';
+    };
     globalConfig.scrape_interval = "30s";
     scrapeConfigs = [
       {
@@ -889,6 +1309,36 @@ in
           targets = [ "127.0.0.1:9100" ];
           labels.host = "core";
         }];
+      }
+      {
+        job_name = "blackbox";
+        metrics_path = "/probe";
+        params.module = [ "http_2xx" ];
+        static_configs = [
+          { targets = [ "https://grafana.${domain}" ]; labels = { service = "grafana"; tier = "admin"; }; }
+          { targets = [ "https://prometheus.${domain}" ]; labels = { service = "prometheus"; tier = "admin"; }; }
+          { targets = [ "https://alerts.${domain}" ]; labels = { service = "alertmanager"; tier = "admin"; }; }
+          { targets = [ "https://watch.${domain}" ]; labels = { service = "jellyfin"; tier = "media"; }; }
+          { targets = [ "https://movies.${domain}" ]; labels = { service = "radarr"; tier = "media"; }; }
+          { targets = [ "https://tv.${domain}" ]; labels = { service = "sonarr"; tier = "media"; }; }
+          { targets = [ "https://indexers.${domain}" ]; labels = { service = "prowlarr"; tier = "media"; }; }
+          { targets = [ "https://subtitles.${domain}" ]; labels = { service = "bazarr"; tier = "media"; }; }
+          { targets = [ "https://torrents.${domain}" ]; labels = { service = "qbittorrent"; tier = "downloads"; }; }
+        ];
+        relabel_configs = [
+          {
+            source_labels = [ "__address__" ];
+            target_label = "__param_target";
+          }
+          {
+            source_labels = [ "__param_target" ];
+            target_label = "instance";
+          }
+          {
+            target_label = "__address__";
+            replacement = local.blackbox;
+          }
+        ];
       }
     ];
     alertmanagers = [
@@ -906,16 +1356,58 @@ in
                 expr: up{job="node"} == 0
                 for: 5m
                 labels:
-                  severity: warning
+                  severity: critical
                 annotations:
                   summary: "Node exporter is down on {{ $labels.host }}"
-              - alert: RootFilesystemNearlyFull
-                expr: 100 * (1 - (node_filesystem_avail_bytes{job="node",mountpoint="/",fstype!="rootfs"} / node_filesystem_size_bytes{job="node",mountpoint="/",fstype!="rootfs"})) > 85
+              - alert: ServiceEndpointDown
+                expr: probe_success{job="blackbox"} == 0
+                for: 5m
+                labels:
+                  severity: critical
+                annotations:
+                  summary: "{{ $labels.service }} endpoint is not reachable"
+              - alert: ServiceHttpSlow
+                expr: probe_http_duration_seconds{job="blackbox",phase="processing"} > 2
+                for: 10m
+                labels:
+                  severity: warning
+                annotations:
+                  summary: "{{ $labels.service }} HTTP processing is slower than 2 seconds"
+              - alert: TlsCertExpiringSoon
+                expr: probe_ssl_earliest_cert_expiry{job="blackbox"} - time() < 14 * 24 * 60 * 60
+                for: 1h
+                labels:
+                  severity: warning
+                annotations:
+                  summary: "{{ $labels.service }} TLS certificate expires within 14 days"
+              - alert: SystemdUnitFailed
+                expr: node_systemd_unit_state{job="node",host="core",state="failed"} == 1
+                for: 5m
+                labels:
+                  severity: warning
+                annotations:
+                  summary: "{{ $labels.name }} is failed on {{ $labels.host }}"
+              - alert: FilesystemNearlyFull
+                expr: 100 * (1 - (node_filesystem_avail_bytes{job="node",mountpoint=~"/|/srv/media|/srv/downloads|/srv/storage/external",fstype!="rootfs"} / node_filesystem_size_bytes{job="node",mountpoint=~"/|/srv/media|/srv/downloads|/srv/storage/external",fstype!="rootfs"})) > 85
                 for: 15m
                 labels:
                   severity: warning
                 annotations:
-                  summary: "Root filesystem is over 85% used on {{ $labels.host }}"
+                  summary: "{{ $labels.mountpoint }} is over 85% used on {{ $labels.host }}"
+              - alert: FilesystemCritical
+                expr: 100 * (1 - (node_filesystem_avail_bytes{job="node",mountpoint=~"/|/srv/media|/srv/downloads|/srv/storage/external",fstype!="rootfs"} / node_filesystem_size_bytes{job="node",mountpoint=~"/|/srv/media|/srv/downloads|/srv/storage/external",fstype!="rootfs"})) > 95
+                for: 5m
+                labels:
+                  severity: critical
+                annotations:
+                  summary: "{{ $labels.mountpoint }} is over 95% used on {{ $labels.host }}"
+              - alert: FilesystemReadonly
+                expr: node_filesystem_readonly{job="node",host="core",mountpoint=~"/|/srv/media|/srv/downloads|/srv/storage/external"} == 1
+                for: 5m
+                labels:
+                  severity: critical
+                annotations:
+                  summary: "{{ $labels.mountpoint }} is read-only on {{ $labels.host }}"
               - alert: HighMemoryUsage
                 expr: 100 * (1 - (node_memory_MemAvailable_bytes{job="node"} / node_memory_MemTotal_bytes{job="node"})) > 90
                 for: 15m
@@ -932,12 +1424,53 @@ in
       configuration = {
         route = {
           receiver = "null";
-          group_by = [ "alertname" "host" ];
+          group_by = [ "alertname" "host" "service" ];
+          routes = [
+            {
+              matchers = [ "severity=\"info\"" ];
+              receiver = "null";
+            }
+            {
+              matchers = [ "severity=\"critical\"" ];
+              receiver = "slack";
+              group_wait = "15s";
+              group_interval = "5m";
+              repeat_interval = "2h";
+            }
+            {
+              matchers = [ "severity=\"warning\"" ];
+              receiver = "slack";
+              group_wait = "1m";
+              group_interval = "15m";
+              repeat_interval = "12h";
+            }
+          ];
         };
-        receivers = [{ name = "null"; }];
+        receivers = [
+          { name = "null"; }
+          {
+            name = "slack";
+            slack_configs = [
+              {
+                api_url_file = config.sops.secrets.slack-webhook-url.path;
+                channel = "#homelab-alerts";
+                send_resolved = true;
+                title = "{{ .Status | toUpper }} {{ .CommonLabels.alertname }}";
+                text = ''
+                  Severity: {{ .CommonLabels.severity }}
+                  {{ range .Alerts -}}
+                  {{ if .Labels.host }}Host: {{ .Labels.host }} {{ end }}{{ if .Labels.service }}Service: {{ .Labels.service }} {{ end }}{{ if .Labels.mountpoint }}Mount: {{ .Labels.mountpoint }} {{ end }}
+                  {{ .Annotations.summary }}
+                  {{ end }}
+                '';
+              }
+            ];
+          }
+        ];
       };
     };
   };
+  systemd.services.alertmanager.serviceConfig.SupplementaryGroups = [ "prometheus" ];
 
   services.jellyfin = {
     enable = true;

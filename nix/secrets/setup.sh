@@ -66,10 +66,12 @@ if [[ -f edge.yaml && "$FORCE" != "--force" ]]; then
 else
   : "${CLOUDFLARE_DNS_API_TOKEN:?CLOUDFLARE_DNS_API_TOKEN not set in .env}"
   : "${TAILSCALE_AUTH_KEY:?TAILSCALE_AUTH_KEY not set in .env}"
+  : "${SLACK_WEBHOOK_URL:?SLACK_WEBHOOK_URL not set in .env}"
 
   encrypt_secret edge.yaml "$(cat <<EOF
 cloudflare-dns-api-token: "CLOUDFLARE_DNS_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN}"
 tailscale-auth-key: "${TAILSCALE_AUTH_KEY}"
+slack-webhook-url: "${SLACK_WEBHOOK_URL}"
 EOF
 )"
 fi
