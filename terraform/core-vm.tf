@@ -75,7 +75,26 @@ resource "proxmox_virtual_environment_vm" "core" {
 
   lifecycle {
     ignore_changes = [
+      # The external media SSD is attached by terraform_data.core_media_disk
+      # because Proxmox only allows arbitrary host paths through root.
+      disk,
       initialization[0].user_account,
     ]
   }
+}
+
+resource "terraform_data" "core_media_disk" {
+  count = var.enable_core_vm ? 1 : 0
+
+  triggers_replace = [
+    tostring(local.core_vm.vm_id),
+    var.proxmox_ssh_host,
+    var.core_vm_media_disk_path,
+  ]
+
+  provisioner "local-exec" {
+    command = "ssh root@${var.proxmox_ssh_host} 'qm set ${local.core_vm.vm_id} --scsi1 ${var.core_vm_media_disk_path},backup=0,discard=on,ssd=1'"
+  }
+
+  depends_on = [proxmox_virtual_environment_vm.core]
 }

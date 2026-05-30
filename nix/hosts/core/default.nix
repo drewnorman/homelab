@@ -62,6 +62,21 @@ let
     };
   };
 
+  externalStoragePermissions = pkgs.writeShellApplication {
+    name = "external-storage-permissions";
+    runtimeInputs = [ pkgs.coreutils pkgs.findutils ];
+    text = ''
+      set -euo pipefail
+
+      for path in /srv/media /srv/downloads; do
+        [ -d "$path" ] || continue
+        chown -R root:media "$path"
+        find "$path" -type d -exec chmod 2775 {} +
+        find "$path" -type f -exec chmod g+rw {} +
+      done
+    '';
+  };
+
   autheliaGuard = ''
     auth_request /authelia;
     auth_request_set $user   $upstream_http_remote_user;
@@ -341,6 +356,24 @@ in
     "d /srv/downloads/incomplete 2775 root media -"
     "d /var/log/authelia 0750 authelia-main authelia-main -"
   ];
+
+  systemd.services.external-storage-permissions = lib.mkIf externalStorage.enable {
+    description = "Normalize external media SSD ownership";
+    after = [
+      "srv-media.mount"
+      "srv-downloads.mount"
+    ];
+    requires = [
+      "srv-media.mount"
+      "srv-downloads.mount"
+    ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = "${externalStoragePermissions}/bin/external-storage-permissions";
+    };
+  };
 
   sops.secrets.cloudflare-dns-api-token = lib.mkIf enableTls {
     sopsFile = ../../secrets/edge.yaml;

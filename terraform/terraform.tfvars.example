@@ -1,4 +1,5 @@
 proxmox_node_name = "norman"
+proxmox_ssh_host  = "192.168.1.200"
 
 network_bridge  = "vmbr0"
 network_gateway = "192.168.1.1"
@@ -14,6 +15,7 @@ core_vm_id             = 120
 core_vm_ip             = "192.168.1.210"
 core_vm_storage        = "local-lvm"
 core_vm_disk_gb        = 96
+core_vm_media_disk_path = "/dev/disk/by-uuid/06d2efe6-c0b5-411c-8747-3a4ff0242979"
 core_vm_cores          = 4
 core_vm_memory_mb      = 8192
 

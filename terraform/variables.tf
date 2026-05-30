@@ -28,6 +28,12 @@ variable "proxmox_node_name" {
   default     = "norman"
 }
 
+variable "proxmox_ssh_host" {
+  description = "SSH hostname or address for the Proxmox node, used for root-only host disk passthrough commands."
+  type        = string
+  default     = "192.168.1.200"
+}
+
 variable "homelab_name" {
   description = "Short name used as a prefix for guest hostnames."
   type        = string
@@ -117,6 +123,12 @@ variable "core_vm_disk_gb" {
     condition     = var.core_vm_disk_gb >= 32
     error_message = "core_vm_disk_gb must be at least 32 GiB."
   }
+}
+
+variable "core_vm_media_disk_path" {
+  description = "Stable Proxmox host path for the external media SSD partition passed through to lab-core."
+  type        = string
+  default     = "/dev/disk/by-uuid/06d2efe6-c0b5-411c-8747-3a4ff0242979"
 }
 
 variable "core_vm_cores" {

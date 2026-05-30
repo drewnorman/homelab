@@ -96,7 +96,7 @@ For the default `norman` host, the managed address is:
 
 If stale provider-managed resources from optional Cloudflare or Tailscale management remain in state while those integrations are disabled, remove those stale state entries or re-enable the matching credentials before expecting a full clean plan.
 
-External SSD media for Jellyfin and the Arr stack is kept outside the VM root disk. The Samsung T7 is attached to VM 120 from Proxmox with `qm set` and mounted in NixOS by filesystem UUID; see [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:27).
+External SSD media for Jellyfin and the Arr stack is kept outside the VM root disk. OpenTofu attaches the Samsung T7 partition to VM 120 with a root-only Proxmox `qm set` provisioner, and NixOS mounts it by filesystem UUID; see [terraform/core-vm.tf](/home/drew/code/personal/homelab/terraform/core-vm.tf:1) and [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:27).
 
 ### VM Template Assumptions
 
@@ -251,7 +251,7 @@ Jellyfin runs on `lab-core`. Its service data lives under the VM root disk, whil
 Current Proxmox attachment:
 
 ```sh
-qm set 120 --scsi1 /dev/disk/by-id/usb-Samsung_PSSD_T7_S6X9NS0T907129W-0:0,backup=0,discard=on,ssd=1
+qm set 120 --scsi1 /dev/disk/by-uuid/06d2efe6-c0b5-411c-8747-3a4ff0242979,backup=0,discard=on,ssd=1
 ```
 
 Current NixOS mount source:
