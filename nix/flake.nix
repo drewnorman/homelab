@@ -60,8 +60,8 @@
         };
 
       # Build a deploy-rs node for a named host.
-      mkNode = name: hostname: {
-        inherit hostname;
+      mkNode = name: sshHost: {
+        hostname = sshHost;
         profiles.system = {
           sshUser       = "root";
           magicRollback = true;
@@ -75,8 +75,8 @@
       };
 
       deploy.nodes = {
-        core = mkNode "core" hosts.core.ip;
-        core-tailscale = mkNode "core" hosts.core.tailscaleIp;
+        core = mkNode "core" hosts.core.sshHost;
+        core-tailscale = mkNode "core" hosts.core.tailscaleSshHost;
       };
 
       packages.${system} = {
