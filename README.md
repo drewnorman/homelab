@@ -117,7 +117,7 @@ If the Proxmox template uses different names, update those host metadata fields 
 - nginx and ACME for local HTTPS
 - Tailscale for remote private access
 - Authelia and LLDAP for auth
-- Grafana, Prometheus, Alertmanager, and node exporter for monitoring
+- Grafana, Prometheus, Alertmanager, blackbox exporter, and node exporter for monitoring
 - Jellyfin, Radarr, Sonarr, Prowlarr, Bazarr, and qBittorrent
 
 For local-only HTTPS:
@@ -143,11 +143,19 @@ The app-native names such as `jellyfin.lab.adre.me`, `radarr.lab.adre.me`, `sona
 
 ### Monitoring
 
-In the single VM layout, `lab-core` runs Grafana, Prometheus, Alertmanager, and node exporter locally.
+In the single VM layout, `lab-core` runs Grafana, Prometheus, Alertmanager, blackbox exporter, and node exporter locally.
 
 Grafana is the default dashboard at `https://lab.adre.me` and is also available at `https://grafana.lab.adre.me`. Prometheus and Alertmanager are proxied through nginx at `https://prometheus.lab.adre.me` and `https://alerts.lab.adre.me`; these routes use the same Authelia forward-auth guard as the other internal admin tools.
 
-The provisioned dashboard covers host availability, CPU, memory, root filesystem usage, and load average. Prometheus includes initial alerts for node exporter outages, high memory usage, and root filesystem usage over 85%. The default Alertmanager receiver is intentionally a no-op until a notification target is added.
+The provisioned Grafana dashboards cover homelab overview, host health, service health, and storage/media state. Prometheus checks node exporter, failed systemd units, key filesystem usage, read-only filesystems, public service endpoints, response latency, and TLS expiry.
+
+Alertmanager sends warning and critical alerts to Slack through an incoming webhook. Create a dedicated free Slack workspace and a `#homelab-alerts` channel, then set the webhook URL in `.env` before running `nix/secrets/setup.sh`:
+
+```sh
+export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+```
+
+The webhook is stored as the `slack-webhook-url` key in `nix/secrets/edge.yaml`; do not commit the raw URL. Informational alerts remain visible in Prometheus/Alertmanager/Grafana without Slack notifications.
 
 The wildcard certificate is issued with DNS-01 validation through Cloudflare using NixOS `security.acme`. DNS-01 proves ownership by creating temporary `_acme-challenge.lab.adre.me` TXT records, so ports 80 and 443 do not need to be exposed publicly.
 
