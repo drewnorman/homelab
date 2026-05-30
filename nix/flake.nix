@@ -55,8 +55,8 @@
         };
 
       # Build a deploy-rs node for a named host.
-      mkNode = name: {
-        hostname = hosts.${name}.ip;
+      mkNode = name: hostname: {
+        inherit hostname;
         profiles.system = {
           sshUser       = "root";
           magicRollback = true;
@@ -70,7 +70,8 @@
       };
 
       deploy.nodes = {
-        core = mkNode "core";
+        core = mkNode "core" hosts.core.ip;
+        core-tailscale = mkNode "core" hosts.core.tailscaleIp;
       };
 
       packages.${system} = {
@@ -90,11 +91,24 @@
           runtimeInputs = [ deploy-rs.packages.${system}.deploy-rs ];
           text = lib.concatMapStringsSep "\n" (host: "deploy \"$@\" .#${host}") coreHosts;
         };
+
+        deploy-core-tailscale = pkgs.writeShellApplication {
+          name = "deploy-core-tailscale";
+          runtimeInputs = [ deploy-rs.packages.${system}.deploy-rs ];
+          text = "deploy \"$@\" .#core-tailscale";
+        };
       };
 
-      apps.${system}.deploy-core = {
-        type = "app";
-        program = "${self.packages.${system}.deploy-core}/bin/deploy-core";
+      apps.${system} = {
+        deploy-core = {
+          type = "app";
+          program = "${self.packages.${system}.deploy-core}/bin/deploy-core";
+        };
+
+        deploy-core-tailscale = {
+          type = "app";
+          program = "${self.packages.${system}.deploy-core-tailscale}/bin/deploy-core-tailscale";
+        };
       };
 
       # deploy-rs schema checks — run with `nix flake check`

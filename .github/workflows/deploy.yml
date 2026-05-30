@@ -14,13 +14,12 @@ jobs:
 
       - uses: DeterminateSystems/nix-installer-action@main
 
-      # Join the tailnet so the runner can reach 192.168.1.0/24 via lab-edge's
-      # subnet route. Requires TAILSCALE_AUTH_KEY to be an ephemeral, reusable,
+      # Join the tailnet so the runner can reach lab-core directly over
+      # Tailscale. Requires TAILSCALE_AUTH_KEY to be an ephemeral, reusable,
       # pre-authorized key in the Tailscale admin console.
       - uses: tailscale/github-action@v2
         with:
           authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
-          args: --accept-routes
 
       # Load the SSH private key matching the authorized key on all NixOS hosts.
       # Secret: contents of ~/.ssh/drew@x1c-g9 (the private key).
@@ -28,9 +27,18 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: tailscale diagnostics
+        run: |
+          tailscale status
+          tailscale ping --timeout=10s --c 3 100.78.23.58
+          ssh \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            root@100.78.23.58 true
+
       - name: deploy
         run: |
           cd nix
-          nix run .#deploy-core -- \
+          nix run .#deploy-core-tailscale -- \
             --skip-checks \
             --ssh-opts="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
