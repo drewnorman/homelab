@@ -67,6 +67,16 @@ cd nix
 nix run .#deploy-core
 ```
 
+GitHub Actions runs CI on pull requests to `master` and on pushes to `master`.
+CI checks the Nix flake, builds the `core` system closure, and validates the
+OpenTofu configuration without touching remote state. Deploys stay manual from
+a trusted machine over SSH/Tailscale with deploy-rs.
+
+Recommended GitHub protection for this homelab is intentionally small: protect
+`master`, require pull requests before merging, require the `ci / nix` and
+`ci / opentofu` checks, require branches to be up to date before merge, and
+allow administrators to bypass only for emergency break-glass fixes.
+
 If Nix is not installed locally, run deploys through Podman with a persistent
 Nix store volume. Create the volume once:
 
