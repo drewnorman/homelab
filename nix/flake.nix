@@ -39,6 +39,7 @@
       # SSH public key injected into lab-core. Must match terraform ssh_public_key.
       sshAuthorizedKeys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBty1Aq+Be79tfzubhT7B+jlcZ1xWfWLIszbItuWveAf drew@x1c-g9"
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGqQo/lOhSqVSWgM0aFAu1gZ5tKnKpCDISg5dHDD0B5Y drew@nix.lab.adre.me"
       ];
 
       mkVmHost = name: extraModules:

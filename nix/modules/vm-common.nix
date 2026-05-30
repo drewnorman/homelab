@@ -58,7 +58,14 @@
     ];
   };
 
-  users.users.root.openssh.authorizedKeys.keys = sshAuthorizedKeys;
+  users.users = {
+    root.openssh.authorizedKeys.keys = sshAuthorizedKeys;
+    drew = {
+      isNormalUser = true;
+      extraGroups = [ "wheel" ];
+      openssh.authorizedKeys.keys = sshAuthorizedKeys;
+    };
+  };
   sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
 
   networking.firewall = {
