@@ -6,6 +6,11 @@ let
   enableTls = true;
   customAutheliaLogin = true;
   externalScheme = if enableTls then "https" else "http";
+  jellyfinLdapPluginVersion = "22.0.0.0";
+  jellyfinLdapPluginZip = pkgs.fetchurl {
+    url = "https://repo.jellyfin.org/files/plugin/ldap-authentication/ldap-authentication_${jellyfinLdapPluginVersion}.zip";
+    hash = "sha256-wjhsABvkOcmUYoCgLWJhDynjJdQJToO9MSId4/eqIK4=";
+  };
 
   local = {
     adguard     = "127.0.0.1:3001";
@@ -132,6 +137,102 @@ let
           };
         };
       };
+
+  jellyfinLdapSetup = pkgs.writeShellApplication {
+    name = "jellyfin-ldap-setup";
+    runtimeInputs = [ pkgs.coreutils pkgs.gnused pkgs.python3 pkgs.unzip ];
+    text = ''
+      set -euo pipefail
+
+      plugin_dir="/var/lib/jellyfin/plugins/LDAP Authentication_${jellyfinLdapPluginVersion}"
+      config_dir="/var/lib/jellyfin/plugins/configurations"
+      system_config="/var/lib/jellyfin/config/system.xml"
+      tmp="$(mktemp -d)"
+      trap 'rm -rf "$tmp"' EXIT
+
+      install -d -o jellyfin -g media -m 0700 /var/lib/jellyfin/plugins "$config_dir"
+      unzip -oq ${jellyfinLdapPluginZip} -d "$tmp"
+      rm -rf "$plugin_dir"
+      install -d -o jellyfin -g media -m 0700 "$plugin_dir"
+      cp -R "$tmp"/. "$plugin_dir"/
+      chown -R jellyfin:media "$plugin_dir"
+      chmod -R u=rwX,go= "$plugin_dir"
+
+      export LLDAP_ADMIN_PASSWORD_FILE="${config.sops.secrets.lldap-admin-password.path}"
+      python3 - <<'PY'
+      import os
+      import xml.etree.ElementTree as ET
+      from pathlib import Path
+
+      config_dir = Path("/var/lib/jellyfin/plugins/configurations")
+      config_dir.mkdir(parents=True, exist_ok=True)
+
+      with open(os.environ["LLDAP_ADMIN_PASSWORD_FILE"], encoding="utf-8") as password_file:
+          bind_password = password_file.read().strip()
+
+      values = {
+          "LdapServer": "127.0.0.1",
+          "LdapPort": "3890",
+          "AllowPassChange": "false",
+          "UseSsl": "false",
+          "UseStartTls": "false",
+          "SkipSslVerify": "false",
+          "LdapBindUser": "uid=admin,ou=people,${baseDn}",
+          "LdapBindPassword": bind_password,
+          "LdapBaseDn": "${baseDn}",
+          "LdapSearchFilter": "(&(objectClass=person)(memberOf=cn=media,ou=groups,${baseDn}))",
+          "LdapAdminBaseDn": "${baseDn}",
+          "LdapAdminFilter": "(&(objectClass=person)(memberOf=cn=homelab_admins,ou=groups,${baseDn}))",
+          "EnableLdapAdminFilterMemberUid": "false",
+          "LdapSearchAttributes": "uid,mail,displayName,cn",
+          "LdapClientCertPath": "",
+          "LdapClientKeyPath": "",
+          "LdapRootCaPath": "",
+          "CreateUsersFromLdap": "true",
+          "LdapUidAttribute": "uid",
+          "LdapUsernameAttribute": "uid",
+          "LdapPasswordAttribute": "userPassword",
+          "EnableLdapProfileImageSync": "false",
+          "RemoveImagesNotInLdap": "false",
+          "LdapProfileImageAttribute": "jpegphoto",
+          "LdapProfileImageFormat": "Default",
+          "EnableAllFolders": "true",
+          "PasswordResetUrl": "https://users.${domain}",
+      }
+
+      root = ET.Element(
+          "PluginConfiguration",
+          {
+              "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+              "xmlns:xsd": "http://www.w3.org/2001/XMLSchema",
+          },
+      )
+      ET.SubElement(root, "LdapUsers")
+      for key, value in values.items():
+          child = ET.SubElement(root, key)
+          child.text = value
+      ET.SubElement(root, "EnabledFolders")
+
+      tree = ET.ElementTree(root)
+      ET.indent(tree, space="  ")
+      tree.write(config_dir / "LDAP-Auth.xml", encoding="utf-8", xml_declaration=True)
+
+      system_config = Path("/var/lib/jellyfin/config/system.xml")
+      if system_config.exists():
+          system_tree = ET.parse(system_config)
+          system_root = system_tree.getroot()
+          wizard = system_root.find("IsStartupWizardCompleted")
+          if wizard is None:
+              wizard = ET.SubElement(system_root, "IsStartupWizardCompleted")
+          wizard.text = "true"
+          ET.indent(system_tree, space="  ")
+          system_tree.write(system_config, encoding="utf-8", xml_declaration=True)
+      PY
+
+      chown jellyfin:media "$config_dir/LDAP-Auth.xml" "$system_config"
+      chmod 0600 "$config_dir/LDAP-Auth.xml" "$system_config"
+    '';
+  };
 
   dashboardDir = pkgs.writeTextDir "homelab-node-overview.json" (builtins.toJSON {
     uid = "homelab-node-overview";
@@ -316,7 +417,7 @@ in
       "grafana.${domain}" = mkVhost { backend = local.grafana; sso = true; aliases = [ "status.${domain}" ]; };
       "prometheus.${domain}" = mkVhost { backend = local.prometheus; sso = true; aliases = [ "metrics.${domain}" ]; };
       "alerts.${domain}" = mkVhost { backend = local.alertmanager; sso = true; };
-      "jellyfin.${domain}" = mkVhost { backend = local.jellyfin; sso = true; aliases = [ "watch.${domain}" ]; };
+      "jellyfin.${domain}" = mkVhost { backend = local.jellyfin; aliases = [ "watch.${domain}" ]; };
       "radarr.${domain}" = mkVhost { backend = local.radarr; sso = true; aliases = [ "movies.${domain}" ]; };
       "sonarr.${domain}" = mkVhost { backend = local.sonarr; sso = true; aliases = [ "tv.${domain}" ]; };
       "prowlarr.${domain}" = mkVhost { backend = local.prowlarr; sso = true; aliases = [ "indexers.${domain}" ]; };
@@ -465,8 +566,6 @@ in
           }
           {
             domain = [
-              "jellyfin.${domain}"
-              "watch.${domain}"
               "radarr.${domain}"
               "movies.${domain}"
               "sonarr.${domain}"
@@ -628,6 +727,11 @@ in
     enable = true;
     openFirewall = false;
     group = "media";
+  };
+  systemd.services.jellyfin = {
+    after = [ "lldap-provision.service" ];
+    requires = [ "lldap-provision.service" ];
+    serviceConfig.ExecStartPre = [ "+${jellyfinLdapSetup}/bin/jellyfin-ldap-setup" ];
   };
 
   systemd.services.radarr.preStart = ''
