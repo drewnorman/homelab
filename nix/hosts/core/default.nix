@@ -120,6 +120,10 @@ let
       border-radius: 0 !important;
     }
 
+    .options-panel .section.view-switch-row {
+      display: none !important;
+    }
+
     .search-wrap .web-search-note {
       display: none !important;
     }
