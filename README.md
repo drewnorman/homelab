@@ -247,6 +247,10 @@ remote client -> Tailscale -> lab-core nginx -> qBittorrent:8080
 ```
 
 The default design keeps one Tailscale ingress point and uses nginx for `torrents.lab.adre.me`.
+That vhost is protected by Authelia for members of the `media` LLDAP group. qBittorrent
+itself binds the Web UI to `127.0.0.1` and bypasses its native Web UI login for loopback
+requests, so users authenticate once through Authelia while nginx and local Arr services can
+reach the qBittorrent API without a second app-specific login.
 
 ## Jellyfin Storage Model
 

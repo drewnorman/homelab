@@ -1729,10 +1729,11 @@ EOF
         printf '%s\n' "$line"
       done < "$cfg" > "$tmp"
       cat >> "$tmp" <<'EOF'
+[Preferences]
 WebUI\Address=127.0.0.1
 WebUI\LocalHostAuth=false
 WebUI\AuthSubnetWhitelist=127.0.0.1/32
-WebUI\AuthSubnetWhitelistEnabled=false
+WebUI\AuthSubnetWhitelistEnabled=true
 WebUI\UseUPnP=false
 EOF
       cat "$tmp" > "$cfg"
