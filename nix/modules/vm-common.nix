@@ -64,7 +64,7 @@
   networking.firewall = {
     enable            = true;
     trustedInterfaces = [ "tailscale0" ];
-    allowedTCPPorts   = [ 22 80 443 9100 ];
+    allowedTCPPorts   = [ 22 80 443 ];
     allowedUDPPorts   = [ 53 ];
     checkReversePath  = "loose";
   };
@@ -72,7 +72,7 @@
   services.prometheus.exporters.node = {
     enable = true;
     enabledCollectors = [ "systemd" ];
-    openFirewall = true;
+    openFirewall = false;
   };
 
   environment.systemPackages = with pkgs; [

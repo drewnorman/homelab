@@ -32,6 +32,7 @@ let
     prowlarr    = "127.0.0.1:9696";
     bazarr      = "127.0.0.1:6767";
     qbittorrent = "127.0.0.1:8080";
+    blackbox    = "127.0.0.1:9115";
   };
 
   mediaGroup = 1000;
@@ -474,7 +475,7 @@ let
   });
 in
 {
-  networking.firewall.allowedTCPPorts = [ 53 80 443 9100 ];
+  networking.firewall.allowedTCPPorts = [ 53 80 443 ];
   networking.firewall.allowedUDPPorts = [ 53 ];
 
   users.groups.media = { gid = mediaGroup; };
@@ -538,6 +539,13 @@ in
   sops.secrets.tailscale-auth-key = {
     sopsFile = ../../secrets/edge.yaml;
     owner = "root";
+  };
+  sops.secrets.slack-webhook-url = {
+    sopsFile = ../../secrets/edge.yaml;
+    owner = "prometheus";
+    group = "prometheus";
+    mode = "0400";
+    restartUnits = [ "alertmanager.service" ];
   };
   sops.secrets.lldap-jwt-secret = {
     sopsFile = ../../secrets/lldap.yaml;
@@ -877,6 +885,21 @@ in
     enable = true;
     listenAddress = "127.0.0.1";
     port = 9090;
+    exporters.blackbox = {
+      enable = true;
+      listenAddress = "127.0.0.1";
+      port = 9115;
+      openFirewall = false;
+      configFile = pkgs.writeText "blackbox.yml" ''
+        modules:
+          http_2xx:
+            prober: http
+            timeout: 5s
+            http:
+              preferred_ip_protocol: ip4
+              follow_redirects: true
+      '';
+    };
     globalConfig.scrape_interval = "30s";
     scrapeConfigs = [
       {
@@ -889,6 +912,36 @@ in
           targets = [ "127.0.0.1:9100" ];
           labels.host = "core";
         }];
+      }
+      {
+        job_name = "blackbox";
+        metrics_path = "/probe";
+        params.module = [ "http_2xx" ];
+        static_configs = [
+          { targets = [ "https://grafana.${domain}" ]; labels = { service = "grafana"; tier = "admin"; }; }
+          { targets = [ "https://prometheus.${domain}" ]; labels = { service = "prometheus"; tier = "admin"; }; }
+          { targets = [ "https://alerts.${domain}" ]; labels = { service = "alertmanager"; tier = "admin"; }; }
+          { targets = [ "https://watch.${domain}" ]; labels = { service = "jellyfin"; tier = "media"; }; }
+          { targets = [ "https://movies.${domain}" ]; labels = { service = "radarr"; tier = "media"; }; }
+          { targets = [ "https://tv.${domain}" ]; labels = { service = "sonarr"; tier = "media"; }; }
+          { targets = [ "https://search.${domain}" ]; labels = { service = "prowlarr"; tier = "media"; }; }
+          { targets = [ "https://subtitles.${domain}" ]; labels = { service = "bazarr"; tier = "media"; }; }
+          { targets = [ "https://downloads.${domain}" ]; labels = { service = "qbittorrent"; tier = "downloads"; }; }
+        ];
+        relabel_configs = [
+          {
+            source_labels = [ "__address__" ];
+            target_label = "__param_target";
+          }
+          {
+            source_labels = [ "__param_target" ];
+            target_label = "instance";
+          }
+          {
+            target_label = "__address__";
+            replacement = local.blackbox;
+          }
+        ];
       }
     ];
     alertmanagers = [
@@ -906,16 +959,58 @@ in
                 expr: up{job="node"} == 0
                 for: 5m
                 labels:
-                  severity: warning
+                  severity: critical
                 annotations:
                   summary: "Node exporter is down on {{ $labels.host }}"
-              - alert: RootFilesystemNearlyFull
-                expr: 100 * (1 - (node_filesystem_avail_bytes{job="node",mountpoint="/",fstype!="rootfs"} / node_filesystem_size_bytes{job="node",mountpoint="/",fstype!="rootfs"})) > 85
+              - alert: ServiceEndpointDown
+                expr: probe_success{job="blackbox"} == 0
+                for: 5m
+                labels:
+                  severity: critical
+                annotations:
+                  summary: "{{ $labels.service }} endpoint is not reachable"
+              - alert: ServiceHttpSlow
+                expr: probe_http_duration_seconds{job="blackbox",phase="processing"} > 2
+                for: 10m
+                labels:
+                  severity: warning
+                annotations:
+                  summary: "{{ $labels.service }} HTTP processing is slower than 2 seconds"
+              - alert: TlsCertExpiringSoon
+                expr: probe_ssl_earliest_cert_expiry{job="blackbox"} - time() < 14 * 24 * 60 * 60
+                for: 1h
+                labels:
+                  severity: warning
+                annotations:
+                  summary: "{{ $labels.service }} TLS certificate expires within 14 days"
+              - alert: SystemdUnitFailed
+                expr: node_systemd_unit_state{job="node",host="core",state="failed"} == 1
+                for: 5m
+                labels:
+                  severity: warning
+                annotations:
+                  summary: "{{ $labels.name }} is failed on {{ $labels.host }}"
+              - alert: FilesystemNearlyFull
+                expr: 100 * (1 - (node_filesystem_avail_bytes{job="node",mountpoint=~"/|/srv/media|/srv/downloads|/srv/storage/external",fstype!="rootfs"} / node_filesystem_size_bytes{job="node",mountpoint=~"/|/srv/media|/srv/downloads|/srv/storage/external",fstype!="rootfs"})) > 85
                 for: 15m
                 labels:
                   severity: warning
                 annotations:
-                  summary: "Root filesystem is over 85% used on {{ $labels.host }}"
+                  summary: "{{ $labels.mountpoint }} is over 85% used on {{ $labels.host }}"
+              - alert: FilesystemCritical
+                expr: 100 * (1 - (node_filesystem_avail_bytes{job="node",mountpoint=~"/|/srv/media|/srv/downloads|/srv/storage/external",fstype!="rootfs"} / node_filesystem_size_bytes{job="node",mountpoint=~"/|/srv/media|/srv/downloads|/srv/storage/external",fstype!="rootfs"})) > 95
+                for: 5m
+                labels:
+                  severity: critical
+                annotations:
+                  summary: "{{ $labels.mountpoint }} is over 95% used on {{ $labels.host }}"
+              - alert: FilesystemReadonly
+                expr: node_filesystem_readonly{job="node",host="core",mountpoint=~"/|/srv/media|/srv/downloads|/srv/storage/external"} == 1
+                for: 5m
+                labels:
+                  severity: critical
+                annotations:
+                  summary: "{{ $labels.mountpoint }} is read-only on {{ $labels.host }}"
               - alert: HighMemoryUsage
                 expr: 100 * (1 - (node_memory_MemAvailable_bytes{job="node"} / node_memory_MemTotal_bytes{job="node"})) > 90
                 for: 15m
@@ -932,9 +1027,49 @@ in
       configuration = {
         route = {
           receiver = "null";
-          group_by = [ "alertname" "host" ];
+          group_by = [ "alertname" "host" "service" ];
+          routes = [
+            {
+              matchers = [ "severity=\"info\"" ];
+              receiver = "null";
+            }
+            {
+              matchers = [ "severity=\"critical\"" ];
+              receiver = "slack";
+              group_wait = "15s";
+              group_interval = "5m";
+              repeat_interval = "2h";
+            }
+            {
+              matchers = [ "severity=\"warning\"" ];
+              receiver = "slack";
+              group_wait = "1m";
+              group_interval = "15m";
+              repeat_interval = "12h";
+            }
+          ];
         };
-        receivers = [{ name = "null"; }];
+        receivers = [
+          { name = "null"; }
+          {
+            name = "slack";
+            slack_configs = [
+              {
+                api_url_file = config.sops.secrets.slack-webhook-url.path;
+                channel = "#homelab-alerts";
+                send_resolved = true;
+                title = "{{ .Status | toUpper }} {{ .CommonLabels.alertname }}";
+                text = ''
+                  Severity: {{ .CommonLabels.severity }}
+                  {{ range .Alerts -}}
+                  {{ if .Labels.host }}Host: {{ .Labels.host }} {{ end }}{{ if .Labels.service }}Service: {{ .Labels.service }} {{ end }}{{ if .Labels.mountpoint }}Mount: {{ .Labels.mountpoint }} {{ end }}
+                  {{ .Annotations.summary }}
+                  {{ end }}
+                '';
+              }
+            ];
+          }
+        ];
       };
     };
   };
