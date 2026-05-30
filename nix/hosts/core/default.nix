@@ -21,6 +21,7 @@ let
     prometheus  = "127.0.0.1:9090";
     alertmanager = "127.0.0.1:9093";
     jellyfin    = "127.0.0.1:8096";
+    jellyseerr  = "127.0.0.1:5055";
     radarr      = "127.0.0.1:7878";
     sonarr      = "127.0.0.1:8989";
     prowlarr    = "127.0.0.1:9696";
@@ -501,6 +502,7 @@ in
       "prometheus.${domain}" = mkVhost { backend = local.prometheus; sso = true; aliases = [ "metrics.${domain}" ]; };
       "alerts.${domain}" = mkVhost { backend = local.alertmanager; sso = true; };
       "jellyfin.${domain}" = mkVhost { backend = local.jellyfin; aliases = [ "watch.${domain}" ]; };
+      "jellyseerr.${domain}" = mkVhost { backend = local.jellyseerr; aliases = [ "requests.${domain}" ]; };
       "radarr.${domain}" = mkVhost { backend = local.radarr; sso = true; aliases = [ "movies.${domain}" ]; };
       "sonarr.${domain}" = mkVhost { backend = local.sonarr; sso = true; aliases = [ "tv.${domain}" ]; };
       "prowlarr.${domain}" = mkVhost { backend = local.prowlarr; sso = true; aliases = [ "indexers.${domain}" ]; };
@@ -816,6 +818,11 @@ in
     after = [ "lldap-provision.service" ];
     requires = [ "lldap-provision.service" ];
     serviceConfig.ExecStartPre = [ "+${jellyfinLdapSetup}/bin/jellyfin-ldap-setup" ];
+  };
+
+  services.jellyseerr = {
+    enable = true;
+    openFirewall = false;
   };
 
   systemd.services.radarr.preStart = ''

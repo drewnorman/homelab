@@ -12,6 +12,7 @@ output "service_hosts" {
     entrypoint  = var.search_domain
     indexers    = "indexers.${var.search_domain}"
     jellyfin    = "jellyfin.${var.search_domain}"
+    jellyseerr  = "jellyseerr.${var.search_domain}"
     lldap       = "users.${var.search_domain}"
     grafana     = "grafana.${var.search_domain}"
     monitoring  = var.search_domain
@@ -19,6 +20,7 @@ output "service_hosts" {
     prometheus  = "prometheus.${var.search_domain}"
     alerts      = "alerts.${var.search_domain}"
     radarr      = "radarr.${var.search_domain}"
+    requests    = "requests.${var.search_domain}"
     sonarr      = "sonarr.${var.search_domain}"
     subtitles   = "subtitles.${var.search_domain}"
     tv          = "tv.${var.search_domain}"
