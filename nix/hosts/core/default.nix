@@ -1171,32 +1171,7 @@ in
     after = [ "network.target" ];
     wantedBy = [ "multi-user.target" ];
     preStart = ''
-      cfg=/var/lib/qbittorrent/qBittorrent/qBittorrent.conf
-      set_pref() {
-        key="$1"
-        value="$2"
-        tmp="$(mktemp)"
-        found=0
-        while IFS= read -r line; do
-          case "''${line%%=*}" in
-            WebUILocalHostAuth|WebUIAuthSubnetWhitelist|WebUIAuthSubnetWhitelistEnabled|WebUIUseUPnP)
-              continue
-              ;;
-          esac
-          if [ "''${line%%=*}" = "$key" ]; then
-            printf '%s=%s\n' "$key" "$value"
-            found=1
-          else
-            printf '%s\n' "$line"
-          fi
-        done < "$cfg" > "$tmp"
-        if [ "$found" -eq 0 ]; then
-          printf '%s=%s\n' "$key" "$value" >> "$tmp"
-        fi
-        cat "$tmp" > "$cfg"
-        rm -f "$tmp"
-      }
-
+      cfg=/var/lib/qbittorrent/qBittorrent/config/qBittorrent.conf
       if [ ! -f "$cfg" ]; then
         mkdir -p "$(dirname "$cfg")"
         cat > "$cfg" <<'EOF'
@@ -1206,10 +1181,25 @@ Session\TempPath=/srv/downloads/incomplete/
 [Preferences]
 EOF
       fi
-      set_pref 'WebUI\LocalHostAuth' 'false'
-      set_pref 'WebUI\AuthSubnetWhitelist' '127.0.0.1/32,192.168.1.0/24'
-      set_pref 'WebUI\AuthSubnetWhitelistEnabled' 'true'
-      set_pref 'WebUI\UseUPnP' 'false'
+
+      tmp="$(mktemp)"
+      while IFS= read -r line; do
+        case "''${line%%=*}" in
+          WebUI\\Address|WebUI\\LocalHostAuth|WebUI\\AuthSubnetWhitelist|WebUI\\AuthSubnetWhitelistEnabled|WebUI\\UseUPnP)
+            continue
+            ;;
+        esac
+        printf '%s\n' "$line"
+      done < "$cfg" > "$tmp"
+      cat >> "$tmp" <<'EOF'
+WebUI\Address=127.0.0.1
+WebUI\LocalHostAuth=false
+WebUI\AuthSubnetWhitelist=127.0.0.1/32
+WebUI\AuthSubnetWhitelistEnabled=false
+WebUI\UseUPnP=false
+EOF
+      cat "$tmp" > "$cfg"
+      rm -f "$tmp"
     '';
     serviceConfig = {
       User = "qbittorrent";
