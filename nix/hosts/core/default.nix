@@ -16,6 +16,97 @@ let
     url = "https://github.com/n00bcodr/Jellyfin-Enhanced/releases/download/${jellyfinEnhancedPluginVersion}/Jellyfin.Plugin.JellyfinEnhanced_10.11.0.zip";
     hash = "sha256-YmKWsQ4VyLO9cb2RxO2Q5A7TMq8BMWYcLsCEpoMGXNM=";
   };
+  jellyfishRev = "f002aa81f30630c634e5cc5b2a211242085be4f1";
+  jellyfishThemeCss = pkgs.fetchurl {
+    url = "https://raw.githubusercontent.com/n00bcodr/Jellyfish/${jellyfishRev}/theme.css";
+    hash = "sha256-lM1nl4ol+PWsy5hu7/3aau07sL7O1Sf78KdKky2Q8dY=";
+  };
+  jellyfishFixesCss = pkgs.fetchurl {
+    url = "https://raw.githubusercontent.com/n00bcodr/Jellyfish/${jellyfishRev}/10.11_fixes.css";
+    hash = "sha256-zNQcHwXftMhrA3DUmoBCpoPpSplCrW9D5f16emZWE/o=";
+  };
+  jellyfishMaterialSymbolsCss = pkgs.fetchurl {
+    url = "https://raw.githubusercontent.com/n00bcodr/Jellyfish/${jellyfishRev}/fonts/materialSymbolsRounded.css";
+    hash = "sha256-SD3y1058ELLKOaHZcZmLJu9P170k4XOuiqzfpYIhNaE=";
+  };
+  jellyfishLoginPageCss = pkgs.fetchurl {
+    url = "https://raw.githubusercontent.com/n00bcodr/Jellyfish/${jellyfishRev}/loginpage.css";
+    hash = "sha256-MOaJzLkp/hK4aNHIwhNo5pyrc1iZPBIGDMoJD4wZcGA=";
+  };
+  jellyfishJellyblueCss = pkgs.fetchurl {
+    url = "https://raw.githubusercontent.com/n00bcodr/Jellyfish/${jellyfishRev}/colors/jellyblue.css";
+    hash = "sha256-Fr6lrF/obiex8/oCSgmyPl98s8EVYhaY7LPMTMzGlu4=";
+  };
+  jellyfishLogo = pkgs.fetchurl {
+    url = "https://raw.githubusercontent.com/n00bcodr/Jellyfish/${jellyfishRev}/logos/jellyfish.png";
+    hash = "sha256-SvR2WKnDVkFtotNudKrLwBEb0s6tLIj1wN7iDQxTRqo=";
+  };
+  jellyfishJellyblueBackground = pkgs.fetchurl {
+    url = "https://raw.githubusercontent.com/n00bcodr/Jellyfish/${jellyfishRev}/colors/images/jellyblue.jpg";
+    hash = "sha256-7w3EoTk+eOrBNETT4NTg8aiE4vCv5VIzuPJpFkK60g4=";
+  };
+  jellyfishMaterialSymbolsFont = pkgs.fetchurl {
+    url = "https://fonts.gstatic.com/s/materialsymbolsrounded/v258/syl0-zNym6YjUruM-QrEh7-nyTnjDwKNJ_190FjpZIvDmUSVOK7BDB_Qb9vUSzq3wzLK-P0J-V_Zs-QtQth3-jOcbTCVpeRL2w5rwZu2rIelXxc.woff2";
+    hash = "sha256-Bcybn43h9kHp+OVBBsj6ZlqDTH+/q1c7T1qBcE54Fwo=";
+  };
+  jellyfishQuicksandCss = pkgs.fetchurl {
+    url = "https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap";
+    hash = "sha256-Ae6RsLtE0ob6tYHzUCTIVPobZpoyJgVK7EBr/TXXoH8=";
+  };
+  jellyfishQuicksand300 = pkgs.fetchurl {
+    url = "https://fonts.gstatic.com/s/quicksand/v37/6xK-dSZaM9iE8KbpRA_LJ3z8mH9BOJvgkKEo18E.ttf";
+    hash = "sha256-hwnt0h6djEXe8jz/E9MKOgRNEMDz+OXtRvtFeoQVvJY=";
+  };
+  jellyfishQuicksand400 = pkgs.fetchurl {
+    url = "https://fonts.gstatic.com/s/quicksand/v37/6xK-dSZaM9iE8KbpRA_LJ3z8mH9BOJvgkP8o18E.ttf";
+    hash = "sha256-CXfB2XgeA638GxILO2C2xNt3a1Jh6AHsiBVJzReJQ1E=";
+  };
+  jellyfishQuicksand500 = pkgs.fetchurl {
+    url = "https://fonts.gstatic.com/s/quicksand/v37/6xK-dSZaM9iE8KbpRA_LJ3z8mH9BOJvgkM0o18E.ttf";
+    hash = "sha256-UKbK8QGjNeRl8NXgMM1dVZUgE6vG6QNYn1UFcfF5Jxg=";
+  };
+  jellyfishQuicksand600 = pkgs.fetchurl {
+    url = "https://fonts.gstatic.com/s/quicksand/v37/6xK-dSZaM9iE8KbpRA_LJ3z8mH9BOJvgkCEv18E.ttf";
+    hash = "sha256-u/jz4tjrhDTCtJNh6lcSEnzmLwqjkkNgz+60dAvwiBQ=";
+  };
+  jellyfishQuicksand700 = pkgs.fetchurl {
+    url = "https://fonts.gstatic.com/s/quicksand/v37/6xK-dSZaM9iE8KbpRA_LJ3z8mH9BOJvgkBgv18E.ttf";
+    hash = "sha256-j7IUgXCxYVateNnXh6XZiiwAdS+R/A/ojJNnwICey6M=";
+  };
+  jellyfinThemePath = "/homelab-jellyfin-theme.css";
+  jellyfinMaterialSymbolsFontPath = "/homelab-jellyfin-material-symbols.woff2";
+  jellyfinQuicksand300Path = "/homelab-jellyfin-quicksand-300.ttf";
+  jellyfinQuicksand400Path = "/homelab-jellyfin-quicksand-400.ttf";
+  jellyfinQuicksand500Path = "/homelab-jellyfin-quicksand-500.ttf";
+  jellyfinQuicksand600Path = "/homelab-jellyfin-quicksand-600.ttf";
+  jellyfinQuicksand700Path = "/homelab-jellyfin-quicksand-700.ttf";
+  jellyfinLogoPath = "/homelab-jellyfin-logo.png";
+  jellyfinJellyblueBackgroundPath = "/homelab-jellyfin-jellyblue.jpg";
+  jellyfinCustomCss = pkgs.runCommand "homelab-jellyfin-theme.css" { nativeBuildInputs = [ pkgs.gnused ]; } ''
+    cp ${jellyfishQuicksandCss} quicksand.css
+    substituteInPlace quicksand.css \
+      --replace-fail "https://fonts.gstatic.com/s/quicksand/v37/6xK-dSZaM9iE8KbpRA_LJ3z8mH9BOJvgkKEo18E.ttf" "${jellyfinQuicksand300Path}" \
+      --replace-fail "https://fonts.gstatic.com/s/quicksand/v37/6xK-dSZaM9iE8KbpRA_LJ3z8mH9BOJvgkP8o18E.ttf" "${jellyfinQuicksand400Path}" \
+      --replace-fail "https://fonts.gstatic.com/s/quicksand/v37/6xK-dSZaM9iE8KbpRA_LJ3z8mH9BOJvgkM0o18E.ttf" "${jellyfinQuicksand500Path}" \
+      --replace-fail "https://fonts.gstatic.com/s/quicksand/v37/6xK-dSZaM9iE8KbpRA_LJ3z8mH9BOJvgkCEv18E.ttf" "${jellyfinQuicksand600Path}" \
+      --replace-fail "https://fonts.gstatic.com/s/quicksand/v37/6xK-dSZaM9iE8KbpRA_LJ3z8mH9BOJvgkBgv18E.ttf" "${jellyfinQuicksand700Path}"
+
+    cp ${jellyfishMaterialSymbolsCss} material-symbols.css
+    substituteInPlace material-symbols.css \
+      --replace-fail "https://fonts.gstatic.com/s/materialsymbolsrounded/v258/syl0-zNym6YjUruM-QrEh7-nyTnjDwKNJ_190FjpZIvDmUSVOK7BDB_Qb9vUSzq3wzLK-P0J-V_Zs-QtQth3-jOcbTCVpeRL2w5rwZu2rIelXxc.woff2" "${jellyfinMaterialSymbolsFontPath}"
+
+    cp ${jellyfishLoginPageCss} loginpage.css
+    substituteInPlace loginpage.css \
+      --replace-fail "https://i.imgur.com/Ewk3Pqw.png" "${jellyfinJellyblueBackgroundPath}"
+
+    cp ${jellyfishJellyblueCss} jellyblue.css
+    substituteInPlace jellyblue.css \
+      --replace-fail 'url("https://cdn.jsdelivr.net/gh/n00bcodr/jellyfish/logos/jellyfish.png")' 'url("${jellyfinLogoPath}")' \
+      --replace-fail "url(https://cdn.jsdelivr.net/gh/n00bcodr/Jellyfish/colors/images/jellyblue.jpg)" "url(${jellyfinJellyblueBackgroundPath})"
+
+    sed '/^@import /d' ${jellyfishThemeCss} > theme-no-imports.css
+    cat quicksand.css material-symbols.css loginpage.css jellyblue.css theme-no-imports.css ${jellyfishFixesCss} > $out
+  '';
 
   local = {
     adguard     = "127.0.0.1:3001";
@@ -555,6 +646,69 @@ let
     in
       base // {
         locations = base.locations // {
+          "= ${jellyfinThemePath}" = {
+            extraConfig = ''
+              alias ${jellyfinCustomCss};
+              default_type text/css;
+              add_header Cache-Control "public, max-age=300";
+            '';
+          };
+          "= ${jellyfinMaterialSymbolsFontPath}" = {
+            extraConfig = ''
+              alias ${jellyfishMaterialSymbolsFont};
+              default_type font/woff2;
+              add_header Cache-Control "public, max-age=300";
+            '';
+          };
+          "= ${jellyfinQuicksand300Path}" = {
+            extraConfig = ''
+              alias ${jellyfishQuicksand300};
+              default_type font/ttf;
+              add_header Cache-Control "public, max-age=300";
+            '';
+          };
+          "= ${jellyfinQuicksand400Path}" = {
+            extraConfig = ''
+              alias ${jellyfishQuicksand400};
+              default_type font/ttf;
+              add_header Cache-Control "public, max-age=300";
+            '';
+          };
+          "= ${jellyfinQuicksand500Path}" = {
+            extraConfig = ''
+              alias ${jellyfishQuicksand500};
+              default_type font/ttf;
+              add_header Cache-Control "public, max-age=300";
+            '';
+          };
+          "= ${jellyfinQuicksand600Path}" = {
+            extraConfig = ''
+              alias ${jellyfishQuicksand600};
+              default_type font/ttf;
+              add_header Cache-Control "public, max-age=300";
+            '';
+          };
+          "= ${jellyfinQuicksand700Path}" = {
+            extraConfig = ''
+              alias ${jellyfishQuicksand700};
+              default_type font/ttf;
+              add_header Cache-Control "public, max-age=300";
+            '';
+          };
+          "= ${jellyfinLogoPath}" = {
+            extraConfig = ''
+              alias ${jellyfishLogo};
+              default_type image/png;
+              add_header Cache-Control "public, max-age=300";
+            '';
+          };
+          "= ${jellyfinJellyblueBackgroundPath}" = {
+            extraConfig = ''
+              alias ${jellyfishJellyblueBackground};
+              default_type image/jpeg;
+              add_header Cache-Control "public, max-age=300";
+            '';
+          };
           "/" = base.locations."/" // {
             extraConfig = ''
               proxy_set_header Accept-Encoding "";
@@ -773,6 +927,65 @@ let
 
       chown jellyfin:media "$config_file"
       chmod 0600 "$config_file"
+    '';
+  };
+
+  jellyfinBrandingSetup = pkgs.writeShellApplication {
+    name = "jellyfin-branding-setup";
+    runtimeInputs = [ pkgs.coreutils pkgs.python3 ];
+    text = ''
+      set -euo pipefail
+
+      config_dir="/var/lib/jellyfin/config"
+      branding_file="$config_dir/branding.xml"
+
+      install -d -o jellyfin -g media -m 0700 "$config_dir"
+
+      python3 - <<'PY'
+      import xml.etree.ElementTree as ET
+      from pathlib import Path
+
+      branding_file = Path("/var/lib/jellyfin/config/branding.xml")
+      custom_css = "@import url(\"${jellyfinThemePath}\");"
+
+      def local_name(tag):
+          return tag.rsplit("}", 1)[-1]
+
+      if branding_file.exists():
+          try:
+              tree = ET.parse(branding_file)
+              root = tree.getroot()
+          except ET.ParseError:
+              root = ET.Element(
+                  "BrandingOptions",
+                  {
+                      "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+                      "xmlns:xsd": "http://www.w3.org/2001/XMLSchema",
+                  },
+              )
+      else:
+          root = ET.Element(
+              "BrandingOptions",
+              {
+                  "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+                  "xmlns:xsd": "http://www.w3.org/2001/XMLSchema",
+              },
+          )
+
+      custom_css_node = next(
+          (child for child in root if local_name(child.tag) == "CustomCss"),
+          None,
+      )
+      if custom_css_node is None:
+          custom_css_node = ET.SubElement(root, "CustomCss")
+      custom_css_node.text = custom_css
+
+      ET.indent(root, space="  ")
+      ET.ElementTree(root).write(branding_file, encoding="utf-8", xml_declaration=True)
+      PY
+
+      chown jellyfin:media "$branding_file"
+      chmod 0600 "$branding_file"
     '';
   };
 
@@ -1600,6 +1813,7 @@ in
     serviceConfig.ExecStartPre = [
       "+${jellyfinLdapSetup}/bin/jellyfin-ldap-setup"
       "+${jellyfinEnhancedSetup}/bin/jellyfin-enhanced-setup"
+      "+${jellyfinBrandingSetup}/bin/jellyfin-branding-setup"
     ];
   };
 
