@@ -1217,10 +1217,14 @@ in
       ''
     ];
     extraOptions = [ "--network=host" ];
-    volumes = [ "${dashyConfig}:/app/user-data/conf.yml:ro" ];
+    volumes = [
+      "${dashyConfig}:/app/user-data/conf.yml:ro"
+      "/etc/localtime:/etc/localtime:ro"
+    ];
     environment = {
       NODE_ENV = "production";
       PORT = "8082";
+      TZ = config.time.timeZone;
     };
   };
 
