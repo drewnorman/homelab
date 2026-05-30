@@ -23,6 +23,7 @@ let
     lldapHttp   = "127.0.0.1:17170";
     lldapLdap   = "127.0.0.1:3890";
     grafana     = "127.0.0.1:3000";
+    loki        = "127.0.0.1:3100";
     prometheus  = "127.0.0.1:9090";
     alertmanager = "127.0.0.1:9093";
     jellyfin    = "127.0.0.1:8096";
@@ -324,6 +325,18 @@ let
             color = "#17212b";
             backgroundColor = "rgba(255, 255, 255, 0.94)";
             url = "https://grafana.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.grafana}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "Logs";
+            description = "Live service log search";
+            icon = "fas fa-stream";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://logs.${domain}/explore?left=%7B%22datasource%22:%22loki%22,%22queries%22:%5B%7B%22expr%22:%22%7Bjob%3D%5C%22systemd-journal%5C%22%7D%22%7D%5D,%22range%22:%7B%22from%22:%22now-15m%22,%22to%22:%22now%22%7D%7D";
             statusCheck = true;
             statusCheckUrl = "http://${local.grafana}/";
             statusCheckAllowInsecure = true;
@@ -1034,7 +1047,7 @@ in
           };
         };
       };
-      "grafana.${domain}" = mkVhost { backend = local.grafana; sso = true; aliases = [ "status.${domain}" ]; };
+      "grafana.${domain}" = mkVhost { backend = local.grafana; sso = true; aliases = [ "status.${domain}" "logs.${domain}" ]; };
       "prometheus.${domain}" = mkVhost { backend = local.prometheus; sso = true; aliases = [ "metrics.${domain}" ]; };
       "alerts.${domain}" = mkVhost { backend = local.alertmanager; sso = true; };
       "jellyfin.${domain}" = mkJellyfinVhost { backend = local.jellyfin; aliases = [ "watch.${domain}" ]; };
@@ -1179,6 +1192,7 @@ in
               "adguard.${domain}"
               "dns.${domain}"
               "grafana.${domain}"
+              "logs.${domain}"
               "status.${domain}"
               "prometheus.${domain}"
               "metrics.${domain}"
@@ -1231,6 +1245,93 @@ in
       config.sops.secrets.authelia-lldap-password.path;
   };
 
+  services.loki = {
+    enable = true;
+    configuration = {
+      auth_enabled = false;
+      server = {
+        http_listen_address = "127.0.0.1";
+        http_listen_port = 3100;
+        grpc_listen_port = 0;
+      };
+      common = {
+        path_prefix = "/var/lib/loki";
+        storage.filesystem = {
+          chunks_directory = "/var/lib/loki/chunks";
+          rules_directory = "/var/lib/loki/rules";
+        };
+        replication_factor = 1;
+        ring.kvstore.store = "inmemory";
+      };
+      schema_config.configs = [
+        {
+          from = "2024-01-01";
+          store = "tsdb";
+          object_store = "filesystem";
+          schema = "v13";
+          index = {
+            prefix = "index_";
+            period = "24h";
+          };
+        }
+      ];
+      limits_config = {
+        retention_period = "168h";
+        allow_structured_metadata = true;
+      };
+      compactor = {
+        working_directory = "/var/lib/loki/compactor";
+        retention_enabled = true;
+        delete_request_store = "filesystem";
+      };
+    };
+  };
+
+  services.alloy = {
+    enable = true;
+    extraFlags = [
+      "--server.http.listen-addr=127.0.0.1:12345"
+      "--disable-reporting"
+    ];
+  };
+
+  environment.etc."alloy/config.alloy".text = ''
+    discovery.relabel "journal" {
+      targets = []
+
+      rule {
+        source_labels = ["__journal__systemd_unit"]
+        target_label  = "unit"
+      }
+
+      rule {
+        source_labels = ["__journal_syslog_identifier"]
+        target_label  = "syslog_identifier"
+      }
+
+      rule {
+        source_labels = ["__journal_priority_keyword"]
+        target_label  = "level"
+      }
+    }
+
+    loki.source.journal "system" {
+      max_age       = "12h"
+      relabel_rules = discovery.relabel.journal.rules
+      labels        = {
+        job  = "systemd-journal",
+        host = "core",
+      }
+      forward_to    = [loki.write.local.receiver]
+    }
+
+    loki.write "local" {
+      endpoint {
+        url = "http://${local.loki}/loki/api/v1/push"
+      }
+    }
+  '';
+
   services.grafana = {
     enable = true;
     settings = {
@@ -1268,6 +1369,16 @@ in
           access = "proxy";
           url = "http://${local.prometheus}";
           isDefault = true;
+        }
+        {
+          name = "Loki";
+          uid = "loki";
+          type = "loki";
+          access = "proxy";
+          url = "http://${local.loki}";
+          jsonData = {
+            maxLines = 1000;
+          };
         }
       ];
       dashboards.settings.providers = [
@@ -1320,6 +1431,7 @@ in
         params.module = [ "http_2xx" ];
         static_configs = [
           { targets = [ "https://grafana.${domain}" ]; labels = { service = "grafana"; tier = "admin"; }; }
+          { targets = [ "https://logs.${domain}" ]; labels = { service = "logs"; tier = "admin"; }; }
           { targets = [ "https://prometheus.${domain}" ]; labels = { service = "prometheus"; tier = "admin"; }; }
           { targets = [ "https://alerts.${domain}" ]; labels = { service = "alertmanager"; tier = "admin"; }; }
           { targets = [ "https://watch.${domain}" ]; labels = { service = "jellyfin"; tier = "media"; }; }

@@ -132,6 +132,7 @@ Friendly service names are preferred for day-to-day use:
 
 - `lab.adre.me` for the service portal
 - `grafana.lab.adre.me` or `status.lab.adre.me` for Grafana
+- `logs.lab.adre.me` for live service logs in Grafana Explore
 - `prometheus.lab.adre.me` for Prometheus
 - `alerts.lab.adre.me` for Alertmanager
 - `watch.lab.adre.me` for Jellyfin
@@ -145,11 +146,13 @@ The app-native names such as `jellyfin.lab.adre.me`, `radarr.lab.adre.me`, `sona
 
 ### Monitoring
 
-In the single VM layout, `lab-core` runs Grafana, Prometheus, Alertmanager, blackbox exporter, and node exporter locally.
+In the single VM layout, `lab-core` runs Grafana, Loki, Grafana Alloy, Prometheus, Alertmanager, blackbox exporter, and node exporter locally.
 
 Dashy is the default portal at `https://lab.adre.me`. nginx guards the portal with Authelia and forwards the authenticated user to Dashy so the dashboard can hide sections by user. Grafana remains available at `https://grafana.lab.adre.me` and `https://status.lab.adre.me`. Prometheus and Alertmanager are proxied through nginx at `https://prometheus.lab.adre.me` and `https://alerts.lab.adre.me`; these routes use the same Authelia forward-auth guard as the other internal admin tools.
 
 The provisioned Grafana dashboards cover homelab overview, host health, service health, and storage/media state. Prometheus checks node exporter, failed systemd units, key filesystem usage, read-only filesystems, public service endpoints, response latency, and TLS expiry.
+
+Grafana also has a Loki datasource fed by Grafana Alloy from the `lab-core` systemd journal. Use `https://logs.lab.adre.me/explore` for a live, filterable log stream. Useful LogQL starting points are `{job="systemd-journal"}`, `{unit="nginx.service"}`, `{unit="qbittorrent.service"}`, and `{level="err"}`.
 
 Alertmanager sends warning and critical alerts to Slack through an incoming webhook. Create a dedicated free Slack workspace and a `#homelab-alerts` channel, then set the webhook URL in `.env` before running `nix/secrets/setup.sh`:
 
