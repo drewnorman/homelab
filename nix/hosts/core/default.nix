@@ -548,7 +548,7 @@ in
     sopsFile = ../../secrets/edge.yaml;
     owner = "prometheus";
     group = "prometheus";
-    mode = "0400";
+    mode = "0440";
     restartUnits = [ "alertmanager.service" ];
   };
   sops.secrets.lldap-jwt-secret = {
@@ -1077,6 +1077,7 @@ in
       };
     };
   };
+  systemd.services.alertmanager.serviceConfig.SupplementaryGroups = [ "prometheus" ];
 
   services.jellyfin = {
     enable = true;
