@@ -29,6 +29,28 @@ let
   };
 
   mediaGroup = 1000;
+  bazarrPackage = pkgs.bazarr.overrideAttrs (_old: rec {
+    version = "1.5.6";
+    src = pkgs.fetchzip {
+      url = "https://github.com/morpheus65535/bazarr/releases/download/v${version}/bazarr.zip";
+      hash = "sha256-S3idNH9Wm9f6aNj69dERmeks1rLvUeQJYFebXa5cWQo=";
+      stripRoot = false;
+    };
+    buildInputs = [
+      (pkgs.python3.withPackages (ps: [
+        ps.lxml
+        ps.numpy
+        ps.gevent
+        ps.gevent-websocket
+        ps.pillow
+        ps.setuptools
+        ps.psycopg2
+        ps.webrtcvad
+      ]))
+      pkgs.unar
+      pkgs.ffmpeg
+    ];
+  });
 
   externalStorage = {
     enable = true;
@@ -425,6 +447,20 @@ in
     sopsFile = ../../secrets/authelia.yaml;
     owner = "authelia-main";
   };
+  sops.secrets.bazarr-opensubtitlescom-username = {
+    sopsFile = ../../secrets/bazarr.yaml;
+    owner = "bazarr";
+    group = "bazarr";
+    mode = "0400";
+    restartUnits = [ "bazarr.service" ];
+  };
+  sops.secrets.bazarr-opensubtitlescom-password = {
+    sopsFile = ../../secrets/bazarr.yaml;
+    owner = "bazarr";
+    group = "bazarr";
+    mode = "0400";
+    restartUnits = [ "bazarr.service" ];
+  };
 
   services.tailscale = {
     enable = true;
@@ -808,7 +844,178 @@ in
   services.radarr = { enable = true; group = "media"; openFirewall = false; };
   services.sonarr = { enable = true; group = "media"; openFirewall = false; };
   services.prowlarr = { enable = true; openFirewall = false; };
-  services.bazarr = { enable = true; openFirewall = false; };
+  services.bazarr = { enable = true; package = bazarrPackage; openFirewall = false; };
+  systemd.services.bazarr = {
+    after = [ "radarr.service" "sonarr.service" ];
+    wants = [ "radarr.service" "sonarr.service" ];
+    preStart = ''
+      set -euo pipefail
+
+      cfg=/var/lib/bazarr/config/config.yaml
+      db=/var/lib/bazarr/db/bazarr.db
+      radarr_cfg=/var/lib/radarr/.config/Radarr/config.xml
+      sonarr_cfg=/var/lib/sonarr/.config/NzbDrone/config.xml
+      opensubtitlescom_username_file=/run/secrets/bazarr-opensubtitlescom-username
+      opensubtitlescom_password_file=/run/secrets/bazarr-opensubtitlescom-password
+      subdl_api_key_file=/run/secrets/bazarr-subdl-api-key
+      addic7ed_username_file=/run/secrets/bazarr-addic7ed-username
+      addic7ed_password_file=/run/secrets/bazarr-addic7ed-password
+
+      [ -f "$cfg" ] || exit 0
+      [ -f "$radarr_cfg" ] || exit 0
+      [ -f "$sonarr_cfg" ] || exit 0
+
+      radarr_apikey="$(${pkgs.xmlstarlet}/bin/xmlstarlet sel -t -v '/Config/ApiKey' "$radarr_cfg")"
+      sonarr_apikey="$(${pkgs.xmlstarlet}/bin/xmlstarlet sel -t -v '/Config/ApiKey' "$sonarr_cfg")"
+      opensubtitlescom_username=""
+      opensubtitlescom_password=""
+      subdl_api_key=""
+      addic7ed_username=""
+      addic7ed_password=""
+
+      if [ -f "$opensubtitlescom_username_file" ] \
+        && [ -f "$opensubtitlescom_password_file" ]; then
+        opensubtitlescom_username="$(cat "$opensubtitlescom_username_file")"
+        opensubtitlescom_password="$(cat "$opensubtitlescom_password_file")"
+      fi
+      if [ -f "$subdl_api_key_file" ]; then
+        subdl_api_key="$(cat "$subdl_api_key_file")"
+      fi
+      if [ -f "$addic7ed_username_file" ] \
+        && [ -f "$addic7ed_password_file" ]; then
+        addic7ed_username="$(cat "$addic7ed_username_file")"
+        addic7ed_password="$(cat "$addic7ed_password_file")"
+      fi
+
+      export BAZARR_CONFIG="$cfg"
+      export BAZARR_DB="$db"
+      export RADARR_APIKEY="$radarr_apikey"
+      export SONARR_APIKEY="$sonarr_apikey"
+      export OPENSUBTITLESCOM_USERNAME="$opensubtitlescom_username"
+      export OPENSUBTITLESCOM_PASSWORD="$opensubtitlescom_password"
+      export SUBDL_API_KEY="$subdl_api_key"
+      export ADDIC7ED_USERNAME="$addic7ed_username"
+      export ADDIC7ED_PASSWORD="$addic7ed_password"
+
+      ${pkgs.python3.withPackages (ps: [ ps.pyyaml ])}/bin/python3 <<'PY'
+      import json
+      import os
+      import sqlite3
+      from pathlib import Path
+
+      import yaml
+
+      config_path = Path(os.environ["BAZARR_CONFIG"])
+      db_path = Path(os.environ["BAZARR_DB"])
+
+      with config_path.open() as fh:
+          config = yaml.safe_load(fh) or {}
+
+      general = config.setdefault("general", {})
+      enabled_providers = ["embeddedsubtitles", "gestdown"]
+      if all((
+          os.environ["OPENSUBTITLESCOM_USERNAME"],
+          os.environ["OPENSUBTITLESCOM_PASSWORD"],
+      )):
+          enabled_providers.append("opensubtitlescom")
+      if os.environ["SUBDL_API_KEY"]:
+          enabled_providers.append("subdl")
+      if all((
+          os.environ["ADDIC7ED_USERNAME"],
+          os.environ["ADDIC7ED_PASSWORD"],
+      )):
+          enabled_providers.append("addic7ed")
+
+      general.update({
+          "enabled_providers": enabled_providers,
+          "movie_default_enabled": True,
+          "movie_default_profile": 1,
+          "serie_default_enabled": True,
+          "serie_default_profile": 1,
+          "upgrade_subs": False,
+          "use_radarr": True,
+          "use_sonarr": True,
+      })
+
+      radarr = config.setdefault("radarr", {})
+      radarr.update({
+          "apikey": os.environ["RADARR_APIKEY"],
+          "base_url": "/",
+          "ip": "127.0.0.1",
+          "port": 7878,
+          "ssl": False,
+      })
+
+      sonarr = config.setdefault("sonarr", {})
+      sonarr.update({
+          "apikey": os.environ["SONARR_APIKEY"],
+          "base_url": "/",
+          "ip": "127.0.0.1",
+          "port": 8989,
+          "ssl": False,
+      })
+
+      config.setdefault("podnapisi", {})["verify_ssl"] = True
+      config.setdefault("embeddedsubtitles", {}).update({
+          "fallback_lang": "en",
+          "included_codecs": [],
+          "timeout": 600,
+      })
+      config.setdefault("opensubtitlescom", {}).update({
+          "username": os.environ["OPENSUBTITLESCOM_USERNAME"],
+          "password": os.environ["OPENSUBTITLESCOM_PASSWORD"],
+          "use_hash": True,
+          "include_ai_translated": False,
+      })
+      config.setdefault("subdl", {}).update({
+          "api_key": os.environ["SUBDL_API_KEY"],
+      })
+      config.setdefault("addic7ed", {}).update({
+          "username": os.environ["ADDIC7ED_USERNAME"],
+          "password": os.environ["ADDIC7ED_PASSWORD"],
+          "cookies": "",
+          "user_agent": "",
+          "vip": False,
+      })
+
+      with config_path.open("w") as fh:
+          yaml.safe_dump(config, fh, default_flow_style=False, sort_keys=False)
+
+      if db_path.exists():
+          profile_items = json.dumps([{
+              "id": 1,
+              "language": "en",
+              "forced": "False",
+              "hi": "False",
+              "audio_exclude": "False",
+          }])
+          with sqlite3.connect(db_path) as con:
+              con.execute(
+                  """
+                  insert into table_languages_profiles
+                    (profileId, cutoff, originalFormat, items, name, mustContain, mustNotContain, tag)
+                  values (?, ?, ?, ?, ?, ?, ?, ?)
+                  on conflict(profileId) do update set
+                    cutoff = excluded.cutoff,
+                    originalFormat = excluded.originalFormat,
+                    items = excluded.items,
+                    name = excluded.name,
+                    mustContain = excluded.mustContain,
+                    mustNotContain = excluded.mustNotContain,
+                    tag = excluded.tag
+                  """,
+                  (1, None, None, profile_items, "English", "[]", "[]", None),
+              )
+              con.execute("update table_settings_languages set enabled = 1 where code2 = 'en'")
+              con.execute("update table_shows set profileId = 1 where profileId is null")
+              con.execute("update table_movies set profileId = 1 where profileId is null")
+      PY
+
+      chown bazarr:bazarr "$cfg"
+      [ ! -f "$db" ] || chown bazarr:bazarr "$db"
+    '';
+  };
+  users.users.bazarr.extraGroups = [ "media" ];
 
   users.users.qbittorrent = {
     isSystemUser = true;

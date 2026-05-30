@@ -12,6 +12,7 @@
 #        sops secrets/lldap.yaml
 #        sops secrets/authelia.yaml
 #        sops secrets/qbittorrent.yaml
+#        sops secrets/bazarr.yaml
 #   6. To re-encrypt after adding a new host key (from nix/):
 #        sops updatekeys secrets/<file>.yaml
 
@@ -45,3 +46,7 @@ creation_rules:
   - path_regex: secrets/qbittorrent\.yaml$
     key_groups:
       - age: [*operator, *lab-qbittorrent]
+
+  - path_regex: secrets/bazarr\.yaml$
+    key_groups:
+      - age: [*operator, *lab-core]
