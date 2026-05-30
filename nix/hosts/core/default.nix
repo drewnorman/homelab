@@ -11,6 +11,11 @@ let
     url = "https://repo.jellyfin.org/files/plugin/ldap-authentication/ldap-authentication_${jellyfinLdapPluginVersion}.zip";
     hash = "sha256-wjhsABvkOcmUYoCgLWJhDynjJdQJToO9MSId4/eqIK4=";
   };
+  jellyfinEnhancedPluginVersion = "11.11.0.0";
+  jellyfinEnhancedPluginZip = pkgs.fetchurl {
+    url = "https://github.com/n00bcodr/Jellyfin-Enhanced/releases/download/${jellyfinEnhancedPluginVersion}/Jellyfin.Plugin.JellyfinEnhanced_10.11.0.zip";
+    hash = "sha256-YmKWsQ4VyLO9cb2RxO2Q5A7TMq8BMWYcLsCEpoMGXNM=";
+  };
 
   local = {
     adguard     = "127.0.0.1:3001";
@@ -181,6 +186,23 @@ let
         };
       };
 
+  mkJellyfinVhost = { backend, aliases ? [] }:
+    let
+      base = mkVhost { inherit backend aliases; };
+    in
+      base // {
+        locations = base.locations // {
+          "/" = base.locations."/" // {
+            extraConfig = ''
+              proxy_set_header Accept-Encoding "";
+              sub_filter_once on;
+              sub_filter_types text/html;
+              sub_filter '</head>' '<script src="/JellyfinEnhanced/script"></script></head>';
+            '';
+          };
+        };
+      };
+
   jellyfinLdapSetup = pkgs.writeShellApplication {
     name = "jellyfin-ldap-setup";
     runtimeInputs = [ pkgs.coreutils pkgs.gnused pkgs.python3 pkgs.unzip ];
@@ -279,6 +301,115 @@ let
 
       chown jellyfin:media "$config_dir/LDAP-Auth.xml" "$system_config"
       chmod 0600 "$config_dir/LDAP-Auth.xml" "$system_config"
+    '';
+  };
+
+  jellyfinEnhancedSetup = pkgs.writeShellApplication {
+    name = "jellyfin-enhanced-setup";
+    runtimeInputs = [ pkgs.coreutils pkgs.findutils pkgs.python3 pkgs.unzip ];
+    text = ''
+      set -euo pipefail
+
+      plugin_dir="/var/lib/jellyfin/plugins/Jellyfin Enhanced_${jellyfinEnhancedPluginVersion}"
+      config_dir="/var/lib/jellyfin/plugins/configurations"
+      config_file="$config_dir/Jellyfin.Plugin.JellyfinEnhanced.xml"
+      jellyseerr_settings="/var/lib/private/jellyseerr/config/settings.json"
+      tmp="$(mktemp -d)"
+      trap 'rm -rf "$tmp"' EXIT
+
+      install -d -o jellyfin -g media -m 0700 /var/lib/jellyfin/plugins "$config_dir"
+      for existing_plugin in /var/lib/jellyfin/plugins/Jellyfin\ Enhanced_*; do
+        [ -e "$existing_plugin" ] || continue
+        [ "$existing_plugin" = "$plugin_dir" ] && continue
+        rm -rf "$existing_plugin"
+      done
+
+      unzip -oq ${jellyfinEnhancedPluginZip} -d "$tmp"
+      rm -rf "$plugin_dir"
+      install -d -o jellyfin -g media -m 0700 "$plugin_dir"
+      cp -R "$tmp"/. "$plugin_dir"/
+      chown -R jellyfin:media "$plugin_dir"
+      chmod -R u=rwX,go= "$plugin_dir"
+
+      JELLYSEERR_API_KEY=""
+      if [ -f "$jellyseerr_settings" ]; then
+        JELLYSEERR_API_KEY="$(python3 - <<'PY'
+      import json
+      from pathlib import Path
+
+      settings = Path("/var/lib/private/jellyseerr/config/settings.json")
+      try:
+          data = json.loads(settings.read_text(encoding="utf-8"))
+      except (OSError, json.JSONDecodeError):
+          print("")
+      else:
+          print(data.get("main", {}).get("apiKey", ""))
+      PY
+      )"
+      fi
+      export JELLYSEERR_API_KEY
+
+      python3 - <<'PY'
+      import os
+      import xml.etree.ElementTree as ET
+      from pathlib import Path
+
+      values = {
+          "JellyseerrEnabled": "true",
+          "JellyseerrShowSearchResults": "true",
+          "JellyseerrShowReportButton": "false",
+          "JellyseerrShowIssueIndicator": "true",
+          "JellyseerrEnable4KRequests": "false",
+          "JellyseerrEnable4KTvRequests": "false",
+          "JellyseerrShowAdvanced": "false",
+          "JellyseerrShowQuotaInfo": "true",
+          "JellyseerrShowSimilar": "true",
+          "JellyseerrShowRecommended": "true",
+          "JellyseerrShowRequestMoreOnSeries": "true",
+          "JellyseerrShowNetworkDiscovery": "true",
+          "JellyseerrShowGenreDiscovery": "true",
+          "JellyseerrShowTagDiscovery": "true",
+          "JellyseerrShowPersonDiscovery": "true",
+          "JellyseerrShowCollectionDiscovery": "true",
+          "JellyseerrExcludeLibraryItems": "true",
+          "JellyseerrExcludeBlocklistedItems": "false",
+          "JellyseerrUseMoreInfoModal": "false",
+          "JellyseerrUrls": "https://requests.${domain}",
+          "JellyseerrApiKey": os.environ.get("JELLYSEERR_API_KEY", ""),
+          "JellyseerrUrlMappings": "",
+          "JellyseerrAutoImportUsers": "true",
+          "JellyseerrImportBlockedUsers": "",
+          "JellyseerrDisableCache": "false",
+          "JellyseerrResponseCacheTtlMinutes": "10",
+          "JellyseerrUserIdCacheTtlMinutes": "30",
+          "TriggerSeerrScanOnItemAdded": "true",
+          "SeerrScanDebounceSeconds": "60",
+          "AddRequestedMediaToWatchlist": "true",
+          "SyncJellyseerrWatchlist": "false",
+          "PreventWatchlistReAddition": "true",
+          "WatchlistMemoryRetentionDays": "365",
+          "ShowCollectionsInSearch": "true",
+      }
+
+      root = ET.Element(
+          "PluginConfiguration",
+          {
+              "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+              "xmlns:xsd": "http://www.w3.org/2001/XMLSchema",
+          },
+      )
+      for key, value in values.items():
+          child = ET.SubElement(root, key)
+          child.text = value
+
+      config_file = Path("/var/lib/jellyfin/plugins/configurations/Jellyfin.Plugin.JellyfinEnhanced.xml")
+      tree = ET.ElementTree(root)
+      ET.indent(tree, space="  ")
+      tree.write(config_file, encoding="utf-8", xml_declaration=True)
+      PY
+
+      chown jellyfin:media "$config_file"
+      chmod 0600 "$config_file"
     '';
   };
 
@@ -501,7 +632,7 @@ in
       "grafana.${domain}" = mkVhost { backend = local.grafana; sso = true; aliases = [ "status.${domain}" ]; };
       "prometheus.${domain}" = mkVhost { backend = local.prometheus; sso = true; aliases = [ "metrics.${domain}" ]; };
       "alerts.${domain}" = mkVhost { backend = local.alertmanager; sso = true; };
-      "jellyfin.${domain}" = mkVhost { backend = local.jellyfin; aliases = [ "watch.${domain}" ]; };
+      "jellyfin.${domain}" = mkJellyfinVhost { backend = local.jellyfin; aliases = [ "watch.${domain}" ]; };
       "jellyseerr.${domain}" = mkVhost { backend = local.jellyseerr; aliases = [ "requests.${domain}" ]; };
       "radarr.${domain}" = mkVhost { backend = local.radarr; sso = true; aliases = [ "movies.${domain}" ]; };
       "sonarr.${domain}" = mkVhost { backend = local.sonarr; sso = true; aliases = [ "tv.${domain}" ]; };
@@ -817,7 +948,10 @@ in
   systemd.services.jellyfin = {
     after = [ "lldap-provision.service" ];
     requires = [ "lldap-provision.service" ];
-    serviceConfig.ExecStartPre = [ "+${jellyfinLdapSetup}/bin/jellyfin-ldap-setup" ];
+    serviceConfig.ExecStartPre = [
+      "+${jellyfinLdapSetup}/bin/jellyfin-ldap-setup"
+      "+${jellyfinEnhancedSetup}/bin/jellyfin-enhanced-setup"
+    ];
   };
 
   services.jellyseerr = {
