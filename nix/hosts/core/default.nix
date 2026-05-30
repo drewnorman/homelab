@@ -414,10 +414,16 @@ let
     '';
   };
 
-  dashboardDir = pkgs.writeTextDir "homelab-node-overview.json" (builtins.toJSON {
-    uid = "homelab-node-overview";
-    title = "Homelab Node Overview";
-    tags = [ "homelab" "nodes" ];
+  prometheusDatasource = { type = "prometheus"; uid = "prometheus"; };
+  mkTarget = expr: { inherit expr; refId = "A"; };
+  mkPanel = id: type: title: gridPos: expr: extra: {
+    inherit id type title gridPos;
+    datasource = prometheusDatasource;
+    targets = [ (mkTarget expr) ];
+  } // extra;
+  mkDashboard = uid: title: panels: pkgs.writeText "${uid}.json" (builtins.toJSON {
+    inherit uid title panels;
+    tags = [ "homelab" "monitoring" ];
     timezone = "browser";
     refresh = "30s";
     schemaVersion = 39;
@@ -426,53 +432,51 @@ let
       from = "now-6h";
       to = "now";
     };
-    panels = [
-      {
-        id = 1;
-        type = "stat";
-        title = "Core Up";
-        datasource = { type = "prometheus"; uid = "prometheus"; };
-        gridPos = { h = 4; w = 6; x = 0; y = 0; };
-        targets = [{ expr = "up{job=\"node\",host=\"core\"}"; refId = "A"; }];
-      }
-      {
-        id = 2;
-        type = "timeseries";
-        title = "CPU Busy";
-        datasource = { type = "prometheus"; uid = "prometheus"; };
-        gridPos = { h = 8; w = 12; x = 0; y = 4; };
-        targets = [{
-          expr = "100 * (1 - avg(rate(node_cpu_seconds_total{job=\"node\",mode=\"idle\",host=\"core\"}[5m])))";
-          refId = "A";
-        }];
-        fieldConfig.defaults.unit = "percent";
-      }
-      {
-        id = 3;
-        type = "timeseries";
-        title = "Memory Used";
-        datasource = { type = "prometheus"; uid = "prometheus"; };
-        gridPos = { h = 8; w = 12; x = 12; y = 4; };
-        targets = [{
-          expr = "100 * (1 - (node_memory_MemAvailable_bytes{job=\"node\",host=\"core\"} / node_memory_MemTotal_bytes{job=\"node\",host=\"core\"}))";
-          refId = "A";
-        }];
-        fieldConfig.defaults.unit = "percent";
-      }
-      {
-        id = 4;
-        type = "timeseries";
-        title = "Root Filesystem Used";
-        datasource = { type = "prometheus"; uid = "prometheus"; };
-        gridPos = { h = 8; w = 12; x = 0; y = 12; };
-        targets = [{
-          expr = "100 * (1 - (node_filesystem_avail_bytes{job=\"node\",mountpoint=\"/\",fstype!=\"rootfs\",host=\"core\"} / node_filesystem_size_bytes{job=\"node\",mountpoint=\"/\",fstype!=\"rootfs\",host=\"core\"}))";
-          refId = "A";
-        }];
-        fieldConfig.defaults.unit = "percent";
-      }
-    ];
   });
+  dashboardDir = pkgs.linkFarm "homelab-grafana-dashboards" [
+    {
+      name = "homelab-overview.json";
+      path = mkDashboard "homelab-overview" "Homelab Overview" [
+        (mkPanel 1 "stat" "Critical Alerts" { h = 4; w = 6; x = 0; y = 0; } "count(ALERTS{alertstate=\"firing\",severity=\"critical\"})" {})
+        (mkPanel 2 "stat" "Warning Alerts" { h = 4; w = 6; x = 6; y = 0; } "count(ALERTS{alertstate=\"firing\",severity=\"warning\"})" {})
+        (mkPanel 3 "stat" "Services Down" { h = 4; w = 6; x = 12; y = 0; } "count(probe_success{job=\"blackbox\"} == 0)" {})
+        (mkPanel 4 "stat" "TLS Days Remaining" { h = 4; w = 6; x = 18; y = 0; } "(min(probe_ssl_earliest_cert_expiry{job=\"blackbox\"}) - time()) / 86400" { fieldConfig.defaults.unit = "d"; })
+        (mkPanel 5 "table" "Service Status" { h = 8; w = 12; x = 0; y = 4; } "probe_success{job=\"blackbox\"}" {})
+        (mkPanel 6 "timeseries" "HTTP Latency" { h = 8; w = 12; x = 12; y = 4; } "probe_duration_seconds{job=\"blackbox\"}" { fieldConfig.defaults.unit = "s"; })
+        (mkPanel 7 "timeseries" "Key Filesystem Usage" { h = 8; w = 12; x = 0; y = 12; } "100 * (1 - (node_filesystem_avail_bytes{job=\"node\",mountpoint=~\"/|/srv/media|/srv/downloads|/srv/storage/external\",fstype!=\"rootfs\"} / node_filesystem_size_bytes{job=\"node\",mountpoint=~\"/|/srv/media|/srv/downloads|/srv/storage/external\",fstype!=\"rootfs\"}))" { fieldConfig.defaults.unit = "percent"; })
+        (mkPanel 8 "table" "Failed Systemd Units" { h = 8; w = 12; x = 12; y = 12; } "node_systemd_unit_state{job=\"node\",host=\"core\",state=\"failed\"}" {})
+      ];
+    }
+    {
+      name = "homelab-host-health.json";
+      path = mkDashboard "homelab-host-health" "Host Health" [
+        (mkPanel 1 "timeseries" "CPU Busy" { h = 8; w = 12; x = 0; y = 0; } "100 * (1 - avg(rate(node_cpu_seconds_total{job=\"node\",mode=\"idle\",host=\"core\"}[5m])))" { fieldConfig.defaults.unit = "percent"; })
+        (mkPanel 2 "timeseries" "Memory Used" { h = 8; w = 12; x = 12; y = 0; } "100 * (1 - (node_memory_MemAvailable_bytes{job=\"node\",host=\"core\"} / node_memory_MemTotal_bytes{job=\"node\",host=\"core\"}))" { fieldConfig.defaults.unit = "percent"; })
+        (mkPanel 3 "timeseries" "Load Average" { h = 8; w = 12; x = 0; y = 8; } "node_load1{job=\"node\",host=\"core\"}" {})
+        (mkPanel 4 "timeseries" "Swap Used" { h = 8; w = 12; x = 12; y = 8; } "100 * (1 - (node_memory_SwapFree_bytes{job=\"node\",host=\"core\"} / node_memory_SwapTotal_bytes{job=\"node\",host=\"core\"}))" { fieldConfig.defaults.unit = "percent"; })
+        (mkPanel 5 "timeseries" "Disk IO Time" { h = 8; w = 12; x = 0; y = 16; } "rate(node_disk_io_time_seconds_total{job=\"node\",host=\"core\"}[5m])" { fieldConfig.defaults.unit = "percentunit"; })
+        (mkPanel 6 "timeseries" "Network Throughput" { h = 8; w = 12; x = 12; y = 16; } "rate(node_network_receive_bytes_total{job=\"node\",host=\"core\",device!~\"lo|veth.*|docker.*|br-.*\"}[5m]) + rate(node_network_transmit_bytes_total{job=\"node\",host=\"core\",device!~\"lo|veth.*|docker.*|br-.*\"}[5m])" { fieldConfig.defaults.unit = "Bps"; })
+      ];
+    }
+    {
+      name = "homelab-service-health.json";
+      path = mkDashboard "homelab-service-health" "Service Health" [
+        (mkPanel 1 "table" "Endpoint Status" { h = 8; w = 24; x = 0; y = 0; } "probe_success{job=\"blackbox\"}" {})
+        (mkPanel 2 "timeseries" "Endpoint Latency" { h = 8; w = 12; x = 0; y = 8; } "probe_duration_seconds{job=\"blackbox\"}" { fieldConfig.defaults.unit = "s"; })
+        (mkPanel 3 "timeseries" "HTTP Status Codes" { h = 8; w = 12; x = 12; y = 8; } "probe_http_status_code{job=\"blackbox\"}" {})
+        (mkPanel 4 "timeseries" "TLS Expiry Days" { h = 8; w = 24; x = 0; y = 16; } "(probe_ssl_earliest_cert_expiry{job=\"blackbox\"} - time()) / 86400" { fieldConfig.defaults.unit = "d"; })
+      ];
+    }
+    {
+      name = "homelab-storage-media.json";
+      path = mkDashboard "homelab-storage-media" "Storage & Media" [
+        (mkPanel 1 "timeseries" "Filesystem Usage" { h = 8; w = 12; x = 0; y = 0; } "100 * (1 - (node_filesystem_avail_bytes{job=\"node\",mountpoint=~\"/|/srv/media|/srv/downloads|/srv/storage/external\",fstype!=\"rootfs\"} / node_filesystem_size_bytes{job=\"node\",mountpoint=~\"/|/srv/media|/srv/downloads|/srv/storage/external\",fstype!=\"rootfs\"}))" { fieldConfig.defaults.unit = "percent"; })
+        (mkPanel 2 "timeseries" "Inode Usage" { h = 8; w = 12; x = 12; y = 0; } "100 * (1 - (node_filesystem_files_free{job=\"node\",mountpoint=~\"/|/srv/media|/srv/downloads|/srv/storage/external\"} / node_filesystem_files{job=\"node\",mountpoint=~\"/|/srv/media|/srv/downloads|/srv/storage/external\"}))" { fieldConfig.defaults.unit = "percent"; })
+        (mkPanel 3 "table" "Read-only Mounts" { h = 8; w = 12; x = 0; y = 8; } "node_filesystem_readonly{job=\"node\",host=\"core\",mountpoint=~\"/|/srv/media|/srv/downloads|/srv/storage/external\"}" {})
+        (mkPanel 4 "timeseries" "Disk Read/Write" { h = 8; w = 12; x = 12; y = 8; } "rate(node_disk_read_bytes_total{job=\"node\",host=\"core\"}[5m]) + rate(node_disk_written_bytes_total{job=\"node\",host=\"core\"}[5m])" { fieldConfig.defaults.unit = "Bps"; })
+      ];
+    }
+  ];
 in
 {
   networking.firewall.allowedTCPPorts = [ 53 80 443 ];
