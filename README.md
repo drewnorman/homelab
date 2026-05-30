@@ -117,6 +117,7 @@ If the Proxmox template uses different names, update those host metadata fields 
 - nginx and ACME for local HTTPS
 - Tailscale for remote private access
 - Authelia and LLDAP for auth
+- Dashy for the LAN service portal
 - Grafana, Prometheus, Alertmanager, blackbox exporter, and node exporter for monitoring
 - Jellyfin, Radarr, Sonarr, Prowlarr, Bazarr, and qBittorrent
 
@@ -129,7 +130,8 @@ For local-only HTTPS:
 
 Friendly service names are preferred for day-to-day use:
 
-- `lab.adre.me` or `grafana.lab.adre.me` for Grafana
+- `lab.adre.me` for the service portal
+- `grafana.lab.adre.me` or `status.lab.adre.me` for Grafana
 - `prometheus.lab.adre.me` for Prometheus
 - `alerts.lab.adre.me` for Alertmanager
 - `watch.lab.adre.me` for Jellyfin
@@ -145,7 +147,7 @@ The app-native names such as `jellyfin.lab.adre.me`, `radarr.lab.adre.me`, `sona
 
 In the single VM layout, `lab-core` runs Grafana, Prometheus, Alertmanager, blackbox exporter, and node exporter locally.
 
-Grafana is the default dashboard at `https://lab.adre.me` and is also available at `https://grafana.lab.adre.me`. Prometheus and Alertmanager are proxied through nginx at `https://prometheus.lab.adre.me` and `https://alerts.lab.adre.me`; these routes use the same Authelia forward-auth guard as the other internal admin tools.
+Dashy is the default portal at `https://lab.adre.me`. nginx guards the portal with Authelia and forwards the authenticated user to Dashy so the dashboard can hide sections by user. Grafana remains available at `https://grafana.lab.adre.me` and `https://status.lab.adre.me`. Prometheus and Alertmanager are proxied through nginx at `https://prometheus.lab.adre.me` and `https://alerts.lab.adre.me`; these routes use the same Authelia forward-auth guard as the other internal admin tools.
 
 The provisioned Grafana dashboards cover homelab overview, host health, service health, and storage/media state. Prometheus checks node exporter, failed systemd units, key filesystem usage, read-only filesystems, public service endpoints, response latency, and TLS expiry.
 

@@ -33,6 +33,349 @@ let
     bazarr      = "127.0.0.1:6767";
     qbittorrent = "127.0.0.1:8080";
     blackbox    = "127.0.0.1:9115";
+    dashy       = "127.0.0.1:8082";
+  };
+
+  yaml = pkgs.formats.yaml { };
+  dashyCustomCss = ''
+    :root {
+      --primary: #2f855a;
+      --success: #2f855a;
+      --warning: #d69e2e;
+      --danger: #c53030;
+      --info: #3182ce;
+      --neutral: #334155;
+      --medium-grey: #334155;
+      --dimming-factor: 0.9;
+      --background: #f4f7fb;
+      --background-darker: rgba(255, 255, 255, 0.92);
+      --foreground: #17212b;
+      --item-group-background: rgba(255, 255, 255, 0.88);
+      --item-background: rgba(255, 255, 255, 0.94);
+      --item-background-hover: #ffffff;
+      --item-text-color: #17212b;
+      --item-text-color-hover: #17212b;
+      --item-group-heading-text-color: #17212b;
+      --heading-text-color: #17212b;
+      --nav-link-text-color: #17212b;
+      --nav-link-background-color: rgba(255, 255, 255, 0.88);
+      --nav-link-background-color-hover: #ffffff;
+      --nav-link-border-color: rgba(23, 33, 43, 0.16);
+      --nav-link-border-color-hover: rgba(47, 133, 90, 0.42);
+      --widget-text-color: #17212b;
+      --widget-background-color: rgba(255, 255, 255, 0.94);
+      --widget-accent-color: #2f855a;
+      --status-check-tooltip-background: #ffffff;
+      --status-check-tooltip-color: #17212b;
+      --curve-factor: 8px;
+    }
+
+    html {
+      background: #f4f7fb !important;
+    }
+
+    html body {
+      min-height: 100vh;
+      background: transparent !important;
+      color: #17212b;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: -16px;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(244, 247, 251, 0.56), rgba(244, 247, 251, 0.76)),
+        url("/homelab-background.jpg") center bottom / cover no-repeat;
+      filter: blur(6px);
+      transform: scale(1.02);
+    }
+
+    #app {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+    }
+
+    #dashy,
+    .home {
+      background: transparent !important;
+    }
+
+    header {
+      background: rgba(255, 255, 255, 0.76) !important;
+      backdrop-filter: blur(8px);
+      color: #17212b !important;
+    }
+
+    button.options-trigger {
+      background: rgba(255, 255, 255, 0.88) !important;
+      border: 1px solid rgba(23, 33, 43, 0.16) !important;
+      color: #17212b !important;
+    }
+
+    .options-outer {
+      border-radius: 0 !important;
+    }
+
+    .search-wrap .web-search-note {
+      display: none !important;
+    }
+
+    .status-pill {
+      border-radius: 999px !important;
+      padding: 0.16rem 0.55rem !important;
+      letter-spacing: 0 !important;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.86), 0 4px 12px rgba(12, 20, 28, 0.24);
+    }
+
+    .status-pill.status-valid {
+      background: #2f855a !important;
+      color: #ffffff !important;
+    }
+
+    .status-pill.status-error {
+      background: #c53030 !important;
+      color: #ffffff !important;
+    }
+
+    .status-pill.status-loading,
+    .status-pill.status-unknown {
+      background: #edf2f7 !important;
+      color: #17212b !important;
+    }
+  '';
+  dashyConfig = yaml.generate "dashy-conf.yml" {
+    pageInfo = {
+      title = "Lab";
+      description = "Service health, metrics, and local tools";
+      logo = "/homelab-logo.png";
+      favicon = "/homelab-logo.png";
+      color = "#2f855a";
+      navLinks = [
+        {
+          title = "Status";
+          path = "https://grafana.${domain}/d/homelab-overview/homelab-overview";
+          target = "newtab";
+        }
+        {
+          title = "Alerts";
+          path = "https://alerts.${domain}/";
+          target = "newtab";
+        }
+        {
+          title = "Metrics";
+          path = "https://prometheus.${domain}/";
+          target = "newtab";
+        }
+      ];
+    };
+    appConfig = {
+      theme = "minimal-light";
+      layout = "auto";
+      iconSize = "medium";
+      contentMaxWidth = "1480px";
+      defaultOpeningMethod = "newtab";
+      language = "en";
+      statusCheck = true;
+      statusCheckInterval = 60;
+      statusCheckAccessibility = true;
+      enableFontAwesome = true;
+      faviconApi = "local";
+      preventWriteToDisk = true;
+      preventLocalSave = true;
+      disableConfiguration = true;
+      disableUpdateChecks = true;
+      customCss = dashyCustomCss;
+      hideComponents = {
+        hideFooter = true;
+        hideSettings = true;
+      };
+    };
+    sections = [
+      {
+        name = "Watch";
+        icon = "fas fa-play";
+        displayData = {
+          cols = 2;
+          itemSize = "medium";
+          color = "rgba(255, 255, 255, 0.88)";
+          customStyles = "border: 1px solid rgba(23, 33, 43, 0.12); box-shadow: 0 18px 48px rgba(23, 33, 43, 0.14); color: #17212b; backdrop-filter: blur(6px);";
+        };
+        items = [
+          {
+            title = "Jellyfin";
+            description = "Movies, shows, and music";
+            icon = "fas fa-tv";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://watch.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.jellyfin}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "Jellyseerr";
+            description = "Media requests";
+            icon = "fas fa-ticket-alt";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://catalog.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.jellyseerr}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+        ];
+      }
+      {
+        name = "Manage";
+        icon = "fas fa-sliders";
+        displayData = {
+          cols = 5;
+          itemSize = "medium";
+          color = "rgba(255, 255, 255, 0.88)";
+          customStyles = "border: 1px solid rgba(23, 33, 43, 0.12); box-shadow: 0 18px 48px rgba(23, 33, 43, 0.14); color: #17212b; backdrop-filter: blur(6px);";
+        };
+        items = [
+          {
+            title = "Radarr";
+            description = "Movie automation";
+            icon = "fas fa-film";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://movies.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.radarr}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "Sonarr";
+            description = "TV automation";
+            icon = "fas fa-video";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://tv.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.sonarr}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "Prowlarr";
+            description = "Indexer management";
+            icon = "fas fa-search";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://indexers.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.prowlarr}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "Bazarr";
+            description = "Subtitle automation";
+            icon = "fas fa-closed-captioning";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://subtitles.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.bazarr}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "qBittorrent";
+            description = "Download client";
+            icon = "fas fa-download";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://torrents.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.qbittorrent}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+        ];
+      }
+      {
+        name = "Admin";
+        icon = "fas fa-lock";
+        displayData = {
+          cols = 5;
+          itemSize = "medium";
+          color = "rgba(255, 255, 255, 0.88)";
+          customStyles = "border: 1px solid rgba(23, 33, 43, 0.12); box-shadow: 0 18px 48px rgba(23, 33, 43, 0.14); color: #17212b; backdrop-filter: blur(6px);";
+        };
+        items = [
+          {
+            title = "Grafana";
+            description = "Dashboards and service status";
+            icon = "fas fa-chart-line";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://grafana.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.grafana}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "Prometheus";
+            description = "Metrics and alerts";
+            icon = "fas fa-database";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://prometheus.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.prometheus}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "Alertmanager";
+            description = "Alert routing";
+            icon = "fas fa-bell";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://alerts.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.alertmanager}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "AdGuard";
+            description = "DNS filtering";
+            icon = "fas fa-shield-alt";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://dns.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.adguard}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
+            title = "LLDAP";
+            description = "Users and groups";
+            icon = "fas fa-users";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://users.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.lldapHttp}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+        ];
+      }
+    ];
   };
 
   mediaGroup = 1000;
@@ -108,14 +451,15 @@ let
 
   autheliaGuard = ''
     auth_request /authelia;
-    auth_request_set $user   $upstream_http_remote_user;
-    auth_request_set $groups $upstream_http_remote_groups;
-    auth_request_set $name   $upstream_http_remote_name;
-    auth_request_set $email  $upstream_http_remote_email;
-    proxy_set_header Remote-User   $user;
-    proxy_set_header Remote-Groups $groups;
-    proxy_set_header Remote-Name   $name;
-    proxy_set_header Remote-Email  $email;
+    auth_request_set $auth_user   $upstream_http_remote_user;
+    auth_request_set $auth_groups $upstream_http_remote_groups;
+    auth_request_set $auth_name   $upstream_http_remote_name;
+    auth_request_set $auth_email  $upstream_http_remote_email;
+    proxy_set_header Remote-User      $auth_user;
+    proxy_set_header Remote-Groups    $auth_groups;
+    proxy_set_header Remote-Name      $auth_name;
+    proxy_set_header Remote-Email     $auth_email;
+    proxy_set_header X-Forwarded-User $auth_user;
   '';
 
   autheliaLocations = {
@@ -132,6 +476,7 @@ let
         proxy_set_header X-Forwarded-Host $http_host;
         proxy_set_header X-Forwarded-URI $request_uri;
         proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header Authorization "";
       '';
     };
     "@authelia_login" = {
@@ -629,6 +974,26 @@ in
   };
   systemd.services."acme-${domain}".serviceConfig.TimeoutStartSec = lib.mkIf enableTls "10min";
 
+  virtualisation.podman.enable = true;
+  virtualisation.oci-containers.backend = "podman";
+  virtualisation.oci-containers.containers.dashy = {
+    image = "docker.io/lissy93/dashy:4.0.0";
+    cmd = [
+      "sh"
+      "-lc"
+      ''
+        node -e 'const fs = require("fs"); const path = "/app/services/status-check.js"; const oldText = "module.exports = (paramStr, render) => {\n"; const newText = "module.exports = (paramStr, render) => {\n  paramStr = paramStr && paramStr.replace(/^\\/\\?/, \"?\");\n"; const content = fs.readFileSync(path, "utf8"); fs.writeFileSync(path, content.includes(newText) ? content : content.replace(oldText, newText));'
+        exec node server.js
+      ''
+    ];
+    extraOptions = [ "--network=host" ];
+    volumes = [ "${dashyConfig}:/app/user-data/conf.yml:ro" ];
+    environment = {
+      NODE_ENV = "production";
+      PORT = "8082";
+    };
+  };
+
   services.nginx = {
     enable = true;
     recommendedProxySettings = true;
@@ -640,7 +1005,31 @@ in
       "auth.${domain}" = mkAutheliaVhost // { serverAliases = [ "sso.${domain}" ]; };
       "users.${domain}" = mkVhost { backend = local.lldapHttp; };
       "adguard.${domain}" = mkVhost { backend = local.adguard; sso = true; aliases = [ "dns.${domain}" ]; };
-      "${domain}" = mkVhost { backend = local.grafana; sso = true; };
+      "${domain}" = (mkVhost { backend = local.dashy; sso = true; }) // {
+        locations = (mkVhost { backend = local.dashy; sso = true; }).locations // {
+          "= /conf.yml" = {
+            extraConfig = ''
+              alias ${dashyConfig};
+              default_type text/yaml;
+              add_header Cache-Control "no-store";
+            '';
+          };
+          "= /homelab-background.jpg" = {
+            extraConfig = ''
+              alias ${../../assets/authelia/background.jpg};
+              default_type image/jpeg;
+              add_header Cache-Control "public, max-age=300";
+            '';
+          };
+          "= /homelab-logo.png" = {
+            extraConfig = ''
+              alias ${../../assets/authelia/logo.png};
+              default_type image/png;
+              add_header Cache-Control "public, max-age=300";
+            '';
+          };
+        };
+      };
       "grafana.${domain}" = mkVhost { backend = local.grafana; sso = true; aliases = [ "status.${domain}" ]; };
       "prometheus.${domain}" = mkVhost { backend = local.prometheus; sso = true; aliases = [ "metrics.${domain}" ]; };
       "alerts.${domain}" = mkVhost { backend = local.alertmanager; sso = true; };
@@ -776,11 +1165,15 @@ in
         default_policy = "deny";
         rules = [
           {
+            domain = domain;
+            policy = "one_factor";
+            subject = [ "group:homelab_admins" "group:media" ];
+          }
+          {
             domain = [
               "users.${domain}"
               "adguard.${domain}"
               "dns.${domain}"
-              domain
               "grafana.${domain}"
               "status.${domain}"
               "prometheus.${domain}"
