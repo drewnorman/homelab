@@ -6,10 +6,10 @@ let
   enableTls = true;
   customAutheliaLogin = true;
   externalScheme = if enableTls then "https" else "http";
-  jellyfinLdapPluginVersion = "23.0.0.0";
+  jellyfinLdapPluginVersion = "22.0.0.0";
   jellyfinLdapPluginZip = pkgs.fetchurl {
     url = "https://repo.jellyfin.org/files/plugin/ldap-authentication/ldap-authentication_${jellyfinLdapPluginVersion}.zip";
-    hash = "sha256-lS4z+o06xRLMtcHi4cZVy7GVfkH6HwC9bM8wduBGdEY=";
+    hash = "sha256-wjhsABvkOcmUYoCgLWJhDynjJdQJToO9MSId4/eqIK4=";
   };
 
   local = {
@@ -151,6 +151,11 @@ let
       trap 'rm -rf "$tmp"' EXIT
 
       install -d -o jellyfin -g media -m 0700 /var/lib/jellyfin/plugins "$config_dir"
+      for existing_plugin in /var/lib/jellyfin/plugins/LDAP\ Authentication_*; do
+        [ -e "$existing_plugin" ] || continue
+        [ "$existing_plugin" = "$plugin_dir" ] && continue
+        rm -rf "$existing_plugin"
+      done
       unzip -oq ${jellyfinLdapPluginZip} -d "$tmp"
       rm -rf "$plugin_dir"
       install -d -o jellyfin -g media -m 0700 "$plugin_dir"

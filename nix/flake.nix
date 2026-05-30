@@ -3,7 +3,8 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
-    nixpkgs-jellyfin.url = "github:NixOS/nixpkgs/nixos-25.11";
+    # Jellyfin LDAP auth currently hangs on newer 10.11 builds; pin to 10.11.2.
+    nixpkgs-jellyfin.url = "github:NixOS/nixpkgs/a563ddee940a08599b5401e5415479fcd5a1ce7f";
 
     deploy-rs = {
       url = "github:serokell/deploy-rs";
