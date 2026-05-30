@@ -192,10 +192,39 @@ body::before {
 }
 
 #first-factor-stage img[alt="Logo"] {
-  width: 320px !important;
-  max-width: 100%;
+  box-sizing: border-box;
+  display: block;
+  align-self: center;
+  width: 100% !important;
+  max-width: 100% !important;
+  max-inline-size: 100% !important;
+  margin-inline: 0 !important;
   height: auto !important;
+  object-fit: contain;
   border-radius: 10px;
+}
+
+#authenticated-stage img[alt="Logo"] {
+  width: 144px !important;
+  max-width: min(50vw, 100%) !important;
+  height: auto !important;
+  margin-inline: auto !important;
+}
+
+#authenticated-stage .MuiGrid-root:has(> #authenticated-stage) {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+#authenticated-stage #logout-button {
+  color: #ffffff !important;
+  text-shadow: 0 2px 6px rgba(12, 20, 28, 0.78);
+}
+
+#authenticated-stage #logout-button:hover,
+#authenticated-stage #logout-button:focus-visible {
+  color: #ffffff !important;
+  background-color: rgba(12, 20, 28, 0.24);
 }
 
 #first-factor-stage h5 {
