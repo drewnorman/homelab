@@ -14,10 +14,10 @@ core_vm_template_vm_id = 9000
 core_vm_id             = 120
 core_vm_ip             = "192.168.1.210"
 core_vm_storage        = "local-lvm"
-core_vm_disk_gb        = 96
+core_vm_disk_gb         = 96
 core_vm_media_disk_path = "/dev/disk/by-uuid/06d2efe6-c0b5-411c-8747-3a4ff0242979"
-core_vm_cores          = 4
-core_vm_memory_mb      = 8192
+core_vm_cores           = 6
+core_vm_memory_mb       = 12288
 
 # Tailscale — enable core device management after lab-core joins the tailnet.
 enable_tailscale_management            = false

@@ -134,13 +134,13 @@ variable "core_vm_media_disk_path" {
 variable "core_vm_cores" {
   description = "vCPU cores assigned to lab-core."
   type        = number
-  default     = 4
+  default     = 6
 }
 
 variable "core_vm_memory_mb" {
   description = "Memory assigned to lab-core in MiB."
   type        = number
-  default     = 8192
+  default     = 12288
 }
 
 # ---------------------------------------------------------------------------
