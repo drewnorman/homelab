@@ -1071,12 +1071,7 @@ in
     port = 3001;
     mutableSettings = false;
     settings = {
-      users = [
-        {
-          name = "admin";
-          password = "$2b$10$5KC8Aa8cZDMYRQyRUa2As./HhqCHUXSE4UHwiBENpavLDfr8fCYkO";
-        }
-      ];
+      users = [];
       dns = {
         bind_hosts = [ "0.0.0.0" ];
         port = 53;
