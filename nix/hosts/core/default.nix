@@ -497,18 +497,18 @@ let
       '';
     };
     "@authelia_login" = {
-      return = "302 https://auth.${domain}/?rd=$scheme://$http_host$request_uri";
+      return = "302 ${externalScheme}://auth.${domain}/?rd=$scheme://$http_host$request_uri";
     };
   };
 
   mkVhost = { backend, sso ? false, aliases ? [] }: {
     serverAliases = aliases;
-    extraConfig   = lib.optionalString (sso && enableTls) "error_page 401 = @authelia_login;";
-    locations     = lib.optionalAttrs (sso && enableTls) autheliaLocations // {
+    extraConfig   = lib.optionalString sso "error_page 401 = @authelia_login;";
+    locations     = lib.optionalAttrs sso autheliaLocations // {
       "/" = {
         proxyPass       = "http://${backend}";
         proxyWebsockets = true;
-        extraConfig     = lib.optionalString (sso && enableTls) autheliaGuard;
+        extraConfig     = lib.optionalString sso autheliaGuard;
       };
     };
   } // lib.optionalAttrs enableTls {
