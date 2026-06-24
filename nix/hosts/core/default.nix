@@ -875,6 +875,7 @@ in
     "d /srv/downloads 2775 root media -"
     "d /srv/downloads/complete 2775 root media -"
     "d /srv/downloads/incomplete 2775 root media -"
+    "d /var/lib/flaresolverr 0750 root root -"
     "d /var/log/authelia 0750 authelia-main authelia-main -"
   ];
 
@@ -993,6 +994,18 @@ in
 
   virtualisation.podman.enable = true;
   virtualisation.oci-containers.backend = "podman";
+  virtualisation.oci-containers.containers.flaresolverr = {
+    image = "ghcr.io/flaresolverr/flaresolverr:v3.5.0";
+    ports = [ "127.0.0.1:8191:8191" ];
+    volumes = [ "/var/lib/flaresolverr:/config" ];
+    environment = {
+      LOG_LEVEL = "info";
+      LOG_FILE = "none";
+      LOG_HTML = "false";
+      CAPTCHA_SOLVER = "none";
+      TZ = config.time.timeZone;
+    };
+  };
   virtualisation.oci-containers.containers.dashy = {
     image = "docker.io/lissy93/dashy:4.0.0";
     cmd = [
@@ -1633,6 +1646,255 @@ in
   services.radarr = { enable = true; group = "media"; openFirewall = false; };
   services.sonarr = { enable = true; group = "media"; openFirewall = false; };
   services.prowlarr = { enable = true; openFirewall = false; };
+
+  systemd.services.prowlarr.preStart = ''
+    cfg=/var/lib/prowlarr/config.xml
+    if [ -f "$cfg" ]; then
+      ${pkgs.xmlstarlet}/bin/xmlstarlet ed -L \
+        -u "/Config/AuthenticationMethod[1]" -v "External" \
+        -d "/Config/AuthenticationMethod[position()>1]" \
+        -u "/Config/AuthenticationRequired[1]" -v "DisabledForLocalAddresses" \
+        -d "/Config/AuthenticationRequired[position()>1]" \
+        "$cfg"
+    fi
+  '';
+
+  systemd.services.media-stack-config = {
+    description = "Configure media automation service integrations";
+    after = [ "jellyseerr.service" "radarr.service" "qbittorrent.service" "prowlarr.service" "podman-flaresolverr.service" ];
+    wants = [ "jellyseerr.service" "radarr.service" "qbittorrent.service" "prowlarr.service" "podman-flaresolverr.service" ];
+    wantedBy = [ "multi-user.target" ];
+    path = [ pkgs.curl pkgs.systemd ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      set -euo pipefail
+
+      ${pkgs.python3}/bin/python3 <<'PY'
+      import json
+      import time
+      import urllib.error
+      import urllib.request
+      import xml.etree.ElementTree as ET
+      from pathlib import Path
+
+      radarr_config = Path("/var/lib/radarr/.config/Radarr/config.xml")
+      prowlarr_config = Path("/var/lib/prowlarr/config.xml")
+      jellyseerr_settings = Path("/var/lib/private/jellyseerr/config/settings.json")
+
+      def read_api_key(path):
+          if not path.exists():
+              return ""
+          return ET.parse(path).getroot().findtext("ApiKey", default="")
+
+      def api(base_url, method, path, api_key, payload=None):
+          data = None
+          headers = {"X-Api-Key": api_key}
+          if payload is not None:
+              data = json.dumps(payload).encode("utf-8")
+              headers["Content-Type"] = "application/json"
+          req = urllib.request.Request(
+              f"{base_url}/{path}",
+              data=data,
+              headers=headers,
+              method=method,
+          )
+          with urllib.request.urlopen(req, timeout=10) as response:
+              body = response.read()
+          return json.loads(body.decode("utf-8")) if body else None
+
+      def wait_for_radarr(api_key):
+          for _ in range(60):
+              try:
+                  api("http://127.0.0.1:7878/api/v3", "GET", "system/status", api_key)
+                  return
+              except (OSError, urllib.error.URLError):
+                  time.sleep(1)
+          raise RuntimeError("Timed out waiting for Radarr API")
+
+      def wait_for_prowlarr(api_key):
+          for _ in range(60):
+              try:
+                  api("http://127.0.0.1:9696/api/v1", "GET", "system/status", api_key)
+                  return
+              except (OSError, urllib.error.URLError):
+                  time.sleep(1)
+          raise RuntimeError("Timed out waiting for Prowlarr API")
+
+      def wait_for_flaresolverr():
+          payload = {
+              "cmd": "sessions.list",
+          }
+          for _ in range(60):
+              try:
+                  req = urllib.request.Request(
+                      "http://127.0.0.1:8191/v1",
+                      data=json.dumps(payload).encode("utf-8"),
+                      headers={"Content-Type": "application/json"},
+                      method="POST",
+                  )
+                  with urllib.request.urlopen(req, timeout=70) as response:
+                      if response.status == 200:
+                          return
+              except (OSError, urllib.error.URLError):
+                  time.sleep(1)
+          raise RuntimeError("Timed out waiting for FlareSolverr API")
+
+      def ensure_tag(base_url, api_key, label):
+          tags = api(base_url, "GET", "tag", api_key)
+          for tag in tags:
+              if tag.get("label") == label:
+                  return tag["id"]
+          tag = api(base_url, "POST", "tag", api_key, {"label": label})
+          return tag["id"]
+
+      def set_field(fields, name, value):
+          for field in fields:
+              if field.get("name") == name:
+                  field["value"] = value
+                  return
+          fields.append({"name": name, "value": value})
+
+      radarr_api_key = read_api_key(radarr_config)
+      prowlarr_api_key = read_api_key(prowlarr_config)
+      if not radarr_api_key:
+          raise RuntimeError("Radarr API key is empty")
+      wait_for_radarr(radarr_api_key)
+
+      download_clients = api("http://127.0.0.1:7878/api/v3", "GET", "downloadclient", radarr_api_key)
+      if not any(client.get("implementation") == "QBittorrent" for client in download_clients):
+          api("http://127.0.0.1:7878/api/v3", "POST", "downloadclient", radarr_api_key, {
+              "enable": True,
+              "protocol": "torrent",
+              "priority": 1,
+              "removeCompletedDownloads": True,
+              "removeFailedDownloads": True,
+              "name": "qBittorrent",
+              "fields": [
+                  {"name": "host", "value": "127.0.0.1"},
+                  {"name": "port", "value": 8080},
+                  {"name": "useSsl", "value": False},
+                  {"name": "urlBase", "value": ""},
+                  {"name": "username", "value": ""},
+                  {"name": "password", "value": ""},
+                  {"name": "movieCategory", "value": "radarr"},
+                  {"name": "movieImportedCategory", "value": ""},
+                  {"name": "recentMoviePriority", "value": 0},
+                  {"name": "olderMoviePriority", "value": 0},
+                  {"name": "initialState", "value": 0},
+                  {"name": "sequentialOrder", "value": False},
+                  {"name": "firstAndLast", "value": False},
+                  {"name": "contentLayout", "value": 0},
+              ],
+              "implementationName": "qBittorrent",
+              "implementation": "QBittorrent",
+              "configContract": "QBittorrentSettings",
+              "tags": [],
+          })
+
+      if prowlarr_api_key:
+          wait_for_prowlarr(prowlarr_api_key)
+          wait_for_flaresolverr()
+          prowlarr_base_url = "http://127.0.0.1:9696/api/v1"
+
+          cloudflare_tag_id = ensure_tag(prowlarr_base_url, prowlarr_api_key, "cloudflare")
+          indexer_proxies = api(
+              prowlarr_base_url,
+              "GET",
+              "indexerProxy",
+              prowlarr_api_key,
+          )
+          flaresolverr_proxy = next(
+              (proxy for proxy in indexer_proxies if proxy.get("implementation") == "FlareSolverr"),
+              None,
+          )
+          if flaresolverr_proxy:
+              fields = flaresolverr_proxy.setdefault("fields", [])
+              set_field(fields, "host", "http://127.0.0.1:8191/")
+              set_field(fields, "requestTimeout", 60)
+              tags = set(flaresolverr_proxy.get("tags", []))
+              tags.add(cloudflare_tag_id)
+              flaresolverr_proxy["tags"] = sorted(tags)
+              api(
+                  prowlarr_base_url,
+                  "PUT",
+                  f"indexerProxy/{flaresolverr_proxy['id']}",
+                  prowlarr_api_key,
+                  flaresolverr_proxy,
+              )
+          else:
+              api(prowlarr_base_url, "POST", "indexerProxy", prowlarr_api_key, {
+                  "enable": True,
+                  "name": "FlareSolverr",
+                  "fields": [
+                      {"name": "host", "value": "http://127.0.0.1:8191/"},
+                      {"name": "requestTimeout", "value": 60},
+                  ],
+                  "implementationName": "FlareSolverr",
+                  "implementation": "FlareSolverr",
+                  "configContract": "FlareSolverrSettings",
+                  "tags": [cloudflare_tag_id],
+              })
+
+          applications = api(
+              prowlarr_base_url,
+              "GET",
+              "applications",
+              prowlarr_api_key,
+          )
+          if not any(app.get("implementation") == "Radarr" for app in applications):
+              api(prowlarr_base_url, "POST", "applications", prowlarr_api_key, {
+                  "syncLevel": "fullSync",
+                  "enable": True,
+                  "name": "Radarr",
+                  "fields": [
+                      {"name": "prowlarrUrl", "value": "http://127.0.0.1:9696"},
+                      {"name": "baseUrl", "value": "http://127.0.0.1:7878"},
+                      {"name": "apiKey", "value": radarr_api_key},
+                      {"name": "syncCategories", "value": [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060, 2070, 2080, 2090]},
+                      {"name": "syncRejectBlocklistedTorrentHashesWhileGrabbing", "value": False},
+                  ],
+                  "implementationName": "Radarr",
+                  "implementation": "Radarr",
+                  "configContract": "RadarrSettings",
+                  "tags": [],
+              })
+
+      if jellyseerr_settings.exists():
+          settings = json.loads(jellyseerr_settings.read_text(encoding="utf-8"))
+          settings["radarr"] = [{
+              "id": 0,
+              "name": "Radarr",
+              "hostname": "127.0.0.1",
+              "port": 7878,
+              "apiKey": radarr_api_key,
+              "useSsl": False,
+              "baseUrl": "",
+              "activeProfileId": 6,
+              "activeProfileName": "HD - 720p/1080p",
+              "activeDirectory": "/srv/media/movies",
+              "isDefault": True,
+              "externalUrl": "https://movies.lab.adre.me",
+              "is4k": False,
+              "minimumAvailability": "released",
+              "tags": [],
+              "syncEnabled": True,
+              "preventSearch": False,
+              "tagRequests": False,
+          }]
+          jellyseerr_settings.write_text(
+              json.dumps(settings, indent=1, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+          jellyseerr_settings.chown(65534, 65534)
+      PY
+
+      systemctl try-restart jellyseerr.service
+    '';
+  };
+
   services.bazarr = { enable = true; package = bazarrPackage; openFirewall = false; };
   systemd.services.bazarr = {
     after = [ "radarr.service" "sonarr.service" ];
@@ -1833,13 +2095,22 @@ EOF
       tmp="$(mktemp)"
       while IFS= read -r line; do
         case "''${line%%=*}" in
-          WebUI\\Address|WebUI\\LocalHostAuth|WebUI\\AuthSubnetWhitelist|WebUI\\AuthSubnetWhitelistEnabled|WebUI\\UseUPnP)
+          Session\\DefaultSavePath|Session\\GlobalMaxInactiveSeedingMinutes|Session\\GlobalMaxRatio|Session\\GlobalMaxSeedingMinutes|Session\\ShareLimitAction|Session\\TempPath|Session\\TempPathEnabled|WebUI\\Address|WebUI\\LocalHostAuth|WebUI\\AuthSubnetWhitelist|WebUI\\AuthSubnetWhitelistEnabled|WebUI\\UseUPnP)
             continue
             ;;
         esac
         printf '%s\n' "$line"
       done < "$cfg" > "$tmp"
       cat >> "$tmp" <<'EOF'
+[BitTorrent]
+Session\DefaultSavePath=/srv/downloads/
+Session\GlobalMaxInactiveSeedingMinutes=0
+Session\GlobalMaxRatio=0
+Session\GlobalMaxSeedingMinutes=0
+Session\ShareLimitAction=0
+Session\TempPath=/srv/downloads/incomplete/
+Session\TempPathEnabled=true
+
 [Preferences]
 WebUI\Address=127.0.0.1
 WebUI\LocalHostAuth=false
