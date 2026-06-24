@@ -3,18 +3,8 @@ name: ci
 on:
   pull_request:
     branches: [master]
-    paths:
-      - 'nix/**'
-      - 'terraform/**'
-      - '.github/workflows/**'
-      - 'README.md'
   push:
     branches: [master]
-    paths:
-      - 'nix/**'
-      - 'terraform/**'
-      - '.github/workflows/**'
-      - 'README.md'
   workflow_dispatch:
 
 permissions:
@@ -25,6 +15,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  commits:
+    name: commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: check conventional commits
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            range="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          elif printf '%s' "${{ github.event.before }}" | grep -Eq '^0+$'; then
+            range="${{ github.sha }}"
+          else
+            range="${{ github.event.before }}..${{ github.sha }}"
+          fi
+
+          scripts/check-conventional-commits.sh --range "$range"
+
   nix:
     name: nix
     runs-on: ubuntu-latest

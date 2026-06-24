@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+set -eu
+
+exec scripts/check-conventional-commits.sh --message-file "$1"

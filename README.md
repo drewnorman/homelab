@@ -70,8 +70,15 @@ nix run .#deploy-core
 
 GitHub Actions runs CI on pull requests to `master` and on pushes to `master`.
 CI checks the Nix flake, builds the `core` system closure, and validates the
-OpenTofu configuration without touching remote state. Deploys stay manual from
-a trusted machine over SSH/Tailscale with deploy-rs.
+OpenTofu configuration without touching remote state. CI also requires
+Conventional Commit subjects for pushed or pull-request commits. To enable the
+same check locally, run:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+Deploys stay manual from a trusted machine over SSH/Tailscale with deploy-rs.
 
 Recommended GitHub protection for this homelab is intentionally small: protect
 `master`, require pull requests before merging, require the `nix` and
