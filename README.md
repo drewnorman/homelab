@@ -137,6 +137,7 @@ If the Proxmox template uses different names, update those host metadata fields 
 - Authelia and LLDAP for auth
 - Dashy for the LAN service portal
 - Grafana, Prometheus, Alertmanager, blackbox exporter, and node exporter for monitoring
+- Home Assistant for house automation, device integrations, and local Assist voice services
 - Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, Bazarr, and qBittorrent
 
 For local-only HTTPS:
@@ -154,6 +155,7 @@ Friendly service names are preferred for day-to-day use:
 - `logs.lab.adre.me` for live service logs in Grafana Explore
 - `prometheus.lab.adre.me` for Prometheus
 - `alerts.lab.adre.me` for Alertmanager
+- `house.lab.adre.me` for Home Assistant
 - `watch.lab.adre.me` for Jellyfin
 - `catalog.lab.adre.me` for Jellyseerr
 - `movies.lab.adre.me` for Radarr
@@ -163,6 +165,7 @@ Friendly service names are preferred for day-to-day use:
 - `torrents.lab.adre.me` for qBittorrent
 
 The app-native names such as `adguard.lab.adre.me`, `jellyfin.lab.adre.me`, `jellyseerr.lab.adre.me`, `radarr.lab.adre.me`, `sonarr.lab.adre.me`, `prowlarr.lab.adre.me`, `bazarr.lab.adre.me`, and `qbittorrent.lab.adre.me` remain valid aliases.
+`assistant.lab.adre.me` is also available as an alias for Home Assistant.
 
 ### Monitoring
 
@@ -173,6 +176,60 @@ Dashy is the default portal at `https://lab.adre.me`. nginx guards the portal wi
 The provisioned Grafana dashboards cover homelab overview, host health, service health, and storage/media state. Prometheus checks node exporter, failed systemd units, key filesystem usage, read-only filesystems, public service endpoints, response latency, and TLS expiry.
 
 Grafana also has a Loki datasource fed by Grafana Alloy from the `lab-core` systemd journal. Use `https://logs.lab.adre.me/explore` for a live, filterable log stream. Useful LogQL starting points are `{job="systemd-journal"}`, `{unit="nginx.service"}`, `{unit="qbittorrent.service"}`, and `{level="err"}`.
+
+### Home Assistant Voice
+
+Home Assistant runs at `https://house.lab.adre.me` with `assistant.lab.adre.me`
+as an alias. Local Assist services run on `lab-core` through Wyoming:
+
+- faster-whisper on `127.0.0.1:10300` for speech-to-text
+- Piper on `127.0.0.1:10200` for text-to-speech, using `en_US-joe-medium`
+- openWakeWord on `0.0.0.0:10400` for VM-hosted wake-word detection
+
+For the first room microphone, pass a dedicated USB mic or USB speakerphone
+through from the Proxmox host to VM `120`. `lab-core` runs a local Wyoming
+satellite named `House USB Mic` on `127.0.0.1:10700`. It is gated on an ALSA
+capture device, so the service stays inactive until the USB mic is visible
+inside the VM.
+
+After plugging the mic into the Proxmox host, identify its USB vendor/product
+ID:
+
+```sh
+ssh root@192.168.1.200 'lsusb'
+```
+
+Pass it through to `lab-core`, replacing `vvvv:pppp` with the USB ID:
+
+```sh
+ssh root@192.168.1.200 'qm set 120 -usb0 host=vvvv:pppp,usb3=1'
+```
+
+Then verify the VM sees an ALSA capture device:
+
+```sh
+ssh root@192.168.1.210 'lsusb; arecord -l; systemctl status wyoming-satellite --no-pager'
+```
+
+If the satellite does not start automatically after hotplug, start it once:
+
+```sh
+ssh root@192.168.1.210 'systemctl start wyoming-satellite'
+```
+
+The custom wake word is intended to be `Hey Rudy`. Train an openWakeWord model
+for that phrase with the upstream openWakeWord training notebook, place the
+resulting `.tflite` file under
+`/var/lib/wyoming/openwakeword/custom/` on `lab-core`, then add these Wyoming
+services in Home Assistant:
+
+- satellite: `tcp://127.0.0.1:10700`
+- openWakeWord: `tcp://127.0.0.1:10400`
+- faster-whisper: `tcp://127.0.0.1:10300`
+- Piper: `tcp://127.0.0.1:10200`
+
+Wake-word detection runs on `lab-core`; the USB mic only provides capture
+audio to the VM.
 
 Alertmanager sends warning and critical alerts to Slack through an incoming webhook. Create a dedicated free Slack workspace and a `#homelab-alerts` channel, then set the webhook URL in `.env` before running `nix/secrets/setup.sh`:
 
@@ -211,6 +268,10 @@ OpenTofu can manage public Cloudflare DNS records. The checked-in example includ
 The NixOS core module requests a certificate for both `lab.adre.me` and `*.lab.adre.me` and wires that certificate into nginx.
 
 Additional app hostnames should be added to the nginx virtual hosts in [nix/hosts/core/default.nix](/home/drew/code/personal/homelab/nix/hosts/core/default.nix:1021). The wildcard DNS rewrite means any `*.lab.adre.me` hostname will already resolve to `lab-core`; you only need to tell nginx which upstream each hostname should proxy to.
+
+Home Assistant voice services expect the Proxmox VM CPU type to expose the host
+instruction set. Keep `core_vm_cpu_type = "host"` unless the replacement CPU
+model is known to expose AVX-compatible features required by openWakeWord.
 
 ### Remote Access with Tailscale
 

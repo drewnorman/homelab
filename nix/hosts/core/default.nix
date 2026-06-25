@@ -6,6 +6,7 @@ let
   enableTls = true;
   customAutheliaLogin = true;
   externalScheme = if enableTls then "https" else "http";
+  piperVoice = "en_US-joe-medium";
   jellyfinLdapPluginVersion = "22.0.0.0";
   jellyfinLdapPluginZip = pkgs.fetchurl {
     url = "https://repo.jellyfin.org/files/plugin/ldap-authentication/ldap-authentication_${jellyfinLdapPluginVersion}.zip";
@@ -26,6 +27,7 @@ let
     loki        = "127.0.0.1:3100";
     prometheus  = "127.0.0.1:9090";
     alertmanager = "127.0.0.1:9093";
+    homeassistant = "127.0.0.1:8123";
     jellyfin    = "127.0.0.1:8096";
     jellyseerr  = "127.0.0.1:5055";
     radarr      = "127.0.0.1:7878";
@@ -200,6 +202,30 @@ let
       };
     };
     sections = [
+      {
+        name = "Home";
+        icon = "fas fa-house-user";
+        displayData = {
+          cols = 2;
+          itemSize = "medium";
+          color = "rgba(255, 255, 255, 0.88)";
+          customStyles = "border: 1px solid rgba(23, 33, 43, 0.12); box-shadow: 0 18px 48px rgba(23, 33, 43, 0.14); color: #17212b; backdrop-filter: blur(6px);";
+        };
+        items = [
+          {
+            title = "Home Assistant";
+            description = "House automation and voice tools";
+            icon = "fas fa-home";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://house.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.homeassistant}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+        ];
+      }
       {
         name = "Watch";
         icon = "fas fa-play";
@@ -566,6 +592,23 @@ let
         };
       };
 
+  mkHomeAssistantVhost = { backend, aliases ? [] }:
+    let
+      base = mkVhost { inherit backend aliases; sso = true; };
+      proxyLocation = {
+        proxyPass       = "http://${backend}";
+        proxyWebsockets = true;
+      };
+    in
+      base // {
+        locations = base.locations // {
+          "/api" = proxyLocation;
+          "/auth" = proxyLocation;
+          "/webhook" = proxyLocation;
+          "/mobile_app" = proxyLocation;
+        };
+      };
+
   jellyfinLdapSetup = pkgs.writeShellApplication {
     name = "jellyfin-ldap-setup";
     runtimeInputs = [ pkgs.coreutils pkgs.gnused pkgs.python3 pkgs.unzip ];
@@ -841,8 +884,13 @@ let
   ];
 in
 {
-  networking.firewall.allowedTCPPorts = [ 53 80 443 ];
+  networking.firewall.allowedTCPPorts = [ 53 80 443 10400 ];
   networking.firewall.allowedUDPPorts = [ 53 ];
+
+  environment.systemPackages = with pkgs; [
+    alsa-utils
+    usbutils
+  ];
 
   users.groups.media = { gid = mediaGroup; };
   users.groups.lldap-secrets = {};
@@ -876,6 +924,9 @@ in
     "d /srv/downloads/complete 2775 root media -"
     "d /srv/downloads/incomplete 2775 root media -"
     "d /var/lib/flaresolverr 0750 root root -"
+    "d /var/lib/wyoming 0755 root root -"
+    "d /var/lib/wyoming/openwakeword 0755 root root -"
+    "d /var/lib/wyoming/openwakeword/custom 0755 root root -"
     "d /var/log/authelia 0750 authelia-main authelia-main -"
   ];
 
@@ -992,6 +1043,149 @@ in
   };
   systemd.services."acme-${domain}".serviceConfig.TimeoutStartSec = lib.mkIf enableTls "10min";
 
+  services.home-assistant = {
+    enable = true;
+    openFirewall = false;
+    extraComponents = [
+      "assist_pipeline"
+      "assist_satellite"
+      "conversation"
+      "default_config"
+      "homekit"
+      "intent_script"
+      "litterrobot"
+      "roborock"
+      "script"
+      "timer"
+      "wake_word"
+      "wyoming"
+    ];
+    config = {
+      homeassistant = {
+        name = "House";
+        time_zone = config.time.timeZone;
+        unit_system = "us_customary";
+      };
+      http = {
+        server_host = "127.0.0.1";
+        server_port = 8123;
+        use_x_forwarded_for = true;
+        trusted_proxies = [
+          "127.0.0.1"
+          "::1"
+        ];
+      };
+      timer.house_timer = {
+        name = "House Timer";
+        duration = "00:10:00";
+      };
+      script = {
+        start_house_timer = {
+          alias = "Start house timer";
+          mode = "restart";
+          sequence = [
+            {
+              service = "timer.start";
+              target.entity_id = "timer.house_timer";
+              data.duration = "00:10:00";
+            }
+          ];
+        };
+        stop_house_timer = {
+          alias = "Stop house timer";
+          mode = "restart";
+          sequence = [
+            {
+              service = "timer.cancel";
+              target.entity_id = "timer.house_timer";
+            }
+          ];
+        };
+        pause_house_timer = {
+          alias = "Pause house timer";
+          mode = "restart";
+          sequence = [
+            {
+              service = "timer.pause";
+              target.entity_id = "timer.house_timer";
+            }
+          ];
+        };
+        resume_house_timer = {
+          alias = "Resume house timer";
+          mode = "restart";
+          sequence = [
+            {
+              service = "timer.start";
+              target.entity_id = "timer.house_timer";
+            }
+          ];
+        };
+      };
+    };
+  };
+
+  services.wyoming.faster-whisper.servers.house = {
+    enable = true;
+    uri = "tcp://127.0.0.1:10300";
+    model = "tiny-int8";
+    language = "en";
+  };
+
+  services.wyoming.piper.servers.house = {
+    enable = true;
+    uri = "tcp://127.0.0.1:10200";
+    voice = piperVoice;
+  };
+
+  services.wyoming.openwakeword = {
+    enable = true;
+    uri = "tcp://0.0.0.0:10400";
+    preloadModels = [];
+    customModelsDirectories = [ "/var/lib/wyoming/openwakeword/custom" ];
+    threshold = 0.5;
+    triggerLevel = 1;
+  };
+
+  services.wyoming.satellite = {
+    enable = true;
+    user = "wyoming";
+    group = "wyoming";
+    uri = "tcp://127.0.0.1:10700";
+    name = "House USB Mic";
+    area = "Office";
+    microphone.command = "arecord -D default -r 16000 -c 1 -f S16_LE -t raw";
+    sound.command = "aplay -D default -r 22050 -c 1 -f S16_LE -t raw";
+    extraArgs = [
+      "--wake-uri"
+      "tcp://127.0.0.1:10400"
+      "--wake-word-name"
+      "hey_rudy"
+    ];
+  };
+  users.users.wyoming = {
+    isSystemUser = true;
+    group = "wyoming";
+    extraGroups = [ "audio" ];
+  };
+  users.groups.wyoming = {};
+  systemd.services.wyoming-satellite = {
+    unitConfig.ConditionPathExistsGlob = "/dev/snd/pcmC*D*c";
+    serviceConfig = {
+      PrivateDevices = lib.mkForce false;
+      DevicePolicy = lib.mkForce "auto";
+      DeviceAllow = lib.mkForce [ "/dev/snd/* rw" ];
+    };
+  };
+  systemd.paths.wyoming-satellite-usb-audio = {
+    description = "Start Wyoming satellite when a USB audio capture device appears";
+    wantedBy = [ "multi-user.target" ];
+    pathConfig = {
+      PathExistsGlob = "/dev/snd/pcmC*D*c";
+      Unit = "wyoming-satellite.service";
+    };
+  };
+
   virtualisation.podman.enable = true;
   virtualisation.oci-containers.backend = "podman";
   virtualisation.oci-containers.containers.flaresolverr = {
@@ -1067,6 +1261,7 @@ in
       "grafana.${domain}" = mkVhost { backend = local.grafana; sso = true; aliases = [ "status.${domain}" "logs.${domain}" ]; };
       "prometheus.${domain}" = mkVhost { backend = local.prometheus; sso = true; aliases = [ "metrics.${domain}" ]; };
       "alerts.${domain}" = mkVhost { backend = local.alertmanager; sso = true; };
+      "house.${domain}" = mkHomeAssistantVhost { backend = local.homeassistant; aliases = [ "assistant.${domain}" ]; };
       "jellyfin.${domain}" = mkJellyfinVhost { backend = local.jellyfin; aliases = [ "watch.${domain}" ]; };
       "jellyseerr.${domain}" = mkVhost { backend = local.jellyseerr; aliases = [ "catalog.${domain}" ]; };
       "radarr.${domain}" = mkVhost { backend = local.radarr; sso = true; aliases = [ "movies.${domain}" ]; };
@@ -1209,6 +1404,8 @@ in
               "prometheus.${domain}"
               "metrics.${domain}"
               "alerts.${domain}"
+              "house.${domain}"
+              "assistant.${domain}"
               "prowlarr.${domain}"
               "indexers.${domain}"
             ];
@@ -1446,6 +1643,7 @@ in
           { targets = [ "https://logs.${domain}" ]; labels = { service = "logs"; tier = "admin"; }; }
           { targets = [ "https://prometheus.${domain}" ]; labels = { service = "prometheus"; tier = "admin"; }; }
           { targets = [ "https://alerts.${domain}" ]; labels = { service = "alertmanager"; tier = "admin"; }; }
+          { targets = [ "https://house.${domain}" ]; labels = { service = "home-assistant"; tier = "home"; }; }
           { targets = [ "https://watch.${domain}" ]; labels = { service = "jellyfin"; tier = "media"; }; }
           { targets = [ "https://movies.${domain}" ]; labels = { service = "radarr"; tier = "media"; }; }
           { targets = [ "https://tv.${domain}" ]; labels = { service = "sonarr"; tier = "media"; }; }
@@ -1674,6 +1872,7 @@ in
 
       ${pkgs.python3}/bin/python3 <<'PY'
       import json
+      import os
       import time
       import urllib.error
       import urllib.request
@@ -1888,7 +2087,7 @@ in
               json.dumps(settings, indent=1, ensure_ascii=False) + "\n",
               encoding="utf-8",
           )
-          jellyseerr_settings.chown(65534, 65534)
+          os.chown(jellyseerr_settings, 65534, 65534)
       PY
 
       systemctl try-restart jellyseerr.service

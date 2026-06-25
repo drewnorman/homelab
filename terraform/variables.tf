@@ -137,6 +137,12 @@ variable "core_vm_cores" {
   default     = 6
 }
 
+variable "core_vm_cpu_type" {
+  description = "Proxmox CPU type assigned to lab-core. Use host so local AI/voice packages can access the host CPU instruction set."
+  type        = string
+  default     = "host"
+}
+
 variable "core_vm_memory_mb" {
   description = "Memory assigned to lab-core in MiB."
   type        = number
