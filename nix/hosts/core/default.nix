@@ -1349,7 +1349,7 @@ in
           username = "angela";
           email = "angela@${domain}";
           displayName = "Angela";
-          groups = [ "media" ];
+          groups = [ "homelab_admins" "media" ];
           passwordFile = config.sops.secrets."lldap-user-angela-password".path;
         }
       ];
