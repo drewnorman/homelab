@@ -2294,7 +2294,7 @@ EOF
       tmp="$(mktemp)"
       while IFS= read -r line; do
         case "''${line%%=*}" in
-          Session\\DefaultSavePath|Session\\GlobalMaxInactiveSeedingMinutes|Session\\GlobalMaxRatio|Session\\GlobalMaxSeedingMinutes|Session\\ShareLimitAction|Session\\TempPath|Session\\TempPathEnabled|WebUI\\Address|WebUI\\LocalHostAuth|WebUI\\AuthSubnetWhitelist|WebUI\\AuthSubnetWhitelistEnabled|WebUI\\UseUPnP)
+          Session\\DefaultSavePath|Session\\FileUMask|Session\\GlobalMaxInactiveSeedingMinutes|Session\\GlobalMaxRatio|Session\\GlobalMaxSeedingMinutes|Session\\ShareLimitAction|Session\\TempPath|Session\\TempPathEnabled|WebUI\\Address|WebUI\\LocalHostAuth|WebUI\\AuthSubnetWhitelist|WebUI\\AuthSubnetWhitelistEnabled|WebUI\\UseUPnP)
             continue
             ;;
         esac
@@ -2303,6 +2303,7 @@ EOF
       cat >> "$tmp" <<'EOF'
 [BitTorrent]
 Session\DefaultSavePath=/srv/downloads/
+Session\FileUMask=2
 Session\GlobalMaxInactiveSeedingMinutes=0
 Session\GlobalMaxRatio=0
 Session\GlobalMaxSeedingMinutes=0
@@ -2326,6 +2327,7 @@ EOF
       ExecStart = "${pkgs.qbittorrent-nox}/bin/qbittorrent-nox --webui-port=8080 --profile=/var/lib/qbittorrent";
       Restart = "on-failure";
       StateDirectory = "qbittorrent";
+      UMask = "0002";
     };
   };
 }
