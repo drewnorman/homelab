@@ -63,6 +63,23 @@ tofu plan
 tofu apply
 ```
 
+The OpenAI project has an isolated root and state prefix. Its staged rollout,
+dashboard-only billing prerequisites, key bootstrap, and negative tests are
+documented in [notes/homelab-ai-plan.md](notes/homelab-ai-plan.md):
+
+```sh
+cp terraform/openai/terraform.tfvars.example terraform/openai/terraform.tfvars
+export OPENAI_ADMIN_KEY='...'
+tofu -chdir=terraform/openai init
+tofu -chdir=terraform/openai plan -out=tfplan-openai
+tofu -chdir=terraform/openai apply tfplan-openai
+scripts/bootstrap-openai-key.sh
+```
+
+Do not commit `terraform/openai/terraform.tfvars`, a saved plan, or any OpenAI
+key. The project and service account use `prevent_destroy`; removing either
+guard requires an intentional configuration change and a dedicated plan.
+
 After OpenTofu provisions `lab-core`, deploy the consolidated NixOS host:
 
 ```sh

@@ -134,6 +134,21 @@ EOF
 )"
 fi
 
+# ---- Open WebUI -------------------------------------------------------------
+
+if [[ -f open-webui.yaml && "$FORCE" != "--force" ]]; then
+  info "skipping open-webui.yaml (already exists; pass --force to overwrite)"
+else
+  OPEN_WEBUI_SECRET_KEY=$(openssl rand -hex 32)
+
+  encrypt_secret open-webui.yaml "$(cat <<EOF
+openai-api-key: "replace-with-project-service-account-key"
+open-webui-secret-key: "${OPEN_WEBUI_SECRET_KEY}"
+EOF
+)"
+  info "run scripts/bootstrap-openai-key.sh after applying terraform/openai"
+fi
+
 # ---- qbittorrent ------------------------------------------------------------
 # Paste your Proton VPN WireGuard config when prompted (the full [Interface]/
 # [Peer] block as plain text, not base64). Press Ctrl-D when done.
