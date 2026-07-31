@@ -1,6 +1,7 @@
 .env
 .secrets/
 terraform.tfvars
+terraform/openai/terraform.tfvars
 .ansible/
 .uv-cache/
 .venv/

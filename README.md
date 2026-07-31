@@ -13,6 +13,7 @@ The checked-in defaults are for the Proxmox node `norman` at `192.168.1.200` on 
 The control plane is intentionally split by ownership:
 
 - OpenTofu owns Proxmox resources: the `lab-core` VM, VMID, CPU, memory, disk, network address, and provider-managed DNS or tailnet settings.
+- A separate OpenTofu root owns the OpenAI project control plane; its Admin key remains operator-local and never reaches Terraform state, CI, sops, or `lab-core`.
 - NixOS owns guest configuration: users, services, secrets, firewall rules, app settings, and package state.
 - deploy-rs is the NixOS deployment path. Host self-upgrade is disabled by default so deploy failures have one primary control loop to inspect.
 
@@ -25,6 +26,7 @@ Reproducibility comes from the checked-in OpenTofu configuration, Nix flake, hos
 - A NixOS cloud-init VM template in Proxmox for `lab-core`
 - A local `.env` file exporting secret `TF_VAR_*` values plus `TF_VAR_ssh_public_key`
 - A `terraform/terraform.tfvars` file based on `terraform/terraform.tfvars.example`
+- An OpenAI Admin API key exported as `OPENAI_ADMIN_KEY` when operating `terraform/openai`
 
 ## Secrets
 

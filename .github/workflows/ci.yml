@@ -67,10 +67,16 @@ jobs:
           tofu_wrapper: false
 
       - name: tofu fmt
-        run: tofu -chdir=terraform fmt -check -recursive
+        run: tofu fmt -check -recursive terraform
 
-      - name: tofu init
+      - name: tofu init (homelab)
         run: tofu -chdir=terraform init -backend=false
 
-      - name: tofu validate
+      - name: tofu validate (homelab)
         run: tofu -chdir=terraform validate
+
+      - name: tofu init (OpenAI)
+        run: tofu -chdir=terraform/openai init -backend=false
+
+      - name: tofu validate (OpenAI)
+        run: tofu -chdir=terraform/openai validate
