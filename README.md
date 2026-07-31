@@ -157,6 +157,7 @@ If the Proxmox template uses different names, update those host metadata fields 
 - Dashy for the LAN service portal
 - Grafana, Prometheus, Alertmanager, blackbox exporter, and node exporter for monitoring
 - Home Assistant for house automation, device integrations, and local Assist voice services
+- Open WebUI for the curated OpenAI-backed household chat service
 - Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, Bazarr, and qBittorrent
 
 For local-only HTTPS:
@@ -175,6 +176,7 @@ Friendly service names are preferred for day-to-day use:
 - `prometheus.lab.adre.me` for Prometheus
 - `alerts.lab.adre.me` for Alertmanager
 - `house.lab.adre.me` for Home Assistant
+- `ai.lab.adre.me` for Homelab AI
 - `watch.lab.adre.me` for Jellyfin
 - `catalog.lab.adre.me` for Jellyseerr
 - `movies.lab.adre.me` for Radarr

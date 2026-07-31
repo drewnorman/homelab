@@ -37,7 +37,52 @@ let
     qbittorrent = "127.0.0.1:8080";
     blackbox    = "127.0.0.1:9115";
     dashy       = "127.0.0.1:8082";
+    ai          = "127.0.0.1:8083";
+    aiGateway   = "127.0.0.1:8084";
   };
+
+  openWebuiVersion = "0.9.5";
+  openWebuiImage =
+    "ghcr.io/open-webui/open-webui:v${openWebuiVersion}@sha256:e045bde3b004cc7f8c319412345eb56c87ea6ac57031534a31ca37ad5424beb3";
+  openaiPolicyGateway = pkgs.writeTextFile {
+    name = "openai-policy-gateway";
+    executable = true;
+    destination = "/bin/openai-policy-gateway";
+    text = builtins.readFile ../../modules/openai-policy-gateway.py;
+  };
+  openWebuiEntrypoint = pkgs.writeText "open-webui-entrypoint" ''
+      set -euo pipefail
+
+      python3 - <<'PY'
+      from pathlib import Path
+
+      path = Path("/app/backend/open_webui/config.py")
+      source = path.read_text(encoding="utf-8")
+      old = """OPENAI_API_CONFIGS = PersistentConfig(
+          'OPENAI_API_CONFIGS',
+          'openai.api_configs',
+          {},
+      )"""
+      new = """OPENAI_API_CONFIGS = PersistentConfig(
+          'OPENAI_API_CONFIGS',
+          'openai.api_configs',
+          {
+              "0": {
+                  "enable": True,
+                  "api_type": "responses",
+                  "connection_type": "external",
+                  "model_ids": ["economy", "everyday", "high-quality"],
+              }
+          },
+      )"""
+      if old not in source and new not in source:
+          raise SystemExit("unsupported Open WebUI config.py; refusing to start")
+      if old in source:
+          path.write_text(source.replace(old, new, 1), encoding="utf-8")
+      PY
+
+      exec bash /app/backend/start.sh
+  '';
 
   yaml = pkgs.formats.yaml { };
   dashyCustomCss = ''
@@ -894,6 +939,11 @@ in
 
   users.groups.media = { gid = mediaGroup; };
   users.groups.lldap-secrets = {};
+  users.groups.openai-gateway = {};
+  users.users.openai-gateway = {
+    isSystemUser = true;
+    group = "openai-gateway";
+  };
 
   fileSystems = lib.optionalAttrs externalStorage.enable {
     ${externalStorage.mountPoint} = {
@@ -924,6 +974,7 @@ in
     "d /srv/downloads/complete 2775 root media -"
     "d /srv/downloads/incomplete 2775 root media -"
     "d /var/lib/flaresolverr 0750 root root -"
+    "d /var/lib/open-webui 0700 root root -"
     "d /var/lib/wyoming 0755 root root -"
     "d /var/lib/wyoming/openwakeword 0755 root root -"
     "d /var/lib/wyoming/openwakeword/custom 0755 root root -"
@@ -1018,6 +1069,53 @@ in
     group = "bazarr";
     mode = "0400";
     restartUnits = [ "bazarr.service" ];
+  };
+  sops.secrets.openai-api-key = {
+    sopsFile = ../../secrets/open-webui.yaml;
+    owner = "openai-gateway";
+    group = "openai-gateway";
+    mode = "0400";
+    restartUnits = [
+      "openai-policy-gateway.service"
+      "podman-open-webui.service"
+    ];
+  };
+  sops.secrets.open-webui-secret-key = {
+    sopsFile = ../../secrets/open-webui.yaml;
+    owner = "root";
+    mode = "0400";
+    restartUnits = [ "podman-open-webui.service" ];
+  };
+  sops.templates."open-webui.env" = {
+    owner = "root";
+    mode = "0400";
+    content = ''
+      WEBUI_SECRET_KEY=${config.sops.placeholder.open-webui-secret-key}
+    '';
+  };
+
+  systemd.services.openai-policy-gateway = {
+    description = "Fail-closed OpenAI Responses policy gateway";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    environment = {
+      LISTEN_HOST = "127.0.0.1";
+      LISTEN_PORT = "8084";
+      OPENAI_API_KEY_FILE = config.sops.secrets.openai-api-key.path;
+    };
+    serviceConfig = {
+      Type = "simple";
+      ExecStart = "${openaiPolicyGateway}/bin/openai-policy-gateway";
+      Restart = "on-failure";
+      RestartSec = "5s";
+      User = "openai-gateway";
+      Group = "openai-gateway";
+      NoNewPrivileges = true;
+      PrivateTmp = true;
+      ProtectSystem = "strict";
+      ProtectHome = true;
+    };
   };
 
   services.tailscale = {
@@ -1221,6 +1319,83 @@ in
       TZ = config.time.timeZone;
     };
   };
+  virtualisation.oci-containers.containers.open-webui = {
+    image = openWebuiImage;
+    cmd = [ "bash" "/open-webui-entrypoint" ];
+    dependsOn = [];
+    environmentFiles = [ config.sops.templates."open-webui.env".path ];
+    environment = {
+      HOST = "127.0.0.1";
+      PORT = "8083";
+      WEBUI_URL = "https://ai.${domain}";
+      WEBUI_NAME = "Homelab AI";
+      WEBUI_BANNERS = builtins.toJSON [
+        {
+          id = "ai-cost-notice";
+          type = "info";
+          title = "Usage and privacy";
+          content = "Prompts, conversation context, attachments, search queries, and retrieved public content may be sent to OpenAI. Reasoning tokens and retrieved web content are billed. OpenAI's project dashboard is the authoritative dollar total.";
+          dismissible = true;
+          timestamp = 0;
+        }
+      ];
+      WEBUI_AUTH = "true";
+      WEBUI_AUTH_TRUSTED_EMAIL_HEADER = "Remote-Email";
+      WEBUI_AUTH_TRUSTED_NAME_HEADER = "Remote-Name";
+      WEBUI_AUTH_TRUSTED_ROLE_HEADER = "X-OpenWebUI-Role";
+      ENABLE_SIGNUP = "false";
+      ENABLE_LOGIN_FORM = "false";
+      DEFAULT_USER_ROLE = "user";
+      ENABLE_PERSISTENT_CONFIG = "false";
+      ENABLE_OLLAMA_API = "false";
+      ENABLE_OPENAI_API = "true";
+      OPENAI_API_BASE_URL = "http://${local.aiGateway}/v1";
+      OPENAI_API_KEY = "policy-gateway";
+      DEFAULT_MODELS = "everyday";
+      ENABLE_WEB_SEARCH = "false";
+      ENABLE_IMAGE_GENERATION = "false";
+      ENABLE_CODE_EXECUTION = "false";
+      ENABLE_CODE_INTERPRETER = "false";
+      ENABLE_DIRECT_CONNECTIONS = "false";
+      ENABLE_API_KEYS = "false";
+      ENABLE_OPENAI_API_PASSTHROUGH = "false";
+      ENABLE_COMMUNITY_SHARING = "false";
+      ENABLE_ADMIN_CHAT_ACCESS = "false";
+      ENABLE_ADMIN_EXPORT = "false";
+      ENABLE_ADMIN_ANALYTICS = "true";
+      USER_PERMISSIONS_WORKSPACE_MODELS_ACCESS = "false";
+      USER_PERMISSIONS_WORKSPACE_KNOWLEDGE_ACCESS = "false";
+      USER_PERMISSIONS_WORKSPACE_TOOLS_ACCESS = "false";
+      USER_PERMISSIONS_WORKSPACE_PROMPTS_ACCESS = "false";
+      USER_PERMISSIONS_FEATURES_API_KEYS = "false";
+      USER_PERMISSIONS_FEATURES_WEB_SEARCH = "false";
+      USER_PERMISSIONS_FEATURES_IMAGE_GENERATION = "false";
+      USER_PERMISSIONS_FEATURES_CODE_INTERPRETER = "false";
+      USER_PERMISSIONS_FEATURES_DIRECT_TOOL_SERVERS = "false";
+      ENABLE_RESPONSES_API_STATEFUL = "false";
+      RAG_EMBEDDING_ENGINE = "";
+      AUDIO_STT_ENGINE = "";
+      AUDIO_TTS_ENGINE = "";
+    };
+    extraOptions = [
+      "--network=host"
+      "--cpus=1"
+      "--memory=1g"
+      "--memory-swap=1g"
+      "--pids-limit=512"
+      "--cap-drop=all"
+      "--security-opt=no-new-privileges"
+    ];
+    volumes = [
+      "${openWebuiEntrypoint}:/open-webui-entrypoint:ro"
+      "/var/lib/open-webui:/app/backend/data"
+      "/etc/localtime:/etc/localtime:ro"
+    ];
+  };
+  systemd.services.podman-open-webui = {
+    after = [ "openai-policy-gateway.service" ];
+    requires = [ "openai-policy-gateway.service" ];
+  };
 
   services.nginx = {
     enable = true;
@@ -1269,6 +1444,23 @@ in
       "prowlarr.${domain}" = mkVhost { backend = local.prowlarr; sso = true; aliases = [ "indexers.${domain}" ]; };
       "bazarr.${domain}" = mkVhost { backend = local.bazarr; sso = true; aliases = [ "subtitles.${domain}" ]; };
       "qbittorrent.${domain}" = mkVhost { backend = local.qbittorrent; sso = true; aliases = [ "torrents.${domain}" ]; };
+      "ai.${domain}" =
+        let
+          base = mkVhost { backend = local.ai; sso = true; };
+        in
+          base // {
+            locations = base.locations // {
+              "/" = base.locations."/" // {
+                extraConfig = autheliaGuard + ''
+                  set $open_webui_role user;
+                  if ($auth_user = drew) {
+                    set $open_webui_role admin;
+                  }
+                  proxy_set_header X-OpenWebUI-Role $open_webui_role;
+                '';
+              };
+            };
+          };
     };
   };
 
@@ -1336,20 +1528,21 @@ in
         { name = "lldap_strict_readonly"; displayName = "LLDAP Read-Only"; }
         { name = "homelab_admins"; displayName = "Homelab Admins"; }
         { name = "media"; displayName = "Media Users"; }
+        { name = "ai_users"; displayName = "Homelab AI Users"; }
       ];
       users = [
         {
           username = "drew";
           email = "drewnorman739@gmail.com";
           displayName = "Drew Norman";
-          groups = [ "lldap_strict_readonly" "homelab_admins" "media" ];
+          groups = [ "lldap_strict_readonly" "homelab_admins" "media" "ai_users" ];
           passwordFile = config.sops.secrets."lldap-user-drew-password".path;
         }
         {
           username = "angela";
           email = "angela@${domain}";
           displayName = "Angela";
-          groups = [ "homelab_admins" "media" ];
+          groups = [ "homelab_admins" "media" "ai_users" ];
           passwordFile = config.sops.secrets."lldap-user-angela-password".path;
         }
       ];
@@ -1392,6 +1585,11 @@ in
             domain = domain;
             policy = "one_factor";
             subject = [ "group:homelab_admins" "group:media" ];
+          }
+          {
+            domain = "ai.${domain}";
+            policy = "one_factor";
+            subject = [ "group:ai_users" ];
           }
           {
             domain = [
