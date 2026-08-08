@@ -57,11 +57,6 @@ resource "openai_project_model_permissions" "production" {
   model_ids  = local.model_ids
 }
 
-resource "openai_project_data_retention" "production" {
-  project_id = openai_project.production.project_id
-  type       = "organization_default"
-}
-
 resource "openai_project_spend_alert" "monthly_email" {
   for_each = local.spend_alerts
 
@@ -72,7 +67,7 @@ resource "openai_project_spend_alert" "monthly_email" {
   notification_channel_type       = "email"
   notification_channel_recipients = ["drewnorman739@gmail.com"]
   notification_channel_subject_prefix = format(
-    "[homelab-ai-production %s]",
+    "homelab-ai-production (%s)",
     each.key,
   )
 }

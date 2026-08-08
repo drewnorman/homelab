@@ -31,6 +31,12 @@ keys:
   - &lab-core        age1aaa4zalk4j8emsg2gyhm8jc4x9stv7rz3va99lfnvaf25y0x8p3swrj3mv
 
 creation_rules:
+  # OpenAI organization admin credentials are operator-only. Unlike runtime
+  # secrets, lab-core must never receive a recipient slot for this file.
+  - path_regex: secrets/openai-admin\.yaml$
+    key_groups:
+      - age: [*operator]
+
   - path_regex: secrets/edge\.yaml$
     key_groups:
       - age: [*operator, *lab-edge, *lab-core]

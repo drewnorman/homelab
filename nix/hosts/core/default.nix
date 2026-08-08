@@ -44,12 +44,11 @@ let
   openWebuiVersion = "0.9.5";
   openWebuiImage =
     "ghcr.io/open-webui/open-webui:v${openWebuiVersion}@sha256:e045bde3b004cc7f8c319412345eb56c87ea6ac57031534a31ca37ad5424beb3";
-  openaiPolicyGateway = pkgs.writeTextFile {
-    name = "openai-policy-gateway";
-    executable = true;
-    destination = "/bin/openai-policy-gateway";
-    text = builtins.readFile ../../modules/openai-policy-gateway.py;
-  };
+  openaiPolicyGateway = pkgs.writers.writePython3Bin "openai-policy-gateway" {
+    flakeIgnore = [ "E501" ];
+  }
+    (lib.removePrefix "#!/usr/bin/env python3\n"
+      (builtins.readFile ../../modules/openai-policy-gateway.py));
   openWebuiEntrypoint = pkgs.writeText "open-webui-entrypoint" ''
       set -euo pipefail
 
@@ -1351,7 +1350,7 @@ in
       ENABLE_OPENAI_API = "true";
       OPENAI_API_BASE_URL = "http://${local.aiGateway}/v1";
       OPENAI_API_KEY = "policy-gateway";
-      DEFAULT_MODELS = "everyday";
+      DEFAULT_MODELS = "economy";
       ENABLE_WEB_SEARCH = "false";
       ENABLE_IMAGE_GENERATION = "false";
       ENABLE_CODE_EXECUTION = "false";
@@ -1373,7 +1372,8 @@ in
       USER_PERMISSIONS_FEATURES_CODE_INTERPRETER = "false";
       USER_PERMISSIONS_FEATURES_DIRECT_TOOL_SERVERS = "false";
       ENABLE_RESPONSES_API_STATEFUL = "false";
-      RAG_EMBEDDING_ENGINE = "";
+      RAG_EMBEDDING_ENGINE = "openai";
+      BYPASS_EMBEDDING_AND_RETRIEVAL = "true";
       AUDIO_STT_ENGINE = "";
       AUDIO_TTS_ENGINE = "";
     };

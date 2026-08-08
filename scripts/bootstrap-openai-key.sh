@@ -7,6 +7,7 @@ umask 077
 REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 OPENAI_ROOT="$REPO_ROOT/terraform/openai"
 SECRET_FILE="$REPO_ROOT/nix/secrets/open-webui.yaml"
+ADMIN_SECRET_FILE="$REPO_ROOT/nix/secrets/openai-admin.yaml"
 PLACEHOLDER="replace-with-project-service-account-key"
 ROTATE=false
 
@@ -50,8 +51,13 @@ for command in curl jq sops tofu; do
   command -v "$command" >/dev/null || die "'$command' is required"
 done
 
-[[ -n "${OPENAI_ADMIN_KEY:-}" ]] ||
-  die "OPENAI_ADMIN_KEY must be supplied by the operator environment"
+if [[ -z "${OPENAI_ADMIN_KEY:-}" ]]; then
+  [[ -f "$ADMIN_SECRET_FILE" ]] ||
+    die "OPENAI_ADMIN_KEY is unset and $ADMIN_SECRET_FILE is missing"
+  OPENAI_ADMIN_KEY="$(sops --decrypt --extract '["openai-admin-key"]' "$ADMIN_SECRET_FILE")" ||
+    die "cannot decrypt $ADMIN_SECRET_FILE"
+fi
+[[ "$OPENAI_ADMIN_KEY" == sk-* ]] || die "OPENAI_ADMIN_KEY has an unexpected format"
 [[ -f "$SECRET_FILE" ]] || die "missing sops file: $SECRET_FILE"
 
 current_key="$(sops --decrypt --extract '["openai-api-key"]' "$SECRET_FILE")" ||
@@ -64,7 +70,7 @@ unset current_key
 project_id="$(tofu -chdir="$OPENAI_ROOT" output -raw project_id)"
 service_account_id="$(tofu -chdir="$OPENAI_ROOT" output -raw service_account_id)"
 [[ "$project_id" == proj_* ]] || die "unexpected project ID from OpenTofu output"
-[[ "$service_account_id" == svc_acct_* ]] ||
+[[ "$service_account_id" == svc_acct_* || "$service_account_id" == user-* ]] ||
   die "unexpected service-account ID from OpenTofu output"
 
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/openai-key-bootstrap.XXXXXX")"

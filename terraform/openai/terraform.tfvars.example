@@ -10,7 +10,7 @@ model_rate_limit_ids = {}
 
 # Replace the empty map only after discovery:
 # model_rate_limit_ids = {
-#   gpt-5.6-luna  = "rate_limit_exact_record_id"
-#   gpt-5.6-terra = "rate_limit_exact_record_id"
-#   gpt-5.6-sol   = "rate_limit_exact_record_id"
+#   "gpt-5.6-luna"  = "rate_limit_exact_record_id"
+#   "gpt-5.6-terra" = "rate_limit_exact_record_id"
+#   "gpt-5.6-sol"   = "rate_limit_exact_record_id"
 # }

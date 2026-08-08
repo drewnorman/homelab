@@ -21,31 +21,33 @@ MODELS = {
         "reasoning": "low",
         "max_output_tokens": 4096,
         "description": (
-            "Efficient, repeatable everyday work. $1 input / $6 output per 1M "
-            "tokens; 1×; about $0.008 normally or $0.023 with one search. "
+            "Efficient, repeatable everyday work. $0.20 short-context input / "
+            "$1.20 output per 1M tokens; 1×; about $0.002 normally or $0.013 "
+            "with one search. "
             "Hosted search: $0.01 per call, up to three calls."
         ),
     },
     "everyday": {
-        "name": "Everyday — 2.5×",
+        "name": "Everyday — 10×",
         "upstream": "gpt-5.6-terra",
         "reasoning": "medium",
         "max_output_tokens": 8192,
         "description": (
-            "Balanced intelligence and cost; default for chat and research. "
-            "$2.50 input / $15 output per 1M tokens; 2.5×; about $0.020 normally "
-            "or $0.043 with one search. Hosted search: $0.01 per call, up to three calls."
+            "Balanced intelligence and cost. $2 short-context input / $12 output "
+            "per 1M tokens; 10×; about $0.016 normally or $0.036 with one search. "
+            "Hosted search: $0.01 per call, up to three calls."
         ),
     },
     "high-quality": {
-        "name": "High Quality — 5×",
+        "name": "High Quality — 25×",
         "upstream": "gpt-5.6-sol",
         "reasoning": "medium",
         "max_output_tokens": 8192,
         "description": (
             "Frontier capability for difficult analysis and polished results. "
-            "$5 input / $30 output per 1M tokens; 5×; about $0.040 normally or "
-            "$0.075 with one search. Hosted search: $0.01 per call, up to three calls."
+            "$5 short-context input / $30 output per 1M tokens; 25×; about $0.040 "
+            "normally or $0.075 with one search. Hosted search: $0.01 per call, "
+            "up to three calls."
         ),
     },
 }
