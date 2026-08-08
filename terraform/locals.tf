@@ -15,6 +15,6 @@ locals {
   )
 
   tailscale_core_routes = distinct([
-    "${local.core_vm.ip}/32",
+    "192.168.1.0/24",
   ])
 }

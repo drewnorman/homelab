@@ -339,6 +339,15 @@ That second apply approves the advertised subnet route and disables key expiry f
 
 Once approved, remote clients connected to your tailnet should resolve `jellyfin.lab.adre.me`, `movies.lab.adre.me`, `torrents.lab.adre.me`, and other configured lab hosts through AdGuard, then reach nginx on `lab-core` over Tailscale.
 
+Verify the route and services on `lab-core` after applying OpenTofu:
+
+```sh
+ssh root@192.168.1.210 'tailscale status; tailscale debug prefs'
+ssh root@192.168.1.210 'sysctl net.ipv4.ip_forward; ss -lntup | grep -E ":(53|80|443)[[:space:]]"'
+```
+
+The Tailscale preferences should advertise `192.168.1.0/24`, and the tailnet must approve that same route. For an end-to-end test on a phone, connect Tailscale, enable its DNS settings, disable Wi-Fi, and load `https://lab.adre.me` plus at least one proxied service over cellular data.
+
 ### qBittorrent
 
 qBittorrent runs on `lab-core` with declarative service config. When the Arr stack is used, Radarr and Sonarr should point at `127.0.0.1:8080` or `torrents.lab.adre.me`.
