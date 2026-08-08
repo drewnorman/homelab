@@ -70,7 +70,7 @@ let
                   "enable": True,
                   "api_type": "responses",
                   "connection_type": "external",
-                  "model_ids": ["economy", "everyday", "high-quality"],
+                  "model_ids": [],
               }
           },
       )"""
@@ -1358,6 +1358,8 @@ in
       ENABLE_DIRECT_CONNECTIONS = "false";
       ENABLE_API_KEYS = "false";
       ENABLE_OPENAI_API_PASSTHROUGH = "false";
+      BYPASS_MODEL_ACCESS_CONTROL = "true";
+      ENABLE_EVALUATION_ARENA_MODELS = "false";
       ENABLE_COMMUNITY_SHARING = "false";
       ENABLE_ADMIN_CHAT_ACCESS = "false";
       ENABLE_ADMIN_EXPORT = "false";
@@ -1453,7 +1455,7 @@ in
               "/" = base.locations."/" // {
                 extraConfig = autheliaGuard + ''
                   set $open_webui_role user;
-                  if ($auth_user = drew) {
+                  if ($auth_email = drewnorman739@gmail.com) {
                     set $open_webui_role admin;
                   }
                   proxy_set_header X-OpenWebUI-Role $open_webui_role;
