@@ -12,6 +12,9 @@ let
     url = "https://repo.jellyfin.org/files/plugin/ldap-authentication/ldap-authentication_${jellyfinLdapPluginVersion}.zip";
     hash = "sha256-wjhsABvkOcmUYoCgLWJhDynjJdQJToO9MSId4/eqIK4=";
   };
+  jellyfinLdapConfig = pkgs.writers.writePython3Bin "jellyfin-ldap-config" {}
+    (lib.removePrefix "#!/usr/bin/env python3\n"
+      (builtins.readFile ../../modules/jellyfin-ldap-config.py));
   jellyfinEnhancedPluginVersion = "11.11.0.0";
   jellyfinEnhancedPluginZip = pkgs.fetchurl {
     url = "https://github.com/n00bcodr/Jellyfin-Enhanced/releases/download/${jellyfinEnhancedPluginVersion}/Jellyfin.Plugin.JellyfinEnhanced_10.11.0.zip";
@@ -679,63 +682,15 @@ let
       chmod -R u=rwX,go= "$plugin_dir"
 
       export LLDAP_ADMIN_PASSWORD_FILE="${config.sops.secrets.lldap-admin-password.path}"
+      ${jellyfinLdapConfig}/bin/jellyfin-ldap-config \
+        --config-file "$config_dir/LDAP-Auth.xml" \
+        --bind-password-file "$LLDAP_ADMIN_PASSWORD_FILE" \
+        --base-dn "${baseDn}" \
+        --password-reset-url "https://users.${domain}"
+
       python3 - <<'PY'
-      import os
       import xml.etree.ElementTree as ET
       from pathlib import Path
-
-      config_dir = Path("/var/lib/jellyfin/plugins/configurations")
-      config_dir.mkdir(parents=True, exist_ok=True)
-
-      with open(os.environ["LLDAP_ADMIN_PASSWORD_FILE"], encoding="utf-8") as password_file:
-          bind_password = password_file.read().strip()
-
-      values = {
-          "LdapServer": "127.0.0.1",
-          "LdapPort": "3890",
-          "AllowPassChange": "false",
-          "UseSsl": "false",
-          "UseStartTls": "false",
-          "SkipSslVerify": "false",
-          "LdapBindUser": "uid=admin,ou=people,${baseDn}",
-          "LdapBindPassword": bind_password,
-          "LdapBaseDn": "${baseDn}",
-          "LdapSearchFilter": "(&(objectClass=person)(memberOf=cn=media,ou=groups,${baseDn}))",
-          "LdapAdminBaseDn": "${baseDn}",
-          "LdapAdminFilter": "(&(objectClass=person)(memberOf=cn=homelab_admins,ou=groups,${baseDn}))",
-          "EnableLdapAdminFilterMemberUid": "false",
-          "LdapSearchAttributes": "uid,mail,displayName,cn",
-          "LdapClientCertPath": "",
-          "LdapClientKeyPath": "",
-          "LdapRootCaPath": "",
-          "CreateUsersFromLdap": "true",
-          "LdapUidAttribute": "uid",
-          "LdapUsernameAttribute": "uid",
-          "LdapPasswordAttribute": "userPassword",
-          "EnableLdapProfileImageSync": "false",
-          "RemoveImagesNotInLdap": "false",
-          "LdapProfileImageAttribute": "jpegphoto",
-          "LdapProfileImageFormat": "Default",
-          "EnableAllFolders": "true",
-          "PasswordResetUrl": "https://users.${domain}",
-      }
-
-      root = ET.Element(
-          "PluginConfiguration",
-          {
-              "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
-              "xmlns:xsd": "http://www.w3.org/2001/XMLSchema",
-          },
-      )
-      ET.SubElement(root, "LdapUsers")
-      for key, value in values.items():
-          child = ET.SubElement(root, key)
-          child.text = value
-      ET.SubElement(root, "EnabledFolders")
-
-      tree = ET.ElementTree(root)
-      ET.indent(tree, space="  ")
-      tree.write(config_dir / "LDAP-Auth.xml", encoding="utf-8", xml_declaration=True)
 
       system_config = Path("/var/lib/jellyfin/config/system.xml")
       if system_config.exists():

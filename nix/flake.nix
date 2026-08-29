@@ -116,8 +116,16 @@
       };
 
       # deploy-rs schema checks — run with `nix flake check`
-      checks = builtins.mapAttrs
+      checks = lib.recursiveUpdate (builtins.mapAttrs
         (_system: deployLib: deployLib.deployChecks self.deploy)
-        deploy-rs.lib;
+        deploy-rs.lib) {
+          ${system}.jellyfin-ldap-config = pkgs.runCommand "jellyfin-ldap-config-test" {
+            nativeBuildInputs = [ pkgs.python3 ];
+          } ''
+            JELLYFIN_LDAP_CONFIG_MODULE=${./modules/jellyfin-ldap-config.py} \
+              python3 ${./modules/test-jellyfin-ldap-config.py}
+            touch $out
+          '';
+        };
     };
 }
