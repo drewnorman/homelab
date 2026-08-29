@@ -3,7 +3,7 @@
   core = {
     hostname         = "lab-core";
     ip               = "192.168.1.210";
-    sshHost          = "lab-core";
+    sshHost          = "192.168.1.210";
     tailscaleSshHost = "lab-core-ts";
     networkInterface = "ens18";
     bootDevice       = "/dev/vda";

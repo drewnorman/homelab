@@ -87,6 +87,12 @@ cd nix
 nix run .#deploy-core
 ```
 
+The LAN deploy target uses the static `192.168.1.210` address, avoiding a
+dependency on short-hostname DNS. The deploy-rs CLI and its Nix 2.30 runtime
+come from the flake-locked nixpkgs binary cache; the compatible runtime avoids
+the deploy-rs failure with Nix 2.33 and newer. The deploy-rs input remains the
+source of activation helpers and deployment checks.
+
 GitHub Actions runs CI on pull requests to `master` and on pushes to `master`.
 CI checks the Nix flake, builds the `core` system closure, and validates the
 OpenTofu configuration without touching remote state. CI also requires

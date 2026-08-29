@@ -29,8 +29,27 @@
       system = "x86_64-linux";
       lib    = nixpkgs.lib;
       pkgs   = import nixpkgs { inherit system; };
+      deployPkgs = import nixpkgs {
+        inherit system;
+        overlays = [
+          deploy-rs.overlays.default
+          (_final: previous: {
+            deploy-rs = {
+              inherit (pkgs) deploy-rs;
+              lib = previous.deploy-rs.lib;
+            };
+          })
+        ];
+      };
       pkgsJellyfin = import nixpkgs-jellyfin { inherit system; };
       hosts  = import ./lib/hosts.nix;
+      deployCli = pkgs.writeShellApplication {
+        name = "deploy";
+        runtimeInputs = [ pkgs.nixVersions.nix_2_30 pkgs.deploy-rs ];
+        text = ''
+          exec ${pkgs.deploy-rs}/bin/deploy "$@"
+        '';
+      };
 
       coreHosts = [
         "core"
@@ -64,7 +83,7 @@
         profiles.system = {
           sshUser       = "root";
           magicRollback = true;
-          path = deploy-rs.lib.${system}.activate.nixos self.nixosConfigurations.${name};
+          path = deployPkgs.deploy-rs.lib.activate.nixos self.nixosConfigurations.${name};
         };
       };
 
@@ -87,18 +106,19 @@
           ];
         };
 
-        # Pin deploy-rs to the flake-locked version: nix run .#deploy-rs -- --help
-        deploy-rs = deploy-rs.packages.${system}.deploy-rs;
+        # Use the nixpkgs build so the deploy CLI comes from cache.nixos.org.
+        # Keep the deploy-rs input above for its activation library and checks.
+        deploy-rs = deployCli;
 
         deploy-core = pkgs.writeShellApplication {
           name = "deploy-core";
-          runtimeInputs = [ deploy-rs.packages.${system}.deploy-rs ];
+          runtimeInputs = [ deployCli ];
           text = lib.concatMapStringsSep "\n" (host: "deploy \"$@\" .#${host}") coreHosts;
         };
 
         deploy-core-tailscale = pkgs.writeShellApplication {
           name = "deploy-core-tailscale";
-          runtimeInputs = [ deploy-rs.packages.${system}.deploy-rs ];
+          runtimeInputs = [ deployCli ];
           text = "deploy \"$@\" .#core-tailscale";
         };
       };
