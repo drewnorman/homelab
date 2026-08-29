@@ -2059,8 +2059,8 @@ in
 
   systemd.services.media-stack-config = {
     description = "Configure media automation service integrations";
-    after = [ "jellyseerr.service" "radarr.service" "qbittorrent.service" "prowlarr.service" "podman-flaresolverr.service" ];
-    wants = [ "jellyseerr.service" "radarr.service" "qbittorrent.service" "prowlarr.service" "podman-flaresolverr.service" ];
+    after = [ "jellyseerr.service" "radarr.service" "sonarr.service" "qbittorrent.service" "prowlarr.service" "podman-flaresolverr.service" ];
+    wants = [ "jellyseerr.service" "radarr.service" "sonarr.service" "qbittorrent.service" "prowlarr.service" "podman-flaresolverr.service" ];
     wantedBy = [ "multi-user.target" ];
     path = [ pkgs.curl pkgs.systemd ];
     serviceConfig = {
@@ -2080,6 +2080,7 @@ in
       from pathlib import Path
 
       radarr_config = Path("/var/lib/radarr/.config/Radarr/config.xml")
+      sonarr_config = Path("/var/lib/sonarr/.config/NzbDrone/config.xml")
       prowlarr_config = Path("/var/lib/prowlarr/config.xml")
       jellyseerr_settings = Path("/var/lib/private/jellyseerr/config/settings.json")
 
@@ -2112,6 +2113,15 @@ in
               except (OSError, urllib.error.URLError):
                   time.sleep(1)
           raise RuntimeError("Timed out waiting for Radarr API")
+
+      def wait_for_sonarr(api_key):
+          for _ in range(60):
+              try:
+                  api("http://127.0.0.1:8989/api/v3", "GET", "system/status", api_key)
+                  return
+              except (OSError, urllib.error.URLError):
+                  time.sleep(1)
+          raise RuntimeError("Timed out waiting for Sonarr API")
 
       def wait_for_prowlarr(api_key):
           for _ in range(60):
@@ -2157,13 +2167,17 @@ in
           fields.append({"name": name, "value": value})
 
       radarr_api_key = read_api_key(radarr_config)
+      sonarr_api_key = read_api_key(sonarr_config)
       prowlarr_api_key = read_api_key(prowlarr_config)
       if not radarr_api_key:
           raise RuntimeError("Radarr API key is empty")
+      if not sonarr_api_key:
+          raise RuntimeError("Sonarr API key is empty")
       wait_for_radarr(radarr_api_key)
+      wait_for_sonarr(sonarr_api_key)
 
-      download_clients = api("http://127.0.0.1:7878/api/v3", "GET", "downloadclient", radarr_api_key)
-      if not any(client.get("implementation") == "QBittorrent" for client in download_clients):
+      radarr_download_clients = api("http://127.0.0.1:7878/api/v3", "GET", "downloadclient", radarr_api_key)
+      if not any(client.get("implementation") == "QBittorrent" for client in radarr_download_clients):
           api("http://127.0.0.1:7878/api/v3", "POST", "downloadclient", radarr_api_key, {
               "enable": True,
               "protocol": "torrent",
@@ -2182,6 +2196,37 @@ in
                   {"name": "movieImportedCategory", "value": ""},
                   {"name": "recentMoviePriority", "value": 0},
                   {"name": "olderMoviePriority", "value": 0},
+                  {"name": "initialState", "value": 0},
+                  {"name": "sequentialOrder", "value": False},
+                  {"name": "firstAndLast", "value": False},
+                  {"name": "contentLayout", "value": 0},
+              ],
+              "implementationName": "qBittorrent",
+              "implementation": "QBittorrent",
+              "configContract": "QBittorrentSettings",
+              "tags": [],
+          })
+
+      sonarr_download_clients = api("http://127.0.0.1:8989/api/v3", "GET", "downloadclient", sonarr_api_key)
+      if not any(client.get("implementation") == "QBittorrent" for client in sonarr_download_clients):
+          api("http://127.0.0.1:8989/api/v3", "POST", "downloadclient", sonarr_api_key, {
+              "enable": True,
+              "protocol": "torrent",
+              "priority": 1,
+              "removeCompletedDownloads": True,
+              "removeFailedDownloads": True,
+              "name": "qBittorrent",
+              "fields": [
+                  {"name": "host", "value": "127.0.0.1"},
+                  {"name": "port", "value": 8080},
+                  {"name": "useSsl", "value": False},
+                  {"name": "urlBase", "value": ""},
+                  {"name": "username", "value": ""},
+                  {"name": "password", "value": ""},
+                  {"name": "tvCategory", "value": "sonarr"},
+                  {"name": "tvImportedCategory", "value": ""},
+                  {"name": "recentTvPriority", "value": 0},
+                  {"name": "olderTvPriority", "value": 0},
                   {"name": "initialState", "value": 0},
                   {"name": "sequentialOrder", "value": False},
                   {"name": "firstAndLast", "value": False},
@@ -2258,6 +2303,26 @@ in
                   "implementationName": "Radarr",
                   "implementation": "Radarr",
                   "configContract": "RadarrSettings",
+                  "tags": [],
+              })
+
+          if not any(app.get("implementation") == "Sonarr" for app in applications):
+              api(prowlarr_base_url, "POST", "applications", prowlarr_api_key, {
+                  "syncLevel": "fullSync",
+                  "enable": True,
+                  "name": "Sonarr",
+                  "fields": [
+                      {"name": "prowlarrUrl", "value": "http://127.0.0.1:9696"},
+                      {"name": "baseUrl", "value": "http://127.0.0.1:8989"},
+                      {"name": "apiKey", "value": sonarr_api_key},
+                      {"name": "syncCategories", "value": [5000, 5010, 5020, 5030, 5040, 5045, 5050, 5090]},
+                      {"name": "animeSyncCategories", "value": [5070]},
+                      {"name": "syncAnimeStandardFormatSearch", "value": True},
+                      {"name": "syncRejectBlocklistedTorrentHashesWhileGrabbing", "value": False},
+                  ],
+                  "implementationName": "Sonarr",
+                  "implementation": "Sonarr",
+                  "configContract": "SonarrSettings",
                   "tags": [],
               })
 
