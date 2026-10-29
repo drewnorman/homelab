@@ -213,11 +213,13 @@ through a root-only environment file. Do not put credentials in the tracked
 Frigate YAML.
 
 The intended camera hostnames are `thingino-cam-1` and `thingino-cam-2`.
-Camera one currently answers at `192.168.1.23`; both `/ch0` and `/ch1` respond
-with an RTSP authentication challenge. At the time this service was added,
-`lab-core` did not resolve its hostname, so the tracked config uses that IP.
-Camera two is not yet set up. Its disabled config uses `thingino-cam-2`; replace
-that hostname with its reserved IP if `lab-core` cannot resolve it.
+Cam1 answers at `192.168.1.23`, and Cam2 at `192.168.1.24`; both are enabled
+in Frigate. Each camera has a 25 fps H.264 mainstream and a 640×360 H.264
+substream set to 5 fps. Their `root` logins are separate from their `thingino`
+RTSP/ONVIF accounts. Root logins are stored in the operator-only
+`nix/secrets/thingino.yaml`; Frigate receives only the RTSP accounts from
+`nix/secrets/frigate.yaml`. `lab-core` does not resolve the camera hostnames,
+so the tracked config uses their reserved IP addresses.
 
 After flashing each Thingino Wyze v3 camera:
 
@@ -235,18 +237,17 @@ After flashing each Thingino Wyze v3 camera:
    `sops secrets/frigate.yaml` cannot use the SSH private key directly to
    decrypt an `age1...` recipient. This command derives the age identity when
    needed without saving a second private key. Replace the camera's
-   `REPLACE_ME` values with its RTSP username and password. URL-encode any
-   reserved characters in those values because go2rtc reads them inside RTSP
-   URLs. Keep them on one line. The file is encrypted when saved.
+   `REPLACE_ME` values with the account shown under Thingino's **Settings →
+   RTSP/ONVIF Access**. The camera's `root` login is not the RTSP account.
+   URL-encode any reserved characters in those values because go2rtc reads
+   them inside RTSP URLs. Keep them on one line. The file is encrypted when
+   saved.
 3. Change that camera's `enabled` value to `true` in
    `nix/assets/frigate/config.yml`, then deploy NixOS with `nix run .#deploy-core`
    from the `nix/` directory. The main stream is assigned to recording and
    live viewing, and the lower resolution stream to detection. Use the same
    aspect ratio for both streams where possible.
-4. For camera two, confirm that `thingino-cam-2` resolves from `lab-core` or
-   replace it with the camera's reserved IP in both go2rtc URLs. Fill camera
-   two's sops values and enable `cameras.thingino_cam_2` before deploying.
-5. Confirm that the camera appears in Live and that a person, vehicle, cat,
+4. Confirm that the camera appears in Live and that a person, vehicle, cat,
    dog, or bird produces a playable Review item. Ordinary motion without a
    recognized object should not leave a recording.
 

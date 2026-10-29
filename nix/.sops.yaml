@@ -40,6 +40,11 @@ creation_rules:
     key_groups:
       - age: [*operator]
 
+  # Camera administrator access is operator-only; Frigate needs RTSP access only.
+  - path_regex: secrets/thingino\.yaml$
+    key_groups:
+      - age: [*operator]
+
   - path_regex: secrets/edge\.yaml$
     key_groups:
       - age: [*operator, *lab-edge, *lab-core]
