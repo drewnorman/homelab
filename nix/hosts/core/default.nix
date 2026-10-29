@@ -999,6 +999,13 @@ in
     mode = "0440";
     restartUnits = [ "alertmanager.service" ];
   };
+  sops.secrets.grafana-secret-key = {
+    sopsFile = ../../secrets/edge.yaml;
+    owner = "grafana";
+    group = "grafana";
+    mode = "0400";
+    restartUnits = [ "grafana.service" ];
+  };
   sops.secrets.lldap-jwt-secret = {
     sopsFile = ../../secrets/lldap.yaml;
     owner = "root";
@@ -1256,7 +1263,6 @@ in
   services.wyoming.openwakeword = {
     enable = true;
     uri = "tcp://0.0.0.0:10400";
-    preloadModels = [];
     customModelsDirectories = [ "/var/lib/wyoming/openwakeword/custom" ];
     threshold = 0.5;
     triggerLevel = 1;
@@ -1787,6 +1793,7 @@ in
   services.grafana = {
     enable = true;
     settings = {
+      security.secret_key = "$__file{${config.sops.secrets.grafana-secret-key.path}}";
       server = {
         http_addr = "127.0.0.1";
         http_port = 3000;
@@ -2057,7 +2064,7 @@ in
     ];
   };
 
-  services.jellyseerr = {
+  services.seerr = {
     enable = true;
     openFirewall = false;
   };
@@ -2103,8 +2110,8 @@ in
 
   systemd.services.media-stack-config = {
     description = "Configure media automation service integrations";
-    after = [ "jellyseerr.service" "radarr.service" "sonarr.service" "qbittorrent.service" "prowlarr.service" "podman-flaresolverr.service" ];
-    wants = [ "jellyseerr.service" "radarr.service" "sonarr.service" "qbittorrent.service" "prowlarr.service" "podman-flaresolverr.service" ];
+    after = [ "seerr.service" "radarr.service" "sonarr.service" "qbittorrent.service" "prowlarr.service" "podman-flaresolverr.service" ];
+    wants = [ "seerr.service" "radarr.service" "sonarr.service" "qbittorrent.service" "prowlarr.service" "podman-flaresolverr.service" ];
     wantedBy = [ "multi-user.target" ];
     path = [ pkgs.curl pkgs.systemd ];
     serviceConfig = {
@@ -2399,7 +2406,7 @@ in
           os.chown(jellyseerr_settings, 65534, 65534)
       PY
 
-      systemctl try-restart jellyseerr.service
+      systemctl try-restart seerr.service
     '';
   };
 
