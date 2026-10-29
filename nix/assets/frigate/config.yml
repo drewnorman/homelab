@@ -1,0 +1,95 @@
+# Nix-owned Frigate configuration. The service installs this on every start.
+# Edit this file and deploy NixOS to change camera or retention settings.
+mqtt:
+  enabled: false
+
+# Public HTTPS is terminated by the lab-core nginx reverse proxy.
+tls:
+  enabled: false
+
+# nginx and Authelia are the only route to the published Frigate port.
+auth:
+  enabled: false
+proxy:
+  default_role: viewer
+  header_map:
+    user: remote-user
+    role: remote-groups
+    role_map:
+      admin:
+        - homelab_admins
+
+detect:
+  enabled: true
+  fps: 5
+
+objects:
+  track:
+    - person
+    - car
+    - motorcycle
+    - bicycle
+    - bus
+    - dog
+    - cat
+    - bird
+
+record:
+  enabled: true
+  continuous:
+    days: 0
+  motion:
+    days: 0
+  alerts:
+    pre_capture: 5
+    post_capture: 5
+    retain:
+      days: 3
+      mode: all
+  detections:
+    pre_capture: 5
+    post_capture: 5
+    retain:
+      days: 3
+      mode: all
+
+go2rtc:
+  streams:
+    thingino_cam_1:
+      - rtsp://{FRIGATE_CAM1_RTSP_USER}:{FRIGATE_CAM1_RTSP_PASSWORD}@192.168.1.23:554/ch0
+    thingino_cam_1_sub:
+      - rtsp://{FRIGATE_CAM1_RTSP_USER}:{FRIGATE_CAM1_RTSP_PASSWORD}@192.168.1.23:554/ch1
+    # Replace the hostname with camera two's reserved IP if lab-core cannot
+    # resolve it, as was the case with camera one.
+    thingino_cam_2:
+      - rtsp://{FRIGATE_CAM2_RTSP_USER}:{FRIGATE_CAM2_RTSP_PASSWORD}@thingino-cam-2:554/ch0
+    thingino_cam_2_sub:
+      - rtsp://{FRIGATE_CAM2_RTSP_USER}:{FRIGATE_CAM2_RTSP_PASSWORD}@thingino-cam-2:554/ch1
+
+# Enable each camera after replacing its encrypted credentials in
+# nix/secrets/frigate.yaml and verifying both Thingino RTSP streams use H.264.
+cameras:
+  thingino_cam_1:
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/thingino_cam_1
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/thingino_cam_1_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+  thingino_cam_2:
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/thingino_cam_2
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/thingino_cam_2_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect

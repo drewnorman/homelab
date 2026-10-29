@@ -31,6 +31,7 @@ let
     prometheus  = "127.0.0.1:9090";
     alertmanager = "127.0.0.1:9093";
     homeassistant = "127.0.0.1:8123";
+    frigate     = "127.0.0.1:8971";
     jellyfin    = "127.0.0.1:8096";
     jellyseerr  = "127.0.0.1:5055";
     radarr      = "127.0.0.1:7878";
@@ -284,6 +285,18 @@ let
         };
         items = [
           {
+            title = "Cameras";
+            description = "Live views and recent detected activity";
+            icon = "fas fa-video";
+            color = "#17212b";
+            backgroundColor = "rgba(255, 255, 255, 0.94)";
+            url = "https://cams.${domain}/";
+            statusCheck = true;
+            statusCheckUrl = "http://${local.frigate}/";
+            statusCheckAllowInsecure = true;
+            statusCheckAcceptCodes = "200,204,301,302,401,403";
+          }
+          {
             title = "Jellyfin";
             description = "Movies, shows, and music";
             icon = "fas fa-tv";
@@ -536,6 +549,22 @@ let
         find "$path" -type d -exec chmod 2775 {} +
         find "$path" -type f -exec chmod g+rw {} +
       done
+    '';
+  };
+
+  frigatePrepare = pkgs.writeShellApplication {
+    name = "frigate-prepare";
+    runtimeInputs = [ pkgs.coreutils pkgs.util-linux ];
+    text = ''
+      set -euo pipefail
+      actual_uuid="$(findmnt -nr -M /srv/storage/external -t ext4 -o UUID || true)"
+      if [ "$actual_uuid" != "${lib.removePrefix "/dev/disk/by-uuid/" externalStorage.device}" ]; then
+        echo "Frigate recordings require the expected external SSD mount" >&2
+        exit 1
+      fi
+      install -d -m 0700 /srv/storage/external/cameras/frigate
+      install -d -m 0700 /var/lib/frigate/config
+      install -m 0600 ${../../assets/frigate/config.yml} /var/lib/frigate/config/config.yml
     '';
   };
 
@@ -1047,6 +1076,40 @@ in
       WEBUI_SECRET_KEY=${config.sops.placeholder.open-webui-secret-key}
     '';
   };
+  sops.secrets.frigate-cam1-rtsp-user = {
+    sopsFile = ../../secrets/frigate.yaml;
+    owner = "root";
+    mode = "0400";
+    restartUnits = [ "podman-frigate.service" ];
+  };
+  sops.secrets.frigate-cam1-rtsp-password = {
+    sopsFile = ../../secrets/frigate.yaml;
+    owner = "root";
+    mode = "0400";
+    restartUnits = [ "podman-frigate.service" ];
+  };
+  sops.secrets.frigate-cam2-rtsp-user = {
+    sopsFile = ../../secrets/frigate.yaml;
+    owner = "root";
+    mode = "0400";
+    restartUnits = [ "podman-frigate.service" ];
+  };
+  sops.secrets.frigate-cam2-rtsp-password = {
+    sopsFile = ../../secrets/frigate.yaml;
+    owner = "root";
+    mode = "0400";
+    restartUnits = [ "podman-frigate.service" ];
+  };
+  sops.templates."frigate.env" = {
+    owner = "root";
+    mode = "0400";
+    content = ''
+      FRIGATE_CAM1_RTSP_USER=${config.sops.placeholder.frigate-cam1-rtsp-user}
+      FRIGATE_CAM1_RTSP_PASSWORD=${config.sops.placeholder.frigate-cam1-rtsp-password}
+      FRIGATE_CAM2_RTSP_USER=${config.sops.placeholder.frigate-cam2-rtsp-user}
+      FRIGATE_CAM2_RTSP_PASSWORD=${config.sops.placeholder.frigate-cam2-rtsp-password}
+    '';
+  };
 
   systemd.services.openai-policy-gateway = {
     description = "Fail-closed OpenAI Responses policy gateway";
@@ -1273,6 +1336,29 @@ in
       TZ = config.time.timeZone;
     };
   };
+  virtualisation.oci-containers.containers.frigate = {
+    image = "ghcr.io/blakeblackshear/frigate:0.18.0";
+    environmentFiles = [ config.sops.templates."frigate.env".path ];
+    ports = [ "127.0.0.1:8971:8971" ];
+    volumes = [
+      "/var/lib/frigate/config:/config"
+      "/srv/storage/external/cameras/frigate:/media/frigate"
+      "/etc/localtime:/etc/localtime:ro"
+    ];
+    environment.TZ = config.time.timeZone;
+    extraOptions = [
+      "--shm-size=512m"
+      "--tmpfs=/tmp/cache:rw,size=1g"
+      "--security-opt=no-new-privileges"
+    ];
+  };
+  systemd.services.podman-frigate = {
+    after = [ "srv-storage-external.mount" ];
+    requires = [ "srv-storage-external.mount" ];
+    serviceConfig.ExecStartPre = lib.mkBefore [
+      "${frigatePrepare}/bin/frigate-prepare"
+    ];
+  };
   virtualisation.oci-containers.containers.open-webui = {
     image = openWebuiImage;
     cmd = [ "bash" "/open-webui-entrypoint" ];
@@ -1394,6 +1480,7 @@ in
       "prometheus.${domain}" = mkVhost { backend = local.prometheus; sso = true; aliases = [ "metrics.${domain}" ]; };
       "alerts.${domain}" = mkVhost { backend = local.alertmanager; sso = true; };
       "house.${domain}" = mkHomeAssistantVhost { backend = local.homeassistant; aliases = [ "assistant.${domain}" ]; };
+      "cams.${domain}" = mkVhost { backend = local.frigate; sso = true; };
       "jellyfin.${domain}" = mkJellyfinVhost { backend = local.jellyfin; aliases = [ "watch.${domain}" ]; };
       "jellyseerr.${domain}" = mkVhost { backend = local.jellyseerr; aliases = [ "catalog.${domain}" ]; };
       "radarr.${domain}" = mkVhost { backend = local.radarr; sso = true; aliases = [ "movies.${domain}" ]; };
@@ -1561,6 +1648,7 @@ in
               "alerts.${domain}"
               "house.${domain}"
               "assistant.${domain}"
+              "cams.${domain}"
               "prowlarr.${domain}"
               "indexers.${domain}"
             ];
@@ -1799,6 +1887,7 @@ in
           { targets = [ "https://prometheus.${domain}" ]; labels = { service = "prometheus"; tier = "admin"; }; }
           { targets = [ "https://alerts.${domain}" ]; labels = { service = "alertmanager"; tier = "admin"; }; }
           { targets = [ "https://house.${domain}" ]; labels = { service = "home-assistant"; tier = "home"; }; }
+          { targets = [ "http://${local.frigate}/" ]; labels = { service = "frigate"; tier = "home"; }; }
           { targets = [ "https://watch.${domain}" ]; labels = { service = "jellyfin"; tier = "media"; }; }
           { targets = [ "https://movies.${domain}" ]; labels = { service = "radarr"; tier = "media"; }; }
           { targets = [ "https://tv.${domain}" ]; labels = { service = "sonarr"; tier = "media"; }; }

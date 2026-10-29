@@ -163,6 +163,7 @@ If the Proxmox template uses different names, update those host metadata fields 
 - Dashy for the LAN service portal
 - Grafana, Prometheus, Alertmanager, blackbox exporter, and node exporter for monitoring
 - Home Assistant for house automation, device integrations, and local Assist voice services
+- Frigate for local camera live views and short object-triggered recordings
 - Open WebUI for the curated OpenAI-backed household chat service
 - Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, Bazarr, and qBittorrent
 
@@ -182,6 +183,7 @@ Friendly service names are preferred for day-to-day use:
 - `prometheus.lab.adre.me` for Prometheus
 - `alerts.lab.adre.me` for Alertmanager
 - `house.lab.adre.me` for Home Assistant
+- `cams.lab.adre.me` for Frigate cameras
 - `ai.lab.adre.me` for Homelab AI
 - `watch.lab.adre.me` for Jellyfin
 - `catalog.lab.adre.me` for Jellyseerr
@@ -193,6 +195,81 @@ Friendly service names are preferred for day-to-day use:
 
 The app-native names such as `adguard.lab.adre.me`, `jellyfin.lab.adre.me`, `jellyseerr.lab.adre.me`, `radarr.lab.adre.me`, `sonarr.lab.adre.me`, `prowlarr.lab.adre.me`, `bazarr.lab.adre.me`, and `qbittorrent.lab.adre.me` remain valid aliases.
 `assistant.lab.adre.me` is also available as an alias for Home Assistant.
+
+### Cameras
+
+Frigate runs on `lab-core` at `https://cams.lab.adre.me`, behind the existing
+Authelia `homelab_admins` policy. nginx terminates HTTPS and proxies to
+Frigate's HTTP web port, which is mapped only to `127.0.0.1`. Frigate's
+unauthenticated API and RTSP/WebRTC ports are not exposed on the LAN. Remote
+browser access follows the existing Tailscale subnet route and split DNS.
+
+Frigate's camera and retention settings live in `nix/assets/frigate/config.yml`.
+The service installs this file to `/var/lib/frigate/config/config.yml` on every
+start, so UI changes to the Frigate config are replaced on the next restart.
+Change the tracked YAML and deploy NixOS instead. Camera credentials live in
+the sops-encrypted `nix/secrets/frigate.yaml` and enter the Podman container
+through a root-only environment file. Do not put credentials in the tracked
+Frigate YAML.
+
+The intended camera hostnames are `thingino-cam-1` and `thingino-cam-2`.
+Camera one currently answers at `192.168.1.23`; both `/ch0` and `/ch1` respond
+with an RTSP authentication challenge. At the time this service was added,
+`lab-core` did not resolve its hostname, so the tracked config uses that IP.
+Camera two is not yet set up. Its disabled config uses `thingino-cam-2`; replace
+that hostname with its reserved IP if `lab-core` cannot resolve it.
+
+After flashing each Thingino Wyze v3 camera:
+
+1. Give it a stable address with a router DHCP reservation and confirm its
+   main and lower resolution RTSP streams in Thingino. Set both streams to
+   H.264 if available, with the lower resolution stream at 5 fps.
+2. From `nix/`, make `ssh-to-age` available (`nix shell nixpkgs#ssh-to-age`)
+   and edit the encrypted secret with:
+
+   ```sh
+   SOPS_AGE_KEY_CMD='ssh-to-age -private-key -i /home/drew/.ssh/drew@x1c-g9' sops secrets/frigate.yaml
+   ```
+
+   The operator age recipient was derived from that SSH key, but plain
+   `sops secrets/frigate.yaml` cannot use the SSH private key directly to
+   decrypt an `age1...` recipient. This command derives the age identity when
+   needed without saving a second private key. Replace the camera's
+   `REPLACE_ME` values with its RTSP username and password. URL-encode any
+   reserved characters in those values because go2rtc reads them inside RTSP
+   URLs. Keep them on one line. The file is encrypted when saved.
+3. Change that camera's `enabled` value to `true` in
+   `nix/assets/frigate/config.yml`, then deploy NixOS with `nix run .#deploy-core`
+   from the `nix/` directory. The main stream is assigned to recording and
+   live viewing, and the lower resolution stream to detection. Use the same
+   aspect ratio for both streams where possible.
+4. For camera two, confirm that `thingino-cam-2` resolves from `lab-core` or
+   replace it with the camera's reserved IP in both go2rtc URLs. Fill camera
+   two's sops values and enable `cameras.thingino_cam_2` before deploying.
+5. Confirm that the camera appears in Live and that a person, vehicle, cat,
+   dog, or bird produces a playable Review item. Ordinary motion without a
+   recognized object should not leave a recording.
+
+The default object list is `person`, `car` (including Frigate's default truck
+mapping), `motorcycle`, `bicycle`, `bus`, `dog`, `cat`, and `bird`. Continuous and
+general motion retention are disabled. Alert and detection clips, including
+five seconds before and after each event, are retained for a rolling three
+days. Frigate stores media at `/srv/storage/external/cameras/frigate` and will
+not start if the external SSD is not mounted. Its configuration and database
+stay under `/var/lib/frigate/config` on the VM disk. Exported clips are not
+removed by the three-day retention policy.
+
+Check the service and resource use after both cameras are active:
+
+```sh
+ssh root@192.168.1.210 'systemctl status podman-frigate --no-pager; podman stats --no-stream frigate'
+ssh root@192.168.1.210 'mountpoint /srv/storage/external; df -h /srv/storage/external'
+```
+
+If detection falls behind or the shared VM becomes busy, reduce the camera
+substream resolution or move Frigate to hardware with an accelerator. The
+service's live view uses Frigate's bundled go2rtc; no separate restreaming
+service is required.
 
 ### Monitoring
 

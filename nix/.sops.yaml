@@ -3,7 +3,9 @@
 #
 # Setup workflow:
 #   1. Install tools: nix shell nixpkgs#age nixpkgs#ssh-to-age
-#   2. Get your operator age key: ssh-to-age < ~/.ssh/id_ed25519.pub
+#   2. Get your operator age recipient: ssh-to-age < ~/.ssh/drew@x1c-g9.pub
+#      To edit encrypted files, provide the derived private identity at runtime:
+#      SOPS_AGE_KEY_CMD='ssh-to-age -private-key -i /home/drew/.ssh/drew@x1c-g9' sops secrets/frigate.yaml
 #   3. After `tofu apply`, get each host's age key:
 #        ssh-keyscan -t ed25519 <HOST_IP> | ssh-to-age
 #   4. Replace the placeholder age1... values below with real keys.
@@ -13,6 +15,7 @@
 #        sops secrets/authelia.yaml
 #        sops secrets/qbittorrent.yaml
 #        sops secrets/bazarr.yaml
+#        sops secrets/frigate.yaml
 #   6. To re-encrypt after adding a new host key (from nix/):
 #        sops updatekeys secrets/<file>.yaml
 
@@ -58,5 +61,9 @@ creation_rules:
       - age: [*operator, *lab-core]
 
   - path_regex: secrets/open-webui\.yaml$
+    key_groups:
+      - age: [*operator, *lab-core]
+
+  - path_regex: secrets/frigate\.yaml$
     key_groups:
       - age: [*operator, *lab-core]
