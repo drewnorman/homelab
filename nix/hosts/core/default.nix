@@ -1591,8 +1591,8 @@ in
         blocked_hosts = [ "version.bind" "id.server" "hostname.bind" ];
       };
       filtering.rewrites = [
-        { domain = domain; answer = hostMeta.ip; }
-        { domain = "*.${domain}"; answer = hostMeta.ip; }
+        { domain = domain; answer = hostMeta.ip; enabled = true; }
+        { domain = "*.${domain}"; answer = hostMeta.ip; enabled = true; }
       ];
       filters = [
         { enabled = true; id = 1; url = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt"; name = "AdGuard DNS filter"; }
