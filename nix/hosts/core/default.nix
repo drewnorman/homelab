@@ -912,7 +912,7 @@ let
   ];
 in
 {
-  networking.firewall.allowedTCPPorts = [ 53 80 443 10400 ];
+  networking.firewall.allowedTCPPorts = [ 53 80 443 1883 10400 ];
   networking.firewall.allowedUDPPorts = [ 53 ];
 
   environment.systemPackages = with pkgs; [
@@ -1107,6 +1107,30 @@ in
     mode = "0400";
     restartUnits = [ "podman-frigate.service" ];
   };
+  sops.secrets.mqtt-home-assistant-password = {
+    sopsFile = ../../secrets/mqtt.yaml;
+    owner = "root";
+    mode = "0400";
+    restartUnits = [ "mosquitto.service" ];
+  };
+  sops.secrets.mqtt-frigate-password = {
+    sopsFile = ../../secrets/mqtt.yaml;
+    owner = "root";
+    mode = "0400";
+    restartUnits = [ "mosquitto.service" "podman-frigate.service" ];
+  };
+  sops.secrets.mqtt-cam1-password = {
+    sopsFile = ../../secrets/mqtt.yaml;
+    owner = "root";
+    mode = "0400";
+    restartUnits = [ "mosquitto.service" ];
+  };
+  sops.secrets.mqtt-cam2-password = {
+    sopsFile = ../../secrets/mqtt.yaml;
+    owner = "root";
+    mode = "0400";
+    restartUnits = [ "mosquitto.service" ];
+  };
   sops.templates."frigate.env" = {
     owner = "root";
     mode = "0400";
@@ -1115,6 +1139,7 @@ in
       FRIGATE_CAM1_RTSP_PASSWORD=${config.sops.placeholder.frigate-cam1-rtsp-password}
       FRIGATE_CAM2_RTSP_USER=${config.sops.placeholder.frigate-cam2-rtsp-user}
       FRIGATE_CAM2_RTSP_PASSWORD=${config.sops.placeholder.frigate-cam2-rtsp-password}
+      FRIGATE_MQTT_PASSWORD=${config.sops.placeholder.mqtt-frigate-password}
     '';
   };
 
@@ -1165,6 +1190,32 @@ in
   };
   systemd.services."acme-${domain}".serviceConfig.TimeoutStartSec = lib.mkIf enableTls "10min";
 
+  services.mosquitto = {
+    enable = true;
+    listeners = [{
+      address = hostMeta.ip;
+      port = 1883;
+      users = {
+        homeassistant = {
+          passwordFile = config.sops.secrets.mqtt-home-assistant-password.path;
+          acl = [ "readwrite #" ];
+        };
+        frigate = {
+          passwordFile = config.sops.secrets.mqtt-frigate-password.path;
+          acl = [ "readwrite frigate/#" ];
+        };
+        thingino_cam_1 = {
+          passwordFile = config.sops.secrets.mqtt-cam1-password.path;
+          acl = [ "readwrite homeassistant/#" "readwrite cameras/#" ];
+        };
+        thingino_cam_2 = {
+          passwordFile = config.sops.secrets.mqtt-cam2-password.path;
+          acl = [ "readwrite homeassistant/#" "readwrite cameras/#" ];
+        };
+      };
+      settings.allow_anonymous = false;
+    }];
+  };
   services.home-assistant = {
     enable = true;
     openFirewall = false;
@@ -1176,12 +1227,16 @@ in
       "homekit"
       "intent_script"
       "litterrobot"
+      "media_source"
+      "mqtt"
       "roborock"
       "script"
+      "stream"
       "timer"
       "wake_word"
       "wyoming"
     ];
+    customComponents = [ pkgs.home-assistant-custom-components.frigate ];
     config = {
       homeassistant = {
         name = "House";
@@ -1345,7 +1400,7 @@ in
   virtualisation.oci-containers.containers.frigate = {
     image = "ghcr.io/blakeblackshear/frigate:0.18.0";
     environmentFiles = [ config.sops.templates."frigate.env".path ];
-    ports = [ "127.0.0.1:8971:8971" ];
+    ports = [ "127.0.0.1:8971:8971" "127.0.0.1:8554:8554" ];
     volumes = [
       "/var/lib/frigate/config:/config"
       "/srv/storage/external/cameras/frigate:/media/frigate"

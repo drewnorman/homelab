@@ -72,3 +72,7 @@ creation_rules:
   - path_regex: secrets/frigate\.yaml$
     key_groups:
       - age: [*operator, *lab-core]
+
+  - path_regex: secrets/mqtt\.yaml$
+    key_groups:
+      - age: [*operator, *lab-core]

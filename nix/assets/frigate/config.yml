@@ -1,7 +1,10 @@
 # Nix-owned Frigate configuration. The service installs this on every start.
 # Edit this file and deploy NixOS to change camera or retention settings.
 mqtt:
-  enabled: false
+  enabled: true
+  host: 192.168.1.210
+  user: frigate
+  password: '{FRIGATE_MQTT_PASSWORD}'
 
 # Public HTTPS is terminated by the lab-core nginx reverse proxy.
 tls:

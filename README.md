@@ -272,6 +272,40 @@ substream resolution or move Frigate to hardware with an accelerator. The
 service's live view uses Frigate's bundled go2rtc; no separate restreaming
 service is required.
 
+#### Home Assistant camera integration
+
+`lab-core` runs an authenticated Mosquitto broker at `192.168.1.210:1883` for
+Home Assistant, Frigate, and the two Thingino cameras. Each client has its own
+password in `nix/secrets/mqtt.yaml`. The broker has no nginx route. Frigate's
+MQTT settings are tracked in `nix/assets/frigate/config.yml`; its RTSP restream
+is mapped only to host loopback on port 8554 for Home Assistant live views.
+Home Assistant includes the Frigate custom component from Nixpkgs.
+
+The live Home Assistant instance has both the MQTT and Frigate integrations
+configured. On a fresh Home Assistant data directory, recreate them as follows:
+
+1. In Home Assistant, add **Settings → Devices & services → Add integration →
+   MQTT**. Use `192.168.1.210`, port `1883`, username `homeassistant`, and the
+   matching password from `nix/secrets/mqtt.yaml`. The [Frigate integration
+   guide](https://docs.frigate.video/integrations/home-assistant/) requires this
+   shared broker.
+2. On each Thingino camera, set `ha.mqtt.host` to `192.168.1.210` and
+   `ha.mqtt.username` and `ha.mqtt.password` to that camera's dedicated MQTT
+   account in `/etc/thingino.json`. Set `ha.enabled` to `true` and
+   `ha.enable_live_view`, `ha.enable_ota`, and `ha.enable_reboot` to `false`,
+   then restart `/etc/init.d/S93ha`. Frigate supplies live video. The [Thingino
+   guide](https://github.com/themactep/thingino-firmware/blob/master/docs/homeassistant.md)
+   describes the discovery entities and commands.
+3. In Home Assistant, add the **Frigate** integration with
+   `http://127.0.0.1:8971` as its URL. Its packaged component is installed by
+   NixOS, so HACS is not required. Confirm both cameras show live video, object
+   events, and recordings. Thingino's discovered devices provide motion and
+   hardware controls.
+
+Keep `nix/secrets/mqtt.yaml` encrypted when editing credentials. If a password
+changes, redeploy NixOS and update the matching Home Assistant or Thingino
+client. The Frigate integration uses its own MQTT account automatically.
+
 ### Monitoring
 
 In the single VM layout, `lab-core` runs Grafana, Loki, Grafana Alloy, Prometheus, Alertmanager, blackbox exporter, and node exporter locally.
