@@ -194,7 +194,7 @@ Friendly service names are preferred for day-to-day use:
 - `torrents.lab.adre.me` for qBittorrent
 
 The app-native names such as `adguard.lab.adre.me`, `jellyfin.lab.adre.me`, `jellyseerr.lab.adre.me`, `radarr.lab.adre.me`, `sonarr.lab.adre.me`, `prowlarr.lab.adre.me`, `bazarr.lab.adre.me`, and `qbittorrent.lab.adre.me` remain valid aliases.
-`assistant.lab.adre.me` is also available as an alias for Home Assistant.
+`assistant.lab.adre.me` redirects to the canonical Home Assistant URL.
 Both names currently use the Authelia gate.
 
 ### Cameras
@@ -316,12 +316,13 @@ or Person entities. Its source is `nix/assets/homeassistant/household-status.yam
 the alert rules are in `nix/assets/homeassistant/household-automations.yaml`.
 The default Home Assistant Overview dashboard remains UI-managed.
 
-1. The Companion App currently cannot complete native login through the
-   Authelia-gated Home Assistant routes. After a compatible authenticated route
-   is approved and deployed, add that HTTPS URL in the app and sign in with a
-   Home Assistant account. Grant notifications and, if desired, location
-   access. Keep Tailscale connected when away so the phone can report location
-   to the LAN-only Home Assistant instance.
+1. Add `https://house.lab.adre.me` in the Companion App and sign in with the
+   Home Assistant account. The existing `drew` and `angela` account passwords
+   are synchronized from their respective encrypted LLDAP user secrets before
+   Home Assistant starts. Home Assistant uses its own login; changing a password
+   in its UI will be overwritten on the next restart. Grant notifications and,
+   if desired, location access. Keep Tailscale connected when away so the phone
+   can report location to the LAN-only Home Assistant instance.
 2. In **Settings → People**, attach each phone's `device_tracker` to its
    person. The camera alert requires at least one person and sends only when
    every person is `not_home`; `unknown` or `unavailable` blocks it.
@@ -356,8 +357,10 @@ Grafana also has a Loki datasource fed by Grafana Alloy from the `lab-core` syst
 
 ### Home Assistant Voice
 
-Home Assistant runs at `https://house.lab.adre.me` with `assistant.lab.adre.me`
-as an alias. Local Assist services run on `lab-core` through Wyoming:
+Home Assistant runs at `https://house.lab.adre.me` with its native login;
+`assistant.lab.adre.me` redirects there. Access is limited to LAN and Tailscale
+clients, and this route does not use the Authelia gate. Local Assist services
+run on `lab-core` through Wyoming:
 
 - faster-whisper on `127.0.0.1:10300` for speech-to-text
 - Piper on `127.0.0.1:10200` for text-to-speech, using `en_US-joe-medium`

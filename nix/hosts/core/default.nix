@@ -668,20 +668,22 @@ let
         };
       };
 
-  mkHomeAssistantVhost = { backend, aliases ? [] }:
+  mkHomeAssistantVhost = { backend }:
     let
-      base = mkVhost { inherit backend aliases; sso = true; };
-      proxyLocation = {
-        proxyPass       = "http://${backend}";
-        proxyWebsockets = true;
-      };
+      base = mkVhost { inherit backend; };
     in
       base // {
         locations = base.locations // {
-          "/api" = proxyLocation;
-          "/auth" = proxyLocation;
-          "/webhook" = proxyLocation;
-          "/mobile_app" = proxyLocation;
+          "/" = base.locations."/" // {
+            extraConfig = ''
+              allow 127.0.0.1;
+              allow ::1;
+              allow 192.168.1.0/24;
+              allow 100.64.0.0/10;
+              allow fd7a:115c:a1e0::/48;
+              deny all;
+            '';
+          };
         };
       };
 
@@ -1030,6 +1032,20 @@ in
     group = "lldap-secrets";
     mode = "0440";
   };
+  sops.secrets.home-assistant-drew-password = {
+    sopsFile = ../../secrets/lldap.yaml;
+    key = "lldap-user-drew-password";
+    owner = "hass";
+    mode = "0400";
+    restartUnits = [ "home-assistant.service" ];
+  };
+  sops.secrets.home-assistant-angela-password = {
+    sopsFile = ../../secrets/lldap.yaml;
+    key = "lldap-user-angela-password";
+    owner = "hass";
+    mode = "0400";
+    restartUnits = [ "home-assistant.service" ];
+  };
   sops.secrets.authelia-jwt-secret = {
     sopsFile = ../../secrets/authelia.yaml;
     owner = "authelia-main";
@@ -1255,6 +1271,7 @@ in
           "::1"
         ];
       };
+      mobile_app = {};
       lovelace.dashboards."household-status" = {
         mode = "yaml";
         filename = "household-status.yaml";
@@ -1386,6 +1403,10 @@ in
   systemd.services.home-assistant.preStart = lib.mkAfter ''
     ln -sfn /etc/home-assistant/household-automations.yaml /var/lib/hass/household-automations.yaml
     ln -sfn /etc/home-assistant/household-status.yaml /var/lib/hass/household-status.yaml
+    ${pkgs.python314}/bin/python3 ${../../assets/homeassistant/sync-local-passwords.py} \
+      ${config.services.home-assistant.package}/bin/.hass-wrapped \
+      ${config.sops.secrets.home-assistant-drew-password.path} \
+      ${config.sops.secrets.home-assistant-angela-password.path}
   '';
 
   services.wyoming.faster-whisper.servers.house = {
@@ -1626,7 +1647,13 @@ in
       "grafana.${domain}" = mkVhost { backend = local.grafana; sso = true; aliases = [ "status.${domain}" "logs.${domain}" ]; };
       "prometheus.${domain}" = mkVhost { backend = local.prometheus; sso = true; aliases = [ "metrics.${domain}" ]; };
       "alerts.${domain}" = mkVhost { backend = local.alertmanager; sso = true; };
-      "house.${domain}" = mkHomeAssistantVhost { backend = local.homeassistant; aliases = [ "assistant.${domain}" ]; };
+      "house.${domain}" = mkHomeAssistantVhost { backend = local.homeassistant; };
+      "assistant.${domain}" = {
+        locations."/".return = "308 ${externalScheme}://house.${domain}$request_uri";
+      } // lib.optionalAttrs enableTls {
+        useACMEHost = domain;
+        forceSSL = true;
+      };
       "cams.${domain}" = mkVhost { backend = local.frigate; sso = true; };
       "jellyfin.${domain}" = mkJellyfinVhost { backend = local.jellyfin; aliases = [ "watch.${domain}" ]; };
       "jellyseerr.${domain}" = mkVhost { backend = local.jellyseerr; aliases = [ "catalog.${domain}" ]; };
