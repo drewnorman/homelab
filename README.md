@@ -195,6 +195,7 @@ Friendly service names are preferred for day-to-day use:
 
 The app-native names such as `adguard.lab.adre.me`, `jellyfin.lab.adre.me`, `jellyseerr.lab.adre.me`, `radarr.lab.adre.me`, `sonarr.lab.adre.me`, `prowlarr.lab.adre.me`, `bazarr.lab.adre.me`, and `qbittorrent.lab.adre.me` remain valid aliases.
 `assistant.lab.adre.me` is also available as an alias for Home Assistant.
+Both names currently use the Authelia gate.
 
 ### Cameras
 
@@ -305,6 +306,43 @@ configured. On a fresh Home Assistant data directory, recreate them as follows:
 Keep `nix/secrets/mqtt.yaml` encrypted when editing credentials. If a password
 changes, redeploy NixOS and update the matching Home Assistant or Thingino
 client. The Frigate integration uses its own MQTT account automatically.
+
+#### Household dashboard and phone alerts
+
+The Nix-managed **Household** dashboard is at
+`https://house.lab.adre.me/household-status/home`. It shows both Frigate
+cameras, the two existing Litter-Robots, and any paired LG webOS TV, Roborock,
+or Person entities. Its source is `nix/assets/homeassistant/household-status.yaml`;
+the alert rules are in `nix/assets/homeassistant/household-automations.yaml`.
+The default Home Assistant Overview dashboard remains UI-managed.
+
+1. The Companion App currently cannot complete native login through the
+   Authelia-gated Home Assistant routes. After a compatible authenticated route
+   is approved and deployed, add that HTTPS URL in the app and sign in with a
+   Home Assistant account. Grant notifications and, if desired, location
+   access. Keep Tailscale connected when away so the phone can report location
+   to the LAN-only Home Assistant instance.
+2. In **Settings → People**, attach each phone's `device_tracker` to its
+   person. The camera alert requires at least one person and sends only when
+   every person is `not_home`; `unknown` or `unavailable` blocks it.
+3. In **Developer tools → Actions**, find each phone's
+   `notify.mobile_app_...` action. Enter the action names, separated by commas,
+   in the **Household mobile notification actions** text helper on the
+   dashboard. Until this helper is set, alerts appear as Home Assistant
+   persistent notifications. Send a test through the **Send household alert**
+   script before relying on phone delivery.
+4. If absent, add **LG webOS TV** with the TV on and **Roborock** using its
+   existing app account under **Settings → Devices & services**. The already
+   configured Whisker integration supplies both Litter-Robots; do not add it
+   again.
+
+The alerts cover a Frigate `person` review event while everyone is away, a
+Litter-Robot waste drawer at 90% or higher for five minutes, Litter-Robot
+status text indicating a fault, and a Roborock vacuum entering its `error`
+state. Notifications link back to the related Home Assistant entity. The
+dashboard does not issue device commands, and these rules never start or
+control the robots or TV. Home Assistant and the alerting logic run on
+`lab-core`, so they cannot notify if that VM is down.
 
 ### Monitoring
 

@@ -1,0 +1,84 @@
+title: Household
+views:
+  - title: Home
+    path: home
+    icon: mdi:home-heart
+    cards:
+      - type: markdown
+        title: People and alerts
+        content: |-
+          {% set people = states.person | list %}
+          {% if people | count == 0 %}
+          Link a Companion App tracker to a Person to enable away-only camera alerts.
+          {% else %}
+          {% for person in people %}
+          - **{{ person.name }}:** {{ person.state | replace('_', ' ') }}
+          {% endfor %}
+          {% endif %}
+          {% if states('input_text.household_notify_actions') in ['', 'unknown', 'unavailable'] %}
+          Phone alerts need a `notify.mobile_app_...` action in the helper below.
+          {% endif %}
+
+      - type: entities
+        title: Phone alert setup
+        entities:
+          - entity: input_text.household_notify_actions
+            name: Mobile notification actions
+
+      - type: horizontal-stack
+        cards:
+          - type: picture-entity
+            entity: camera.thingino_cam_1
+            name: Camera 1
+            camera_view: auto
+            show_state: false
+          - type: picture-entity
+            entity: camera.thingino_cam_2
+            name: Camera 2
+            camera_view: auto
+            show_state: false
+
+      - type: markdown
+        title: LG TV
+        content: |-
+          {% for entity in integration_entities('webostv')
+             if entity.startswith('media_player.') %}
+          **{{ state_attr(entity, 'friendly_name') or entity }}:**
+          {{ states(entity) }}
+          {% set source = state_attr(entity, 'source') %}
+          {% if source %} · Source: {{ source }}{% endif %}
+          {% else %}
+          Add LG webOS TV under Settings → Devices & services.
+          {% endfor %}
+
+      - type: markdown
+        title: Roborock
+        content: |-
+          {% for entity in integration_entities('roborock')
+             if entity.startswith('vacuum.') %}
+          **{{ state_attr(entity, 'friendly_name') or entity }}:**
+          {{ states(entity) }} · Battery:
+          {{ state_attr(entity, 'battery_level') or 'unknown' }}%
+          {% else %}
+          Add Roborock under Settings → Devices & services.
+          {% endfor %}
+
+      - type: entities
+        title: Litter-Robots
+        entities:
+          - entity: vacuum.lr_left_litter_box
+            name: Left robot
+          - entity: sensor.lr_left_status_code
+            name: Left status
+          - entity: sensor.lr_left_waste_drawer
+            name: Left waste drawer
+          - entity: sensor.lr_left_litter_level
+            name: Left litter level
+          - entity: vacuum.lrright_litter_box
+            name: Right robot
+          - entity: sensor.lrright_status_code
+            name: Right status
+          - entity: sensor.lrright_waste_drawer
+            name: Right waste drawer
+          - entity: sensor.lrright_litter_level
+            name: Right litter level

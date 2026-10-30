@@ -1,0 +1,108 @@
+# Nix-owned household alerts. Device credentials and mobile notification targets
+# remain in Home Assistant's UI-managed storage.
+- id: household_frigate_person_away
+  alias: Household - person seen while away
+  mode: parallel
+  max: 4
+  triggers:
+    - trigger: mqtt
+      topic: frigate/reviews
+  conditions:
+    - condition: template
+      value_template: >-
+        {% set after = trigger.payload_json.get('after') or {} %}
+        {% set before = trigger.payload_json.get('before') or {} %}
+        {% set objects = after.get('data', {}).get('objects', []) %}
+        {% set old_objects = before.get('data', {}).get('objects', []) %}
+        {{ after.get('severity') == 'alert' and 'person' in objects
+           and (before.get('severity') != 'alert' or 'person' not in old_objects) }}
+    - condition: template
+      value_template: >-
+        {% set people = states.person | list %}
+        {{ people | count > 0 and
+           people | selectattr('state', 'ne', 'not_home') | list | count == 0 }}
+  actions:
+    - action: script.household_alert
+      data:
+        title: Person seen while everyone is away
+        message: >-
+          Frigate saw a person on {{ trigger.payload_json.after.camera | replace('_', ' ') }}.
+        url: >-
+          /?more-info-entity-id=camera.{{ trigger.payload_json.after.camera }}
+        tag: >-
+          frigate-{{ trigger.payload_json.after.id }}
+
+- id: household_litter_drawer_full
+  alias: Household - Litter-Robot drawer nearly full
+  mode: parallel
+  triggers:
+    - trigger: numeric_state
+      entity_id:
+        - sensor.lr_left_waste_drawer
+        - sensor.lrright_waste_drawer
+      above: 89
+      for: '00:05:00'
+  actions:
+    - action: script.household_alert
+      data:
+        title: Litter-Robot drawer nearly full
+        message: >-
+          {{ state_attr(trigger.entity_id, 'friendly_name') }} is at
+          {{ states(trigger.entity_id) }}%.
+        url: >-
+          /?more-info-entity-id={{ trigger.entity_id }}
+        tag: >-
+          drawer-{{ trigger.entity_id | replace('.', '-') }}
+
+- id: household_litter_fault
+  alias: Household - Litter-Robot fault
+  mode: parallel
+  triggers:
+    - trigger: state
+      entity_id:
+        - sensor.lr_left_status_code
+        - sensor.lrright_status_code
+      for: '00:02:00'
+  conditions:
+    - condition: template
+      value_template: >-
+        {% set status = trigger.to_state.state | lower %}
+        {{ 'error' in status or 'fault' in status or
+           'jam' in status or 'pinch' in status }}
+  actions:
+    - action: script.household_alert
+      data:
+        title: Litter-Robot needs attention
+        message: >-
+          {{ trigger.to_state.name }} reports {{ trigger.to_state.state }}.
+        url: >-
+          /?more-info-entity-id={{ trigger.entity_id }}
+        tag: >-
+          litter-fault-{{ trigger.entity_id | replace('.', '-') }}
+
+- id: household_roborock_fault
+  alias: Household - Roborock fault
+  mode: parallel
+  triggers:
+    - trigger: event
+      event_type: state_changed
+  conditions:
+    - condition: template
+      value_template: >-
+        {% set entity_id = trigger.event.data.get('entity_id', '') %}
+        {% set current = trigger.event.data.get('new_state') %}
+        {% set previous = trigger.event.data.get('old_state') %}
+        {{ entity_id.startswith('vacuum.') and
+           entity_id in integration_entities('roborock') and
+           current is not none and current.state == 'error' and
+           (previous is none or previous.state != 'error') }}
+  actions:
+    - action: script.household_alert
+      data:
+        title: Roborock needs attention
+        message: >-
+          {{ trigger.event.data.new_state.name }} reports an error.
+        url: >-
+          /?more-info-entity-id={{ trigger.event.data.entity_id }}
+        tag: >-
+          roborock-{{ trigger.event.data.entity_id | replace('.', '-') }}

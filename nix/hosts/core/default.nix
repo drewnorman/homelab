@@ -1228,12 +1228,15 @@ in
       "intent_script"
       "litterrobot"
       "media_source"
+      "mobile_app"
       "mqtt"
+      "persistent_notification"
       "roborock"
       "script"
       "stream"
       "timer"
       "wake_word"
+      "webostv"
       "wyoming"
     ];
     customComponents = [ pkgs.home-assistant-custom-components.frigate ];
@@ -1252,11 +1255,85 @@ in
           "::1"
         ];
       };
+      lovelace.dashboards."household-status" = {
+        mode = "yaml";
+        filename = "household-status.yaml";
+        title = "Household";
+        icon = "mdi:home-heart";
+        show_in_sidebar = true;
+      };
+      automation = "!include household-automations.yaml";
+      input_text.household_notify_actions = {
+        name = "Household mobile notification actions";
+        icon = "mdi:cellphone-message";
+        max = 255;
+      };
       timer.house_timer = {
         name = "House Timer";
         duration = "00:10:00";
       };
       script = {
+        household_alert = {
+          alias = "Send household alert";
+          mode = "parallel";
+          max = 10;
+          fields = {
+            title.name = "Title";
+            message.name = "Message";
+            url.name = "Open URL";
+            tag.name = "Notification tag";
+          };
+          sequence = [
+            {
+              "if" = [
+                {
+                  condition = "template";
+                  value_template = "{{ states('input_text.household_notify_actions') in ['', 'unknown', 'unavailable'] }}";
+                }
+              ];
+              "then" = [
+                {
+                  action = "persistent_notification.create";
+                  data = {
+                    title = "{{ title }}";
+                    message = "{{ message }}";
+                    notification_id = "{{ tag }}";
+                  };
+                }
+              ];
+            }
+            {
+              repeat = {
+                for_each = "{{ states('input_text.household_notify_actions').split(',') }}";
+                sequence = [
+                  {
+                    "if" = [
+                      {
+                        condition = "template";
+                        value_template = "{{ (repeat.item | trim).startswith('notify.mobile_app_') }}";
+                      }
+                    ];
+                    "then" = [
+                      {
+                        action = "{{ repeat.item | trim }}";
+                        data = {
+                          title = "{{ title }}";
+                          message = "{{ message }}";
+                          data = {
+                            url = "{{ url }}";
+                            clickAction = "{{ url }}";
+                            tag = "{{ tag }}";
+                            group = "household-alerts";
+                          };
+                        };
+                      }
+                    ];
+                  }
+                ];
+              };
+            }
+          ];
+        };
         start_house_timer = {
           alias = "Start house timer";
           mode = "restart";
@@ -1301,6 +1378,15 @@ in
       };
     };
   };
+
+  environment.etc."home-assistant/household-automations.yaml".source =
+    ../../assets/homeassistant/household-automations.yaml;
+  environment.etc."home-assistant/household-status.yaml".source =
+    ../../assets/homeassistant/household-status.yaml;
+  systemd.services.home-assistant.preStart = lib.mkAfter ''
+    ln -sfn /etc/home-assistant/household-automations.yaml /var/lib/hass/household-automations.yaml
+    ln -sfn /etc/home-assistant/household-status.yaml /var/lib/hass/household-status.yaml
+  '';
 
   services.wyoming.faster-whisper.servers.house = {
     enable = true;
