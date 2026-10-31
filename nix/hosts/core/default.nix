@@ -1704,7 +1704,7 @@ in
         blocked_hosts = [ "version.bind" "id.server" "hostname.bind" ];
       };
       querylog = {
-        enabled = true;
+        enabled = false;
         interval = "24h";
       };
       filtering.rewrites = [
