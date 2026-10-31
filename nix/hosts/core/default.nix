@@ -1703,6 +1703,10 @@ in
         fallback_dns = [ "https://dns.google/dns-query" ];
         blocked_hosts = [ "version.bind" "id.server" "hostname.bind" ];
       };
+      querylog = {
+        enabled = true;
+        interval = "24h";
+      };
       filtering.rewrites = [
         { domain = domain; answer = hostMeta.ip; enabled = true; }
         { domain = "*.${domain}"; answer = hostMeta.ip; enabled = true; }
