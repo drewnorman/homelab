@@ -2266,6 +2266,8 @@ in
 
   services.radarr = { enable = true; group = "media"; openFirewall = false; };
   services.sonarr = { enable = true; group = "media"; openFirewall = false; };
+  systemd.services.radarr.serviceConfig.UMask = lib.mkForce "0002";
+  systemd.services.sonarr.serviceConfig.UMask = lib.mkForce "0002";
   services.prowlarr = { enable = true; openFirewall = false; };
 
   systemd.services.prowlarr.preStart = ''
@@ -2584,6 +2586,7 @@ in
 
   services.bazarr = { enable = true; package = bazarrPackage; openFirewall = false; };
   systemd.services.bazarr = {
+    serviceConfig.UMask = lib.mkForce "0002";
     after = [ "radarr.service" "sonarr.service" ];
     wants = [ "radarr.service" "sonarr.service" ];
     preStart = ''
