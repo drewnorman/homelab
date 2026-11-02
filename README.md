@@ -215,18 +215,25 @@ Frigate YAML.
 
 The intended camera hostnames are `thingino-cam-1` and `thingino-cam-2`.
 Cam1 answers at `192.168.1.23`, and Cam2 at `192.168.1.24`; both are enabled
-in Frigate. Each camera has a 25 fps H.264 mainstream and a 640×360 H.264
-substream set to 5 fps. Their `root` logins are separate from their `thingino`
-RTSP/ONVIF accounts. Root logins are stored in the operator-only
-`nix/secrets/thingino.yaml`; Frigate receives only the RTSP accounts from
-`nix/secrets/frigate.yaml`. `lab-core` does not resolve the camera hostnames,
-so the tracked config uses their reserved IP addresses.
+in Frigate. Each camera has a 25 fps H.264 mainstream at 2,500 kb/s and a
+640×360 H.264 substream at 5 fps and 500 kb/s. These bitrates are set in each
+camera's `/etc/prudynt.json`, outside the Nix configuration. The Netgear R7450
+serving both cameras is set to 2.4 GHz channel 1. Their `root` logins are
+separate from the `thingino` RTSP/ONVIF accounts. Root logins are stored in the
+operator-only `nix/secrets/thingino.yaml`. Frigate receives only the RTSP
+accounts from `nix/secrets/frigate.yaml`. `lab-core` does not resolve the camera
+hostnames, so the tracked config uses their reserved IP addresses.
+
+The [2026-10-31 RTSP stability trial](docs/thingino-rtsp-stability-2026-10-31.md)
+records the Wi-Fi channel and camera bitrate tests, including packet loss and
+Frigate reconnects.
 
 After flashing each Thingino Wyze v3 camera:
 
 1. Give it a stable address with a router DHCP reservation and confirm its
    main and lower resolution RTSP streams in Thingino. Set both streams to
-   H.264 if available, with the lower resolution stream at 5 fps.
+   H.264 if available, with the lower resolution stream at 5 fps. Set the
+   main/substream bitrates to 2,500/500 kb/s and keep the main stream at 25 fps.
 2. From `nix/`, make `ssh-to-age` available (`nix shell nixpkgs#ssh-to-age`)
    and edit the encrypted secret with:
 
