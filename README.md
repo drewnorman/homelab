@@ -201,10 +201,12 @@ Both names currently use the Authelia gate.
 
 As a temporary recovery state from 2026-11-06, the Netgear R7450 serves DHCP
 from `192.168.1.100` through `192.168.1.199` at gateway `192.168.1.1`. It
-advertises itself as DNS. Its UDP EDNS relay still times out, so some clients
-may have slow lookups even though ordinary internet access works. See the
-[incident record](docs/netgear-dns-incident-2026-11-06.md) for measurements and
-recovery details.
+advertises itself as DNS and forwards to AdGuard Home at `192.168.1.210`.
+After restoring that upstream, UDP EDNS lookups through the router succeeded
+for 12 fresh local names and four public names. The earlier timeouts and the
+cause of their recovery are recorded in the
+[incident record](docs/netgear-dns-incident-2026-11-06.md). Longer-term
+stability has not yet been established.
 
 Before the outage, AdGuard Home on `lab-core` (`192.168.1.210`) served DHCP
 from `192.168.1.211` through `192.168.1.254`, with 24-hour leases, gateway
@@ -214,10 +216,9 @@ from `192.168.1.211` through `192.168.1.254`, with 24-hour leases, gateway
 AdGuard state after changing reservations. AdGuard DHCP was disabled in Nix
 and deployed on 2026-11-06. It remained off after an AdGuard service restart;
 the Netgear is the only active LAN DHCP server. AdGuard continues to answer
-DNS on `.210` for clients configured to use it. The R7450 gives DHCP clients
-its own address as DNS, so changing its upstream DNS to `.210` would still
-send client queries through the faulty router relay. That router change has
-not been made; test it separately before relying on it for local names.
+DNS on `.210`, including queries forwarded by the router. Household DNS now
+depends on `lab-core` and its Proxmox host being available; router DHCP does
+not depend on the VM.
 
 ### Cameras
 
@@ -236,9 +237,11 @@ through a root-only environment file. Do not put credentials in the tracked
 Frigate YAML.
 
 The intended camera hostnames are `thingino-cam-1` and `thingino-cam-2`.
-Cam1 has AdGuard DHCP reservation `192.168.1.23` for MAC
-`02:cf:43:c6:74:48`; Cam2 has `192.168.1.24` for MAC
-`02:c7:76:0a:90:e4`. Both are enabled in Frigate. Each camera has a 25 fps
+AdGuard has historical DHCP reservations for Cam1 at `192.168.1.23` (MAC
+`02:cf:43:c6:74:48`) and Cam2 at `192.168.1.24` (MAC `02:c7:76:0a:90:e4`).
+AdGuard DHCP is currently off; both cameras answered HTTP at those addresses
+after the router DHCP cutover, but their current address mode is unverified.
+Both are enabled in Frigate. Each camera has a 25 fps
 H.264 mainstream at 2,500 kb/s and a 640×360 H.264 substream at 5 fps and
 500 kb/s. These bitrates are set in each camera's `/etc/prudynt.json`, outside
 the Nix configuration. The Netgear R7450 serving both cameras is set to 2.4 GHz
@@ -254,10 +257,11 @@ Frigate reconnects.
 
 After flashing each Thingino Wyze v3 camera:
 
-1. Give it a stable address with an AdGuard DHCP reservation and confirm its
-   main and lower resolution RTSP streams in Thingino. Set both streams to
-   H.264 if available, with the lower resolution stream at 5 fps. Set the
-   main/substream bitrates to 2,500/500 kb/s and keep the main stream at 25 fps.
+1. Give it a stable address using the active DHCP service or a static camera
+   configuration, and confirm its main and lower resolution RTSP streams in
+   Thingino. Set both streams to H.264 if available, with the lower resolution
+   stream at 5 fps. Set the main/substream bitrates to 2,500/500 kb/s and keep
+   the main stream at 25 fps.
 2. From `nix/`, make `ssh-to-age` available (`nix shell nixpkgs#ssh-to-age`)
    and edit the encrypted secret with:
 
