@@ -156,7 +156,7 @@ If the Proxmox template uses different names, update those host metadata fields 
 
 `lab-core` runs these roles on one NixOS VM:
 
-- AdGuard Home for router-facing DNS on port 53
+- AdGuard Home for LAN DNS on port 53 and DHCPv4 on port 67
 - nginx and ACME for local HTTPS
 - Tailscale for remote private access
 - Authelia and LLDAP for auth
@@ -197,6 +197,21 @@ The app-native names such as `adguard.lab.adre.me`, `jellyfin.lab.adre.me`, `jel
 `assistant.lab.adre.me` redirects to the canonical Home Assistant URL.
 Both names currently use the Authelia gate.
 
+### LAN DHCP
+
+The Netgear R7450 remains the gateway, Wi-Fi access point, and switch at
+`192.168.1.1`, with its DHCP server disabled. AdGuard Home on `lab-core`
+(`192.168.1.210`) serves the only LAN DHCP pool, `192.168.1.211` through
+`192.168.1.254`, with 24-hour leases. Clients receive `192.168.1.1` as their
+gateway and `192.168.1.210` as their DNS server. The separate pool avoids
+overlap with leases issued by the former router DHCP pool (`.2` through `.199`).
+
+The pool and gateway are declared in `nix/hosts/core/default.nix`. Add fixed
+leases in the AdGuard UI; they are stored in AdGuard's `data/leases.json`, not
+in the declarative YAML. Keep an off-VM backup of AdGuard state after changing
+reservations. Do not add a public DNS server to DHCP clients, because it would
+bypass AdGuard's `*.lab.adre.me` rewrites.
+
 ### Cameras
 
 Frigate runs on `lab-core` at `https://cams.lab.adre.me`, behind the existing
@@ -214,15 +229,17 @@ through a root-only environment file. Do not put credentials in the tracked
 Frigate YAML.
 
 The intended camera hostnames are `thingino-cam-1` and `thingino-cam-2`.
-Cam1 answers at `192.168.1.23`, and Cam2 at `192.168.1.24`; both are enabled
-in Frigate. Each camera has a 25 fps H.264 mainstream at 2,500 kb/s and a
-640×360 H.264 substream at 5 fps and 500 kb/s. These bitrates are set in each
-camera's `/etc/prudynt.json`, outside the Nix configuration. The Netgear R7450
-serving both cameras is set to 2.4 GHz channel 1. Their `root` logins are
-separate from the `thingino` RTSP/ONVIF accounts. Root logins are stored in the
-operator-only `nix/secrets/thingino.yaml`. Frigate receives only the RTSP
-accounts from `nix/secrets/frigate.yaml`. `lab-core` does not resolve the camera
-hostnames, so the tracked config uses their reserved IP addresses.
+Cam1 has AdGuard DHCP reservation `192.168.1.23` for MAC
+`02:cf:43:c6:74:48`; Cam2 has `192.168.1.24` for MAC
+`02:c7:76:0a:90:e4`. Both are enabled in Frigate. Each camera has a 25 fps
+H.264 mainstream at 2,500 kb/s and a 640×360 H.264 substream at 5 fps and
+500 kb/s. These bitrates are set in each camera's `/etc/prudynt.json`, outside
+the Nix configuration. The Netgear R7450 serving both cameras is set to 2.4 GHz
+channel 1. Their `root` logins are separate from the `thingino` RTSP/ONVIF
+accounts. Root logins are stored in the operator-only
+`nix/secrets/thingino.yaml`. Frigate receives only the RTSP accounts from
+`nix/secrets/frigate.yaml`. `lab-core` does not resolve the camera hostnames,
+so the tracked config uses their reserved IP addresses.
 
 The [2026-10-31 RTSP stability trial](docs/thingino-rtsp-stability-2026-10-31.md)
 records the Wi-Fi channel and camera bitrate tests, including packet loss and
@@ -230,7 +247,7 @@ Frigate reconnects.
 
 After flashing each Thingino Wyze v3 camera:
 
-1. Give it a stable address with a router DHCP reservation and confirm its
+1. Give it a stable address with an AdGuard DHCP reservation and confirm its
    main and lower resolution RTSP streams in Thingino. Set both streams to
    H.264 if available, with the lower resolution stream at 5 fps. Set the
    main/substream bitrates to 2,500/500 kb/s and keep the main stream at 25 fps.

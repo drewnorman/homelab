@@ -915,7 +915,7 @@ let
 in
 {
   networking.firewall.allowedTCPPorts = [ 53 80 443 1883 10400 ];
-  networking.firewall.allowedUDPPorts = [ 53 ];
+  networking.firewall.allowedUDPPorts = [ 53 67 ];
 
   environment.systemPackages = with pkgs; [
     alsa-utils
@@ -1702,6 +1702,18 @@ in
         ];
         fallback_dns = [ "https://dns.google/dns-query" ];
         blocked_hosts = [ "version.bind" "id.server" "hostname.bind" ];
+      };
+      dhcp = {
+        enabled = true;
+        interface_name = hostMeta.networkInterface;
+        local_domain_name = "lan";
+        dhcpv4 = {
+          gateway_ip = "192.168.1.1";
+          subnet_mask = "255.255.255.0";
+          range_start = "192.168.1.211";
+          range_end = "192.168.1.254";
+          lease_duration = 86400;
+        };
       };
       querylog = {
         enabled = false;
