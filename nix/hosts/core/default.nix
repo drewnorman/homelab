@@ -915,7 +915,7 @@ let
 in
 {
   networking.firewall.allowedTCPPorts = [ 53 80 443 1883 10400 ];
-  networking.firewall.allowedUDPPorts = [ 53 67 ];
+  networking.firewall.allowedUDPPorts = [ 53 ];
 
   environment.systemPackages = with pkgs; [
     alsa-utils
@@ -1704,7 +1704,7 @@ in
         blocked_hosts = [ "version.bind" "id.server" "hostname.bind" ];
       };
       dhcp = {
-        enabled = true;
+        enabled = false;
         interface_name = hostMeta.networkInterface;
         local_domain_name = "lan";
         dhcpv4 = {

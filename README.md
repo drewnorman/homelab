@@ -156,7 +156,7 @@ If the Proxmox template uses different names, update those host metadata fields 
 
 `lab-core` runs these roles on one NixOS VM:
 
-- AdGuard Home for LAN DNS on port 53 and DHCPv4 on port 67
+- AdGuard Home for LAN DNS on port 53
 - nginx and ACME for local HTTPS
 - Tailscale for remote private access
 - Authelia and LLDAP for auth
@@ -199,18 +199,25 @@ Both names currently use the Authelia gate.
 
 ### LAN DHCP
 
-The Netgear R7450 remains the gateway, Wi-Fi access point, and switch at
-`192.168.1.1`, with its DHCP server disabled. AdGuard Home on `lab-core`
-(`192.168.1.210`) serves the only LAN DHCP pool, `192.168.1.211` through
-`192.168.1.254`, with 24-hour leases. Clients receive `192.168.1.1` as their
-gateway and `192.168.1.210` as their DNS server. The separate pool avoids
-overlap with leases issued by the former router DHCP pool (`.2` through `.199`).
+As a temporary recovery state from 2026-11-06, the Netgear R7450 serves DHCP
+from `192.168.1.100` through `192.168.1.199` at gateway `192.168.1.1`. It
+advertises itself as DNS. Its UDP EDNS relay still times out, so some clients
+may have slow lookups even though ordinary internet access works. See the
+[incident record](docs/netgear-dns-incident-2026-11-06.md) for measurements and
+recovery details.
 
-The pool and gateway are declared in `nix/hosts/core/default.nix`. Add fixed
-leases in the AdGuard UI; they are stored in AdGuard's `data/leases.json`, not
-in the declarative YAML. Keep an off-VM backup of AdGuard state after changing
-reservations. Do not add a public DNS server to DHCP clients, because it would
-bypass AdGuard's `*.lab.adre.me` rewrites.
+Before the outage, AdGuard Home on `lab-core` (`192.168.1.210`) served DHCP
+from `192.168.1.211` through `192.168.1.254`, with 24-hour leases, gateway
+`192.168.1.1`, and DNS `192.168.1.210`. The pool and gateway are declared in
+`nix/hosts/core/default.nix`; its fixed leases are stored in AdGuard's
+`data/leases.json`, outside the declarative YAML. Keep an off-VM backup of
+AdGuard state after changing reservations. AdGuard DHCP was disabled in Nix
+and deployed on 2026-11-06. It remained off after an AdGuard service restart;
+the Netgear is the only active LAN DHCP server. AdGuard continues to answer
+DNS on `.210` for clients configured to use it. The R7450 gives DHCP clients
+its own address as DNS, so changing its upstream DNS to `.210` would still
+send client queries through the faulty router relay. That router change has
+not been made; test it separately before relying on it for local names.
 
 ### Cameras
 
