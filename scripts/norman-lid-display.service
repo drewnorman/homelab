@@ -1,0 +1,13 @@
+[Unit]
+Description=Keep Norman's Proxmox console display aligned with the laptop lid
+After=systemd-logind.service getty@tty1.service
+Wants=getty@tty1.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/libexec/norman-lid-display.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
