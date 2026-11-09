@@ -513,7 +513,6 @@ let
     options = [
       "nofail"
       "x-systemd.automount"
-      "x-systemd.idle-timeout=5min"
     ];
     media = {
       mountPoint = "/srv/media";
@@ -2169,6 +2168,20 @@ in
                   severity: critical
                 annotations:
                   summary: "{{ $labels.mountpoint }} is read-only on {{ $labels.host }}"
+              - alert: MediaMountMissing
+                expr: absent(node_filesystem_size_bytes{job="node",host="core",mountpoint="/srv/media"})
+                for: 2m
+                labels:
+                  severity: critical
+                annotations:
+                  summary: "/srv/media is not mounted from the external SSD"
+              - alert: DownloadsMountMissing
+                expr: absent(node_filesystem_size_bytes{job="node",host="core",mountpoint="/srv/downloads"})
+                for: 2m
+                labels:
+                  severity: critical
+                annotations:
+                  summary: "/srv/downloads is not mounted from the external SSD"
               - alert: HighMemoryUsage
                 expr: 100 * (1 - (node_memory_MemAvailable_bytes{job="node"} / node_memory_MemTotal_bytes{job="node"})) > 90
                 for: 15m
@@ -2242,6 +2255,7 @@ in
   systemd.services.jellyfin = {
     after = [ "lldap-provision.service" ];
     requires = [ "lldap-provision.service" ];
+    unitConfig.RequiresMountsFor = [ "/srv/media" ];
     serviceConfig.ExecStartPre = [
       "+${jellyfinLdapSetup}/bin/jellyfin-ldap-setup"
       "+${jellyfinEnhancedSetup}/bin/jellyfin-enhanced-setup"
@@ -2278,6 +2292,8 @@ in
 
   services.radarr = { enable = true; group = "media"; openFirewall = false; };
   services.sonarr = { enable = true; group = "media"; openFirewall = false; };
+  systemd.services.radarr.unitConfig.RequiresMountsFor = [ "/srv/media" "/srv/downloads" ];
+  systemd.services.sonarr.unitConfig.RequiresMountsFor = [ "/srv/media" "/srv/downloads" ];
   systemd.services.radarr.serviceConfig.UMask = lib.mkForce "0002";
   systemd.services.sonarr.serviceConfig.UMask = lib.mkForce "0002";
   services.prowlarr = { enable = true; openFirewall = false; };
@@ -2599,6 +2615,7 @@ in
   services.bazarr = { enable = true; package = bazarrPackage; openFirewall = false; };
   systemd.services.bazarr = {
     serviceConfig.UMask = lib.mkForce "0002";
+    unitConfig.RequiresMountsFor = [ "/srv/media" ];
     after = [ "radarr.service" "sonarr.service" ];
     wants = [ "radarr.service" "sonarr.service" ];
     preStart = ''
@@ -2781,6 +2798,7 @@ in
   systemd.services.qbittorrent = {
     description = "qBittorrent-nox download client";
     after = [ "network.target" ];
+    unitConfig.RequiresMountsFor = [ "/srv/downloads" ];
     wantedBy = [ "multi-user.target" ];
     preStart = ''
       cfg=/var/lib/qbittorrent/qBittorrent/config/qBittorrent.conf
