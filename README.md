@@ -237,10 +237,9 @@ through a root-only environment file. Do not put credentials in the tracked
 Frigate YAML.
 
 The intended camera hostnames are `thingino-cam-1` and `thingino-cam-2`.
-AdGuard has historical DHCP reservations for Cam1 at `192.168.1.23` (MAC
-`02:cf:43:c6:74:48`) and Cam2 at `192.168.1.24` (MAC `02:c7:76:0a:90:e4`).
-AdGuard DHCP is currently off; both cameras answered HTTP at those addresses
-after the router DHCP cutover, but their current address mode is unverified.
+The Netgear router reserves `192.168.1.115` for Cam1 (MAC
+`02:cf:43:c6:74:48`) and `192.168.1.116` for Cam2 (MAC
+`02:c7:76:0a:90:e4`). AdGuard DHCP is off.
 Both are enabled in Frigate. Each camera has a 25 fps
 H.264 mainstream at 2,500 kb/s and a 640×360 H.264 substream at 5 fps and
 500 kb/s. These bitrates are set in each camera's `/etc/prudynt.json`, outside
