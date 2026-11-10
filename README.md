@@ -220,6 +220,10 @@ DNS on `.210`, including queries forwarded by the router. Household DNS now
 depends on `lab-core` and its Proxmox host being available; router DHCP does
 not depend on the VM.
 
+`lab-core` itself queries AdGuard at `.210` first, with the router and
+Cloudflare as fallback resolvers, so its service checks do not depend on the
+router's DNS relay when AdGuard is healthy.
+
 ### Cameras
 
 Frigate runs on `lab-core` at `https://cams.lab.adre.me`, behind the existing

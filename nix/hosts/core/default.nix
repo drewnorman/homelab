@@ -913,6 +913,9 @@ let
   ];
 in
 {
+  # Resolve local service names directly instead of relying on the router's
+  # intermittent DNS relay. Keep router and public DNS for bootstrap fallback.
+  networking.nameservers = lib.mkForce [ hostMeta.ip "192.168.1.1" "1.1.1.1" ];
   networking.firewall.allowedTCPPorts = [ 53 80 443 1883 10400 ];
   networking.firewall.allowedUDPPorts = [ 53 ];
 
