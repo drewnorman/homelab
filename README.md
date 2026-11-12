@@ -14,6 +14,7 @@ The control plane is intentionally split by ownership:
 
 - OpenTofu owns Proxmox resources: the `lab-core` VM, VMID, CPU, memory, disk, network address, and provider-managed DNS or tailnet settings.
 - A separate OpenTofu root owns the OpenAI project control plane; its Admin key remains operator-local and never reaches Terraform state, CI, sops, or `lab-core`.
+- `terraform/youtube` enables the YouTube Data API in the personal Google Cloud project and creates a key restricted to that API.
 - NixOS owns guest configuration: users, services, secrets, firewall rules, app settings, and package state.
 - deploy-rs is the NixOS deployment path. Host self-upgrade is disabled by default so deploy failures have one primary control loop to inspect.
 
@@ -356,6 +357,14 @@ The default Home Assistant Overview dashboard remains UI-managed.
 Home Assistant loads UI-created automations from its writable
 `/var/lib/hass/automations.yaml` and the Nix-managed household alerts from
 `nix/assets/homeassistant/household-automations.yaml`.
+
+The API key is provisioned by the isolated `terraform/youtube` OpenTofu root
+using the `personal-drewnorman739` Google Cloud project and GCS state. Apply
+that root with Google Application Default Credentials and the project set as
+the ADC quota project. Encrypt its sensitive `cat_tv_api_key` output into
+`nix/secrets/youtube.yaml` under the `youtube-data-api-key` field. The key is
+restricted to `youtube.googleapis.com` and is installed as a Home Assistant
+secret by sops-nix. Keep plaintext keys and saved plans out of Git.
 
 1. Add `https://house.lab.adre.me` in the Companion App and sign in with the
    Home Assistant account. The existing `drew` and `angela` account passwords

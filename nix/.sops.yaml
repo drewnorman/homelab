@@ -69,6 +69,10 @@ creation_rules:
     key_groups:
       - age: [*operator, *lab-core]
 
+  - path_regex: secrets/youtube\.yaml$
+    key_groups:
+      - age: [*operator, *lab-core]
+
   - path_regex: secrets/frigate\.yaml$
     key_groups:
       - age: [*operator, *lab-core]
