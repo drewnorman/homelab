@@ -10,6 +10,10 @@ let
   catTvDiscovery = pkgs.writers.writePython3Bin "cat-tv-discovery" {}
     (lib.removePrefix "#!/usr/bin/env python3\n"
       (builtins.readFile ../../modules/cat-tv-discovery.py));
+  catTvPlaybackStatus = pkgs.writers.writePython3Bin "cat-tv-playback-status" {}
+    (lib.removePrefix "#!/usr/bin/env python3\n"
+      (builtins.readFile ../../modules/cat-tv-playback-status.py));
+  catTvKnownHosts = ../../assets/homeassistant/cat-tv-known-hosts;
   catTvQueueTemplate = ''
     {%- set ns = namespace(birder=[], handsome=[], paul=[], queue=[]) -%}
     {%- for id in [states('sensor.cat_tv_discovery')] + (state_attr('sensor.cat_tv_discovery', 'birder') or []) -%}
@@ -1087,6 +1091,13 @@ in
     mode = "0400";
     restartUnits = [ "home-assistant.service" ];
   };
+  sops.secrets.cat-tv-status-key = {
+    sopsFile = ../../secrets/cat-tv-status.yaml;
+    owner = "hass";
+    group = "hass";
+    mode = "0400";
+    restartUnits = [ "home-assistant.service" ];
+  };
   sops.secrets.authelia-jwt-secret = {
     sopsFile = ../../secrets/authelia.yaml;
     owner = "authelia-main";
@@ -1339,9 +1350,47 @@ in
             json_attributes = [ "birder" "handsome" "paul" "titles" ];
           };
         }
+        {
+          sensor = {
+            name = "Cat TV Playback";
+            unique_id = "cat_tv_playback";
+            command = "${catTvPlaybackStatus}/bin/cat-tv-playback-status ${pkgs.openssh}/bin/ssh ${config.sops.secrets.cat-tv-status-key.path} ${catTvKnownHosts}";
+            command_timeout = 10;
+            scan_interval = 15;
+            value_template = "{{ value_json.state }}";
+            json_attributes = [ "app_id" ];
+          };
+        }
       ];
       template = [{
         sensor = [
+          {
+            name = "TV playback";
+            unique_id = "cat_tv_status";
+            icon = "mdi:youtube-tv";
+            state = ''
+              {%- set tv = states('media_player.lg_webos_tv_50uk6090pua') -%}
+              {%- set source = state_attr('media_player.lg_webos_tv_50uk6090pua', 'source') -%}
+              {%- if tv == 'off' -%}
+                TV off
+              {%- elif tv in ['unavailable', 'unknown'] -%}
+                TV unavailable
+              {%- elif is_state('script.cat_tv_control', 'on') -%}
+                Starting video
+              {%- elif source == 'YouTube AdFree' -%}
+                {%- set playback = states('sensor.cat_tv_playback') -%}
+                {%- if playback in ['playing', 'paused', 'starting'] -%}
+                  {{- playback | title -}}
+                {%- elif playback in ['idle', 'stopped'] -%}
+                  YouTube open · {{ playback }}
+                {%- else -%}
+                  YouTube open · status unavailable
+                {%- endif -%}
+              {%- else -%}
+                TV on · {{ source or 'source unknown' }}
+              {%- endif -%}
+            '';
+          }
           {
             name = "Cat TV last requested";
             unique_id = "cat_tv_last_requested";

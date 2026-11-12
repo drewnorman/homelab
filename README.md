@@ -358,8 +358,17 @@ Home Assistant loads UI-created automations from its writable
 `/var/lib/hass/automations.yaml` and the Nix-managed household alerts from
 `nix/assets/homeassistant/household-automations.yaml`.
 
-The compact **TV** card has TV state, the last requested video title, and
-Play, Next, and Shuffle controls.
+The compact **TV** card has TV state, playback status, the last requested video
+title, and Play, Next, and Shuffle controls. The status shows when a launch is
+in progress and reads playing or paused state from the rooted TV's ACB service.
+Home Assistant polls it every 15 seconds through a forced-command SSH key that
+cannot open a shell or forward connections. The private key is encrypted in
+`nix/secrets/cat-tv-status.yaml`; the matching public key is installed in the
+TV's `/home/root/.ssh/authorized_keys`. The exact restricted public-key line is
+tracked in `nix/assets/homeassistant/cat-tv-status-authorized-key` so it can be
+reinstalled if the TV's SSH configuration is reset. The TV host key is pinned
+in `nix/assets/homeassistant/cat-tv-known-hosts`. When the TV is off or the
+status query fails, the card reports that state instead of assuming playback.
 
 Play refreshes Birder King's uploads through the YouTube Data API and starts the
 newest upload, even when its title suggests a short video. Next rotates through

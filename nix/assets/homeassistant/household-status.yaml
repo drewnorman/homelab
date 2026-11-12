@@ -43,6 +43,8 @@ views:
         entities:
           - entity: media_player.lg_webos_tv_50uk6090pua
             name: TV
+          - entity: sensor.cat_tv_status
+            name: Playback
           - entity: sensor.cat_tv_last_requested
             name: Last requested
           - type: buttons

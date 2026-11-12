@@ -1,0 +1,1 @@
+command="script -q -e -c 'luna-send -n 1 -f luna://com.webos.service.acb/getForegroundAppInfo {}' /dev/null",no-pty,no-port-forwarding,no-X11-forwarding,no-agent-forwarding ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHlieYt4yUIHqwDOqWkSbavTNbniYseDqbqz1prO82ob homelab-cat-tv-status
