@@ -1281,7 +1281,8 @@ in
         icon = "mdi:home-heart";
         show_in_sidebar = true;
       };
-      automation = "!include household-automations.yaml";
+      automation = "!include automations.yaml";
+      "automation household" = "!include household-automations.yaml";
       input_text.household_notify_actions = {
         name = "Household mobile notification actions";
         icon = "mdi:cellphone-message";
@@ -1405,6 +1406,9 @@ in
   systemd.services.home-assistant.preStart = lib.mkAfter ''
     ln -sfn /etc/home-assistant/household-automations.yaml /var/lib/hass/household-automations.yaml
     ln -sfn /etc/home-assistant/household-status.yaml /var/lib/hass/household-status.yaml
+    if [ ! -e /var/lib/hass/automations.yaml ] && [ ! -L /var/lib/hass/automations.yaml ]; then
+      printf '[]\n' > /var/lib/hass/automations.yaml
+    fi
     ${pkgs.python314}/bin/python3 ${../../assets/homeassistant/sync-local-passwords.py} \
       ${config.services.home-assistant.package}/bin/.hass-wrapped \
       ${config.sops.secrets.home-assistant-drew-password.path} \

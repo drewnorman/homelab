@@ -353,6 +353,9 @@ cameras, the two existing Litter-Robots, and any paired LG webOS TV, Roborock,
 or Person entities. Its source is `nix/assets/homeassistant/household-status.yaml`;
 the alert rules are in `nix/assets/homeassistant/household-automations.yaml`.
 The default Home Assistant Overview dashboard remains UI-managed.
+Home Assistant loads UI-created automations from its writable
+`/var/lib/hass/automations.yaml` and the Nix-managed household alerts from
+`nix/assets/homeassistant/household-automations.yaml`.
 
 1. Add `https://house.lab.adre.me` in the Companion App and sign in with the
    Home Assistant account. The existing `drew` and `angela` account passwords
