@@ -378,6 +378,14 @@ Home Assistant loads UI-created automations from its writable
    configured Whisker integration supplies both Litter-Robots; do not add it
    again.
 
+The UI-managed **Wake LG TV** automation sends a Wake-on-LAN packet when the
+webOS media player is requested to turn on. The Wake on LAN integration is
+loaded by the Nix configuration. Enable the TV's network wake setting on the
+TV itself. On a fresh Home Assistant data directory, recreate the automation
+with **TV turn on requested** for the webOS media player as the trigger and
+**Wake on LAN: Send magic packet** with the TV's wired MAC address as the
+action. Check the automation trace if the TV does not wake.
+
 The alerts cover a Frigate `person` review event while everyone is away, a
 Litter-Robot waste drawer at 90% or higher for five minutes, Litter-Robot
 status text indicating a fault, and a Roborock vacuum entering its `error`

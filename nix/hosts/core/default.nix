@@ -1253,6 +1253,7 @@ in
       "script"
       "stream"
       "timer"
+      "wake_on_lan"
       "wake_word"
       "webostv"
       "wyoming"
@@ -1283,6 +1284,7 @@ in
       };
       automation = "!include automations.yaml";
       "automation household" = "!include household-automations.yaml";
+      wake_on_lan = {};
       input_text.household_notify_actions = {
         name = "Household mobile notification actions";
         icon = "mdi:cellphone-message";
