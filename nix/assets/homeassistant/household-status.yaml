@@ -38,18 +38,42 @@ views:
             camera_view: auto
             show_state: false
 
-      - type: markdown
-        title: LG TV
-        content: |-
-          {% for entity in integration_entities('webostv')
-             if entity.startswith('media_player.') %}
-          **{{ state_attr(entity, 'friendly_name') or entity }}:**
-          {{ states(entity) }}
-          {% set source = state_attr(entity, 'source') %}
-          {% if source %} · Source: {{ source }}{% endif %}
-          {% else %}
-          Add LG webOS TV under Settings → Devices & services.
-          {% endfor %}
+      - type: entities
+        title: TV
+        entities:
+          - entity: media_player.lg_webos_tv_50uk6090pua
+            name: TV
+          - entity: sensor.cat_tv_last_requested
+            name: Last requested
+          - type: buttons
+            entities:
+              - entity: script.cat_tv
+                name: Play
+                icon: mdi:play
+                show_name: true
+                tap_action:
+                  action: perform-action
+                  perform_action: script.turn_on
+                  data:
+                    entity_id: script.cat_tv
+              - entity: script.cat_tv_next
+                name: Next
+                icon: mdi:skip-next
+                show_name: true
+                tap_action:
+                  action: perform-action
+                  perform_action: script.turn_on
+                  data:
+                    entity_id: script.cat_tv_next
+              - entity: script.cat_tv_shuffle
+                name: Shuffle
+                icon: mdi:shuffle
+                show_name: true
+                tap_action:
+                  action: perform-action
+                  perform_action: script.turn_on
+                  data:
+                    entity_id: script.cat_tv_shuffle
 
       - type: markdown
         title: Roborock

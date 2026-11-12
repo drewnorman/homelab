@@ -7,6 +7,38 @@ let
   customAutheliaLogin = true;
   externalScheme = if enableTls then "https" else "http";
   piperVoice = "en_US-joe-medium";
+  catTvDiscovery = pkgs.writers.writePython3Bin "cat-tv-discovery" {}
+    (lib.removePrefix "#!/usr/bin/env python3\n"
+      (builtins.readFile ../../modules/cat-tv-discovery.py));
+  catTvQueueTemplate = ''
+    {%- set ns = namespace(birder=[], handsome=[], paul=[], queue=[]) -%}
+    {%- for id in [states('sensor.cat_tv_discovery')] + (state_attr('sensor.cat_tv_discovery', 'birder') or []) -%}
+      {%- if id | regex_match('^[A-Za-z0-9_-]{11}$') and id not in ns.birder -%}
+        {%- set ns.birder = ns.birder + [id] -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {%- for id in state_attr('sensor.cat_tv_discovery', 'handsome') or [] -%}
+      {%- if id | regex_match('^[A-Za-z0-9_-]{11}$') and id not in ns.handsome -%}
+        {%- set ns.handsome = ns.handsome + [id] -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {%- for id in state_attr('sensor.cat_tv_discovery', 'paul') or [] -%}
+      {%- if id | regex_match('^[A-Za-z0-9_-]{11}$') and id not in ns.paul -%}
+        {%- set ns.paul = ns.paul + [id] -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {%- set ns.birder = ns.birder if ns.birder else ['ZSkNCbrGsgc'] -%}
+    {%- set ns.handsome = ns.handsome if ns.handsome else ['A5JcZT5p240'] -%}
+    {%- set ns.paul = ns.paul if ns.paul else ['Iaq44gkMRaU'] -%}
+    {%- for index in range(6) -%}
+      {%- for source in [ns.birder, ns.handsome, ns.paul] -%}
+        {%- if index < source | count and source[index] not in ns.queue -%}
+          {%- set ns.queue = ns.queue + [source[index]] -%}
+        {%- endif -%}
+      {%- endfor -%}
+    {%- endfor -%}
+    {{- ns.queue | join(',') -}}
+  '';
   jellyfinLdapPluginVersion = "22.0.0.0";
   jellyfinLdapPluginZip = pkgs.fetchurl {
     url = "https://repo.jellyfin.org/files/plugin/ldap-authentication/ldap-authentication_${jellyfinLdapPluginVersion}.zip";
@@ -1048,6 +1080,13 @@ in
     mode = "0400";
     restartUnits = [ "home-assistant.service" ];
   };
+  sops.secrets.youtube-data-api-key = {
+    sopsFile = ../../secrets/youtube.yaml;
+    owner = "hass";
+    group = "hass";
+    mode = "0400";
+    restartUnits = [ "home-assistant.service" ];
+  };
   sops.secrets.authelia-jwt-secret = {
     sopsFile = ../../secrets/authelia.yaml;
     owner = "authelia-main";
@@ -1241,6 +1280,7 @@ in
       "assist_pipeline"
       "assist_satellite"
       "conversation"
+      "command_line"
       "default_config"
       "homekit"
       "intent_script"
@@ -1250,8 +1290,10 @@ in
       "mqtt"
       "persistent_notification"
       "roborock"
+      "rest"
       "script"
       "stream"
+      "template"
       "timer"
       "wake_on_lan"
       "wake_word"
@@ -1285,16 +1327,140 @@ in
       automation = "!include automations.yaml";
       "automation household" = "!include household-automations.yaml";
       wake_on_lan = {};
+      command_line = [
+        {
+          sensor = {
+            name = "Cat TV Discovery";
+            unique_id = "cat_tv_discovery";
+            command = "${catTvDiscovery}/bin/cat-tv-discovery ${config.sops.secrets.youtube-data-api-key.path}";
+            command_timeout = 45;
+            scan_interval = 3600;
+            value_template = "{{ value_json.latest }}";
+            json_attributes = [ "birder" "handsome" "paul" "titles" ];
+          };
+        }
+      ];
+      template = [{
+        sensor = [
+          {
+            name = "Cat TV last requested";
+            unique_id = "cat_tv_last_requested";
+            icon = "mdi:video-outline";
+            state = ''
+              {%- set id = states('input_text.cat_tv_current_video') -%}
+              {%- set titles = state_attr('sensor.cat_tv_discovery', 'titles') or {} -%}
+              {{- (titles.get(id, id) if id | regex_match('^[A-Za-z0-9_-]{11}$') else 'None') | truncate(200) -}}
+            '';
+          }
+        ];
+      }];
       input_text.household_notify_actions = {
         name = "Household mobile notification actions";
         icon = "mdi:cellphone-message";
         max = 255;
+      };
+      input_text.cat_tv_current_video = {
+        name = "Cat TV current video";
+        icon = "mdi:cat";
+        max = 11;
       };
       timer.house_timer = {
         name = "House Timer";
         duration = "00:10:00";
       };
       script = {
+        youtube_preset = {
+          alias = "Play YouTube preset";
+          icon = "mdi:youtube-tv";
+          mode = "restart";
+          fields.video_id = {
+            name = "YouTube video ID";
+            required = true;
+            selector.text = {};
+          };
+          sequence = [
+            {
+              action = "media_player.turn_on";
+              target.entity_id = "media_player.lg_webos_tv_50uk6090pua";
+            }
+            {
+              wait_template = "{{ states('media_player.lg_webos_tv_50uk6090pua') not in ['off', 'unavailable', 'unknown'] }}";
+              timeout = "00:00:30";
+              continue_on_timeout = false;
+            }
+            {
+              action = "webostv.command";
+              target.entity_id = "media_player.lg_webos_tv_50uk6090pua";
+              data = {
+                command = "system.launcher/launch";
+                payload = {
+                  id = "youtube.leanback.v4";
+                  contentId = "{{ video_id }}";
+                };
+              };
+            }
+          ];
+        };
+        cat_tv = {
+          alias = "Cat TV Play";
+          icon = "mdi:cat";
+          mode = "restart";
+          sequence = [{ action = "script.cat_tv_control"; data.action_choice = "play"; }];
+        };
+        cat_tv_next = {
+          alias = "Cat TV Next";
+          icon = "mdi:skip-next";
+          mode = "restart";
+          sequence = [{ action = "script.cat_tv_control"; data.action_choice = "next"; }];
+        };
+        cat_tv_shuffle = {
+          alias = "Cat TV Shuffle";
+          icon = "mdi:shuffle";
+          mode = "restart";
+          sequence = [{ action = "script.cat_tv_control"; data.action_choice = "shuffle"; }];
+        };
+        cat_tv_control = {
+          alias = "Cat TV control";
+          mode = "restart";
+          sequence = [
+            {
+              choose = [{
+                conditions = "{{ action_choice == 'play' }}";
+                sequence = [{
+                  action = "homeassistant.update_entity";
+                  target.entity_id = "sensor.cat_tv_discovery";
+                  continue_on_error = true;
+                }];
+              }];
+            }
+            { variables.queue = catTvQueueTemplate; }
+            {
+              variables.video_id = ''
+                {%- set options = queue.split(',') -%}
+                {%- set current = states('input_text.cat_tv_current_video') -%}
+                {%- if action_choice == 'play' -%}
+                  {%- set latest = states('sensor.cat_tv_discovery') -%}
+                  {{- latest if latest | regex_match('^[A-Za-z0-9_-]{11}$') else options[0] -}}
+                {%- elif action_choice == 'next' -%}
+                  {{- options[(options.index(current) + 1) % (options | count)] if current in options else options[0] -}}
+                {%- else -%}
+                  {%- set other = options | reject('equalto', current) | list -%}
+                  {{- (other if other else options) | random -}}
+                {%- endif -%}
+              '';
+            }
+            {
+              action = "input_text.set_value";
+              target.entity_id = "input_text.cat_tv_current_video";
+              data.value = "{{ video_id }}";
+            }
+            {
+              action = "script.youtube_preset";
+              data.video_id = "{{ video_id }}";
+            }
+            { delay = "00:00:20"; }
+          ];
+        };
         household_alert = {
           alias = "Send household alert";
           mode = "parallel";

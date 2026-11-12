@@ -358,6 +358,20 @@ Home Assistant loads UI-created automations from its writable
 `/var/lib/hass/automations.yaml` and the Nix-managed household alerts from
 `nix/assets/homeassistant/household-automations.yaml`.
 
+The compact **TV** card has TV state, the last requested video title, and
+Play, Next, and Shuffle controls.
+
+Play refreshes Birder King's uploads through the YouTube Data API and starts the
+newest upload, even when its title suggests a short video. Next rotates through
+recent outdoor uploads from Birder King, Handsome Nature, and Paul Dinning;
+Shuffle chooses a different video from that pool. Discovery refreshes hourly.
+Titles favor cat or wildlife footage and, for the other two channels, videos labeled
+as long or live. Titles do not provide reliable video durations. Known working
+videos remain as fallbacks when discovery fails. The shared TV launcher and
+rotation are in `nix/hosts/core/default.nix`, the API reader and channel IDs
+are in `nix/modules/cat-tv-discovery.py`, and the card is in
+`nix/assets/homeassistant/household-status.yaml`.
+
 The API key is provisioned by the isolated `terraform/youtube` OpenTofu root
 using the `personal-drewnorman739` Google Cloud project and GCS state. Apply
 that root with Google Application Default Credentials and the project set as
@@ -365,6 +379,12 @@ the ADC quota project. Encrypt its sensitive `cat_tv_api_key` output into
 `nix/secrets/youtube.yaml` under the `youtube-data-api-key` field. The key is
 restricted to `youtube.googleapis.com` and is installed as a Home Assistant
 secret by sops-nix. Keep plaintext keys and saved plans out of Git.
+
+The stable NicholasBly YouTube AdFree 0.8.4 legacy webOS build is installed on
+the LG TV. Direct launches from Home Assistant played without an account chooser
+with YouTube already open, from TV off, and after switching to Jellyfin. The
+original Homebrew 0.5.3 installer is retained on the TV at
+`/home/root/cat-tv-rollback/youtube-adfree-0.5.3.ipk` for rollback.
 
 1. Add `https://house.lab.adre.me` in the Companion App and sign in with the
    Home Assistant account. The existing `drew` and `angela` account passwords
