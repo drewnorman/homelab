@@ -1,5 +1,10 @@
 .env
 .secrets/
+/notes/
+
+# Plaintext household configuration must not return to the public tree.
+/nix/assets/homeassistant/household-automations.yaml
+/nix/assets/homeassistant/household-status.yaml
 terraform.tfvars
 terraform/openai/terraform.tfvars
 .ansible/

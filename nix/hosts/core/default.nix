@@ -952,7 +952,10 @@ in
   # Resolve local service names directly instead of relying on the router's
   # intermittent DNS relay. Keep router and public DNS for bootstrap fallback.
   networking.nameservers = lib.mkForce [ hostMeta.ip "192.168.1.1" "1.1.1.1" ];
-  networking.firewall.allowedTCPPorts = [ 53 80 443 1883 10400 ];
+  # Keep MQTT on the LAN for cameras and Home Assistant; tailnet clients use
+  # the authenticated HTTPS routes and split DNS instead.
+  networking.firewall.allowedTCPPorts = [ 53 ];
+  networking.firewall.interfaces.${hostMeta.networkInterface}.allowedTCPPorts = [ 1883 ];
   networking.firewall.allowedUDPPorts = [ 53 ];
 
   environment.systemPackages = with pkgs; [
@@ -1080,6 +1083,20 @@ in
   sops.secrets.home-assistant-angela-password = {
     sopsFile = ../../secrets/lldap.yaml;
     key = "lldap-user-angela-password";
+    owner = "hass";
+    mode = "0400";
+    restartUnits = [ "home-assistant.service" ];
+  };
+  sops.secrets.household-automations = {
+    sopsFile = ../../secrets/household-automations.enc;
+    format = "binary";
+    owner = "hass";
+    mode = "0400";
+    restartUnits = [ "home-assistant.service" ];
+  };
+  sops.secrets.household-status = {
+    sopsFile = ../../secrets/household-status.enc;
+    format = "binary";
     owner = "hass";
     mode = "0400";
     restartUnits = [ "home-assistant.service" ];
@@ -1616,13 +1633,9 @@ in
     };
   };
 
-  environment.etc."home-assistant/household-automations.yaml".source =
-    ../../assets/homeassistant/household-automations.yaml;
-  environment.etc."home-assistant/household-status.yaml".source =
-    ../../assets/homeassistant/household-status.yaml;
   systemd.services.home-assistant.preStart = lib.mkAfter ''
-    ln -sfn /etc/home-assistant/household-automations.yaml /var/lib/hass/household-automations.yaml
-    ln -sfn /etc/home-assistant/household-status.yaml /var/lib/hass/household-status.yaml
+    ln -sfn ${config.sops.secrets.household-automations.path} /var/lib/hass/household-automations.yaml
+    ln -sfn ${config.sops.secrets.household-status.path} /var/lib/hass/household-status.yaml
     if [ ! -e /var/lib/hass/automations.yaml ] && [ ! -L /var/lib/hass/automations.yaml ]; then
       printf '[]\n' > /var/lib/hass/automations.yaml
     fi
@@ -1647,7 +1660,7 @@ in
 
   services.wyoming.openwakeword = {
     enable = true;
-    uri = "tcp://0.0.0.0:10400";
+    uri = "tcp://127.0.0.1:10400";
     customModelsDirectories = [ "/var/lib/wyoming/openwakeword/custom" ];
     threshold = 0.5;
     triggerLevel = 1;

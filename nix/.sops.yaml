@@ -6,14 +6,13 @@
 #   2. Get your operator age recipient: ssh-to-age < ~/.ssh/drew@x1c-g9.pub
 #      To edit encrypted files, provide the derived private identity at runtime:
 #      SOPS_AGE_KEY_CMD='ssh-to-age -private-key -i /home/drew/.ssh/drew@x1c-g9' sops secrets/frigate.yaml
-#   3. After `tofu apply`, get each host's age key:
+#   3. After `tofu apply`, get lab-core's age key:
 #        ssh-keyscan -t ed25519 <HOST_IP> | ssh-to-age
-#   4. Replace the placeholder age1... values below with real keys.
+#   4. Replace the lab-core recipient below if the host key changes.
 #   5. Create and encrypt each secrets file (from nix/):
 #        sops secrets/edge.yaml
 #        sops secrets/lldap.yaml
 #        sops secrets/authelia.yaml
-#        sops secrets/qbittorrent.yaml
 #        sops secrets/bazarr.yaml
 #        sops secrets/frigate.yaml
 #   6. To re-encrypt after adding a new host key (from nix/):
@@ -24,13 +23,8 @@ keys:
   # ssh-to-age < ~/.ssh/drew@x1c-g9.pub
   - &operator age18j3zdckfwd96muuayfey4r4gfqsf0r6wwq8gd6jjccqhjegj7pzscknx3g
 
-  # Host keys — obtained after first `tofu apply`:
+  # Active host key — obtained after first `tofu apply`:
   #   ssh-keyscan -t ed25519 <IP> | ssh-to-age
-  # lab-core is included in the active secret groups used by the consolidated VM.
-  - &lab-edge        age1gynkf7was2ggtyhg5st7rc46qwuj96dtf2gw3zhlv3rwhg32r5uqvjar46
-  - &lab-lldap       age1pt5wqp8wh8j8uunhzxkpjahd2q84a26smfv8lynd332cg3vq4qrslddvjt
-  - &lab-authelia    age1w27h6fdjlmavelzun0yq4hfle3qdkeahmyr044wl6v84fhagguwqj3lg4c
-  - &lab-qbittorrent   age1fujhzkqfh3xdh3yln72q0prsrhped6lw3qu0qr4snwa5fmyq4c0sqh5pzk
   - &lab-core        age1aaa4zalk4j8emsg2gyhm8jc4x9stv7rz3va99lfnvaf25y0x8p3swrj3mv
 
 creation_rules:
@@ -47,19 +41,15 @@ creation_rules:
 
   - path_regex: secrets/edge\.yaml$
     key_groups:
-      - age: [*operator, *lab-edge, *lab-core]
+      - age: [*operator, *lab-core]
 
   - path_regex: secrets/lldap\.yaml$
     key_groups:
-      - age: [*operator, *lab-lldap, *lab-core]
+      - age: [*operator, *lab-core]
 
   - path_regex: secrets/authelia\.yaml$
     key_groups:
-      - age: [*operator, *lab-authelia, *lab-core]
-
-  - path_regex: secrets/qbittorrent\.yaml$
-    key_groups:
-      - age: [*operator, *lab-qbittorrent]
+      - age: [*operator, *lab-core]
 
   - path_regex: secrets/bazarr\.yaml$
     key_groups:
@@ -82,5 +72,9 @@ creation_rules:
       - age: [*operator, *lab-core]
 
   - path_regex: secrets/mqtt\.yaml$
+    key_groups:
+      - age: [*operator, *lab-core]
+
+  - path_regex: secrets/household-(automations|status)\.enc$
     key_groups:
       - age: [*operator, *lab-core]

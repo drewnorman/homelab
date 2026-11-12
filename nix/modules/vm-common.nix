@@ -70,7 +70,6 @@
 
   networking.firewall = {
     enable            = true;
-    trustedInterfaces = [ "tailscale0" ];
     allowedTCPPorts   = [ 22 80 443 ];
     allowedUDPPorts   = [ 53 ];
     checkReversePath  = "loose";

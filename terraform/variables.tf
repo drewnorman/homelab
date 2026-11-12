@@ -1,5 +1,5 @@
 variable "proxmox_api_url" {
-  description = "Proxmox API endpoint, for example https://pve.lab.adre.me:8006/."
+  description = "Proxmox API endpoint. Trust the cluster CA and use an address on the certificate."
   type        = string
   default     = "https://192.168.1.200:8006/"
 }
@@ -17,9 +17,9 @@ variable "proxmox_api_token_secret" {
 }
 
 variable "proxmox_tls_insecure" {
-  description = "Set true if your Proxmox API uses a self-signed certificate."
+  description = "Emergency-only bypass of Proxmox API TLS verification."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "proxmox_node_name" {

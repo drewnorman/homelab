@@ -6,7 +6,7 @@ This repo manages one consolidated NixOS VM:
 - reproducible service configuration through OpenTofu, NixOS, deploy-rs, and sops-nix
 - external SSD media/download content is managed outside the VM root disk and mounted at `/srv/media` and `/srv/downloads`
 
-The checked-in defaults are for the Proxmox node `norman` at `192.168.1.200` on `192.168.1.0/24`. The Proxmox host IP is managed outside this project and is not changed by OpenTofu.
+The checked-in defaults reflect the current lab. The Proxmox host address is managed outside this project and is not changed by OpenTofu.
 
 ## Architecture
 
@@ -43,6 +43,22 @@ set +a
 
 Provisioned guests are managed over SSH keys only. `TF_VAR_ssh_public_key` is injected during provisioning as the launch/bootstrap key, and deploy-rs uses that key to connect as `root`.
 
+### Public source boundary
+
+This repository is public. Keep household topology and incident timelines in
+private operational notes, with a separate backup. `notes/` is ignored for
+local working copies; it is not a backup. The Home Assistant household
+automation and dashboard assets are deployed from SOPS-encrypted files under
+`nix/secrets/`, so edits must be encrypted before they are committed. Do not
+add plaintext exports, saved OpenTofu plans or state, or credential values to
+Git. Public SSH keys and age recipients are identifiers, not private keys.
+
+Before publishing a change, scan all reachable history with Gitleaks:
+
+```sh
+gitleaks git --redact=100 --log-opts='--all' .
+```
+
 ## Usage
 
 Update `terraform/terraform.tfvars` for your node name, storage names, template VMID, and static IP. The default layout keeps `lab-core` on the router DNS address:
@@ -51,6 +67,17 @@ Update `terraform/terraform.tfvars` for your node name, storage names, template 
 enable_core_vm         = true
 core_vm_template_vm_id = 9000
 core_vm_ip             = "192.168.1.210"
+```
+
+OpenTofu verifies the Proxmox API certificate. The current node uses its
+cluster CA and a certificate whose subject alternative names include the
+Proxmox host IP. Copy the **public CA certificate** from
+`/etc/pve/pve-root-ca.pem` over authenticated SSH to an ignored local file
+such as `.secrets/proxmox-ca.pem`, then set `SSL_CERT_FILE` to its absolute path
+in `.env`. Verify the certificate before running OpenTofu:
+
+```sh
+curl --cacert "$SSL_CERT_FILE" https://192.168.1.200:8006/
 ```
 
 Then run:
@@ -66,7 +93,7 @@ tofu apply
 
 The OpenAI project has an isolated root and state prefix. Its staged rollout,
 dashboard-only billing prerequisites, key bootstrap, and negative tests are
-documented in [notes/homelab-ai-plan.md](notes/homelab-ai-plan.md):
+documented in private operational notes:
 
 ```sh
 cp terraform/openai/terraform.tfvars.example terraform/openai/terraform.tfvars
@@ -200,30 +227,11 @@ Both names currently use the Authelia gate.
 
 ### LAN DHCP
 
-As a temporary recovery state from 2026-11-06, the Netgear R7450 serves DHCP
-from `192.168.1.100` through `192.168.1.199` at gateway `192.168.1.1`. It
-advertises itself as DNS and forwards to AdGuard Home at `192.168.1.210`.
-After restoring that upstream, UDP EDNS lookups through the router succeeded
-for 12 fresh local names and four public names. The earlier timeouts and the
-cause of their recovery are recorded in the
-[incident record](docs/netgear-dns-incident-2026-11-06.md). Longer-term
-stability has not yet been established.
-
-Before the outage, AdGuard Home on `lab-core` (`192.168.1.210`) served DHCP
-from `192.168.1.211` through `192.168.1.254`, with 24-hour leases, gateway
-`192.168.1.1`, and DNS `192.168.1.210`. The pool and gateway are declared in
-`nix/hosts/core/default.nix`; its fixed leases are stored in AdGuard's
-`data/leases.json`, outside the declarative YAML. Keep an off-VM backup of
-AdGuard state after changing reservations. AdGuard DHCP was disabled in Nix
-and deployed on 2026-11-06. It remained off after an AdGuard service restart;
-the Netgear is the only active LAN DHCP server. AdGuard continues to answer
-DNS on `.210`, including queries forwarded by the router. Household DNS now
-depends on `lab-core` and its Proxmox host being available; router DHCP does
-not depend on the VM.
-
-`lab-core` itself queries AdGuard at `.210` first, with the router and
-Cloudflare as fallback resolvers, so its service checks do not depend on the
-router's DNS relay when AdGuard is healthy.
+The router currently serves DHCP, while AdGuard Home on the core VM provides
+local DNS. Keep only one DHCP server active during a handoff and verify fresh
+local and public lookups from a client. The [public incident summary](docs/netgear-dns-incident-2026-11-06.md)
+records the recovery lessons; exact leases, reservations, and rollback commands
+are kept in private operational notes.
 
 ### Cameras
 
@@ -241,23 +249,11 @@ the sops-encrypted `nix/secrets/frigate.yaml` and enter the Podman container
 through a root-only environment file. Do not put credentials in the tracked
 Frigate YAML.
 
-The intended camera hostnames are `thingino-cam-1` and `thingino-cam-2`.
-The Netgear router reserves `192.168.1.115` for Cam1 (MAC
-`02:cf:43:c6:74:48`) and `192.168.1.116` for Cam2 (MAC
-`02:c7:76:0a:90:e4`). AdGuard DHCP is off.
-Both are enabled in Frigate. Each camera has a 25 fps
-H.264 mainstream at 2,500 kb/s and a 640×360 H.264 substream at 5 fps and
-500 kb/s. These bitrates are set in each camera's `/etc/prudynt.json`, outside
-the Nix configuration. The Netgear R7450 serving both cameras is set to 2.4 GHz
-channel 1. Their `root` logins are separate from the `thingino` RTSP/ONVIF
-accounts. Root logins are stored in the operator-only
-`nix/secrets/thingino.yaml`. Frigate receives only the RTSP accounts from
-`nix/secrets/frigate.yaml`. `lab-core` does not resolve the camera hostnames,
-so the tracked config uses their reserved IP addresses.
-
-The [2026-10-31 RTSP stability trial](docs/thingino-rtsp-stability-2026-10-31.md)
-records the Wi-Fi channel and camera bitrate tests, including packet loss and
-Frigate reconnects.
+The cameras use stable LAN addresses in the tracked Frigate configuration.
+Their DHCP reservations, radio identifiers, and router settings are kept in
+private operational notes. Administrator credentials are encrypted separately
+from the RTSP accounts Frigate needs. The [public RTSP trial summary](docs/thingino-rtsp-stability-2026-10-31.md)
+records the diagnostic approach without device-level measurements.
 
 After flashing each Thingino Wyze v3 camera:
 
@@ -348,89 +344,20 @@ client. The Frigate integration uses its own MQTT account automatically.
 
 #### Household dashboard and phone alerts
 
-The Nix-managed **Household** dashboard is at
-`https://house.lab.adre.me/household-status/home`. It shows both Frigate
-cameras, the two existing Litter-Robots, and any paired LG webOS TV, Roborock,
-or Person entities. Its source is `nix/assets/homeassistant/household-status.yaml`;
-the alert rules are in `nix/assets/homeassistant/household-automations.yaml`.
-The default Home Assistant Overview dashboard remains UI-managed.
-Home Assistant loads UI-created automations from its writable
-`/var/lib/hass/automations.yaml` and the Nix-managed household alerts from
-`nix/assets/homeassistant/household-automations.yaml`.
+Home Assistant loads its UI-managed automations and a separate Nix-managed
+household dashboard and alert configuration. The latter are stored as encrypted
+binary SOPS files in `nix/secrets/household-automations.enc` and
+`nix/secrets/household-status.enc`; the core VM decrypts them at activation.
+Keep plaintext edits in private working files and re-encrypt before committing.
+The default Overview dashboard remains UI-managed. Device names, presence
+rules, notification targets, and recovery details are documented privately.
 
-The compact **TV** card has TV state, playback status, the last requested video
-title, and Play, Next, and Shuffle controls. The status shows when a launch is
-in progress and reads playing or paused state from the rooted TV's ACB service.
-Home Assistant polls it every 15 seconds through a forced-command SSH key that
-cannot open a shell or forward connections. The private key is encrypted in
-`nix/secrets/cat-tv-status.yaml`; the matching public key is installed in the
-TV's `/home/root/.ssh/authorized_keys`. The exact restricted public-key line is
-tracked in `nix/assets/homeassistant/cat-tv-status-authorized-key` so it can be
-reinstalled if the TV's SSH configuration is reset. The TV host key is pinned
-in `nix/assets/homeassistant/cat-tv-known-hosts`. When the TV is off or the
-status query fails, the card reports that state instead of assuming playback.
-
-Play refreshes Birder King's uploads through the YouTube Data API and starts the
-newest upload, even when its title suggests a short video. Next rotates through
-recent outdoor uploads from Birder King, Handsome Nature, and Paul Dinning;
-Shuffle chooses a different video from that pool. Discovery refreshes hourly.
-Titles favor cat or wildlife footage and, for the other two channels, videos labeled
-as long or live. Titles do not provide reliable video durations. Known working
-videos remain as fallbacks when discovery fails. The shared TV launcher and
-rotation are in `nix/hosts/core/default.nix`, the API reader and channel IDs
-are in `nix/modules/cat-tv-discovery.py`, and the card is in
-`nix/assets/homeassistant/household-status.yaml`.
-
-The API key is provisioned by the isolated `terraform/youtube` OpenTofu root
-using the `personal-drewnorman739` Google Cloud project and GCS state. Apply
-that root with Google Application Default Credentials and the project set as
-the ADC quota project. Encrypt its sensitive `cat_tv_api_key` output into
-`nix/secrets/youtube.yaml` under the `youtube-data-api-key` field. The key is
-restricted to `youtube.googleapis.com` and is installed as a Home Assistant
-secret by sops-nix. Keep plaintext keys and saved plans out of Git.
-
-The stable NicholasBly YouTube AdFree 0.8.4 legacy webOS build is installed on
-the LG TV. Direct launches from Home Assistant played without an account chooser
-with YouTube already open, from TV off, and after switching to Jellyfin. The
-original Homebrew 0.5.3 installer is retained on the TV at
-`/home/root/cat-tv-rollback/youtube-adfree-0.5.3.ipk` for rollback.
-
-1. Add `https://house.lab.adre.me` in the Companion App and sign in with the
-   Home Assistant account. The existing `drew` and `angela` account passwords
-   are synchronized from their respective encrypted LLDAP user secrets before
-   Home Assistant starts. Home Assistant uses its own login; changing a password
-   in its UI will be overwritten on the next restart. Grant notifications and,
-   if desired, location access. Keep Tailscale connected when away so the phone
-   can report location to the LAN-only Home Assistant instance.
-2. In **Settings → People**, attach each phone's `device_tracker` to its
-   person. The camera alert requires at least one person and sends only when
-   every person is `not_home`; `unknown` or `unavailable` blocks it.
-3. In **Developer tools → Actions**, find each phone's
-   `notify.mobile_app_...` action. Enter the action names, separated by commas,
-   in the **Household mobile notification actions** text helper on the
-   dashboard. Until this helper is set, alerts appear as Home Assistant
-   persistent notifications. Send a test through the **Send household alert**
-   script before relying on phone delivery.
-4. If absent, add **LG webOS TV** with the TV on and **Roborock** using its
-   existing app account under **Settings → Devices & services**. The already
-   configured Whisker integration supplies both Litter-Robots; do not add it
-   again.
-
-The UI-managed **Wake LG TV** automation sends a Wake-on-LAN packet when the
-webOS media player is requested to turn on. The Wake on LAN integration is
-loaded by the Nix configuration. Enable the TV's network wake setting on the
-TV itself. On a fresh Home Assistant data directory, recreate the automation
-with **TV turn on requested** for the webOS media player as the trigger and
-**Wake on LAN: Send magic packet** with the TV's wired MAC address as the
-action. Check the automation trace if the TV does not wake.
-
-The alerts cover a Frigate `person` review event while everyone is away, a
-Litter-Robot waste drawer at 90% or higher for five minutes, Litter-Robot
-status text indicating a fault, and a Roborock vacuum entering its `error`
-state. Notifications link back to the related Home Assistant entity. The
-dashboard does not issue device commands, and these rules never start or
-control the robots or TV. Home Assistant and the alerting logic run on
-`lab-core`, so they cannot notify if that VM is down.
+The TV status integration uses a forced-command SSH key that cannot open a
+shell or forward connections. Its private key is encrypted in
+`nix/secrets/cat-tv-status.yaml`; the corresponding public key and pinned host
+key are tracked under `nix/assets/homeassistant/`. The YouTube Data API key is
+created by the isolated OpenTofu root, restricted to that API, and encrypted
+into `nix/secrets/youtube.yaml` for Home Assistant.
 
 ### Monitoring
 
@@ -451,7 +378,7 @@ run on `lab-core` through Wyoming:
 
 - faster-whisper on `127.0.0.1:10300` for speech-to-text
 - Piper on `127.0.0.1:10200` for text-to-speech, using `en_US-joe-medium`
-- openWakeWord on `0.0.0.0:10400` for VM-hosted wake-word detection
+- openWakeWord on `127.0.0.1:10400` for VM-hosted wake-word detection
 
 For the first room microphone, pass a dedicated USB mic or USB speakerphone
 through from the Proxmox host to VM `120`. `lab-core` runs a local Wyoming
@@ -583,7 +510,11 @@ enable_tailscale_core_device_management = true
 
 That second apply approves the advertised subnet route and disables key expiry for the managed Tailscale device.
 
-Once approved, remote clients connected to your tailnet should resolve `jellyfin.lab.adre.me`, `movies.lab.adre.me`, `torrents.lab.adre.me`, and other configured lab hosts through AdGuard, then reach nginx on `lab-core` over Tailscale.
+Once approved, authorized remote clients should resolve configured lab hosts
+through AdGuard and reach nginx on `lab-core` over Tailscale. Keep the tailnet
+grants limited to the devices and ports each person needs. When a device's
+tailnet address changes, update its policy alias and test the grant before
+relying on remote access.
 
 Verify the route and services on `lab-core` after applying OpenTofu:
 
